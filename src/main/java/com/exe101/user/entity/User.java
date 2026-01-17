@@ -17,7 +17,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class User implements UserDetails {
+public class User {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,41 +31,31 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role = UserRole.STUDENT;
+    private UserRole role;
 
     @Column(nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
     @Column(nullable = false)
-    private String password;
+    private String phone;
 
-    @Override
-    public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.name()));
-    }
+    @Column(nullable = true)
+    private String address;
 
-    @Override
-    public String getUsername() {
-        return email;
-    }
+    @Column(nullable = false)
+    private Integer age;
 
-    @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
+    @Column(nullable = true)
+    private String avatarUrlPreview;
 
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
+    @Column(nullable = false)
+    private LocalDateTime updatedAt;
 
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    @Column(nullable = true)
+    private LocalDateTime lastLoginAt;
 
-    @Override
-    public boolean isEnabled() {
-        return true;
-    }
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private UserStatus status;
+
 }

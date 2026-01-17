@@ -1,5 +1,8 @@
 package com.exe101.user.entity;
 
 public enum UserRole {
-    STUDENT, INSTRUCTOR, ADMIN
+    ADMIN,
+    STAFF,
+    CUSTOMER,
+    SHOP
 }

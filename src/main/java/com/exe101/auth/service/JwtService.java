@@ -1,4 +1,5 @@
 package com.exe101.auth.service;
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.user.entity.User;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.Jwts;
@@ -47,8 +48,9 @@ public class JwtService {
     public String generateToken(UserDetails userDetails) {
         Map<String, Object> claims = new HashMap<>();
 
-        if (userDetails instanceof User user) {
-            claims.put("role", user.getRole().name());
+        if (userDetails instanceof UserPrincipal p) {
+            claims.put("role", p.getUser().getRole().name());
+            claims.put("userId", p.getUser().getId());
         }
         return generateToken(claims, userDetails);
     }

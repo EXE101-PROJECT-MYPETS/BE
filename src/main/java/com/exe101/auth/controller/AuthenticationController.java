@@ -2,10 +2,8 @@ package com.exe101.auth.controller;
 
 import com.exe101.auth.dto.*;
 import com.exe101.auth.service.AuthenticationService;
-import com.exe101.auth.service.JwtService;
 import com.exe101.auth.service.RefreshTokenService;
 import com.exe101.user.entity.User;
-import com.exe101.user.repository.IUserRepository;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -19,8 +17,7 @@ public class AuthenticationController {
 
     private final AuthenticationService authenticationService;
     private final RefreshTokenService refreshTokenService;
-    private final JwtService jwtService;
-    private final IUserRepository userRepository;
+
 
     @PostMapping("/register")
     public ResponseEntity<AuthenticationResponse> register(
@@ -40,21 +37,8 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> refresh(
             @RequestBody RefreshRequest req
     ) {
-
-        var rotated = refreshTokenService.rotate(req.getRefreshToken());
-
-        User user = userRepository
-                .findById(rotated.getUserId())
-                .orElseThrow();
-
-        String accessToken = jwtService.generateToken(user);
-
         return ResponseEntity.ok(
-                new AuthenticationResponse(
-                        accessToken,
-                        user.getRole(),
-                        rotated.getToken()
-                )
+                authenticationService.refreshToken(req.getRefreshToken())
         );
     }
 

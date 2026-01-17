@@ -1,14 +1,20 @@
 package com.exe101.config;
 
 import com.exe101.auth.controller.JwtAuthenticationFilterController;
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.exception.CustomAccessDeniedHandler;
 import com.exe101.exception.CustomAuthenticationEntryPoint;
+import com.exe101.user.entity.User;
 import com.exe101.user.repository.IUserRepository;
+import com.exe101.userCredential.entity.CredentialProvider;
+import com.exe101.userCredential.entity.UserCredential;
+import com.exe101.userCredential.repository.IUserCredentialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.authentication.AuthenticationManager;
-import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
+import org.springframework.security.authentication.ProviderManager;
+import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -30,9 +36,11 @@ import java.util.List;
 @EnableWebSecurity
 @EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
-    private final IUserRepository  userRepository;
+
+    private final IUserRepository userRepository;
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
+    private final IUserCredentialRepository credentialRepository;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -40,20 +48,45 @@ public class SecurityConfig {
     }
 
     @Bean
-    public AuthenticationManager authenticationManager(
-            AuthenticationConfiguration configuration
-    ) throws Exception {
-        return configuration.getAuthenticationManager();
+    public UserDetailsService userDetailsService() {
+        return email -> {
+            User user = userRepository.findByEmail(email)
+                    .orElseThrow(() ->
+                            new UsernameNotFoundException("User not found with email " + email)
+                    );
+
+            UserCredential cred = credentialRepository.findById(user.getId())
+                    .orElseThrow(() ->
+                            new UsernameNotFoundException("Credential not found for user " + email)
+                    );
+
+            // Nếu chỉ cho login mật khẩu với LOCAL
+            if (cred.getProvider() != CredentialProvider.LOCAL) {
+                throw new UsernameNotFoundException("Use " + cred.getProvider() + " to login");
+            }
+
+            return new UserPrincipal(user, cred);
+        };
     }
 
     @Bean
-    public UserDetailsService userDetailsService() {
-        return email -> userRepository.findByEmail(email)
-                .orElseThrow(() ->
-                        new UsernameNotFoundException(
-                                "User not found with email " + email
-                        )
-                );
+    public DaoAuthenticationProvider authenticationProvider(
+            UserDetailsService userDetailsService,
+            PasswordEncoder passwordEncoder
+    ) {
+        DaoAuthenticationProvider provider = new DaoAuthenticationProvider();
+        provider.setUserDetailsService(userDetailsService);
+        provider.setPasswordEncoder(passwordEncoder);
+        return provider;
+    }
+
+    @Bean
+    public AuthenticationManager authenticationManager(
+            DaoAuthenticationProvider authenticationProvider
+    ) {
+        return new ProviderManager(
+                authenticationProvider
+        );
     }
 
     @Bean
@@ -64,7 +97,8 @@ public class SecurityConfig {
 
 
         http
-                .cors(cors -> {})
+                .cors(cors -> {
+                })
                 .csrf(csrf -> csrf.disable())
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)

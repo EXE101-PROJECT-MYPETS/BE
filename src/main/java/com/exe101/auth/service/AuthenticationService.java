@@ -4,88 +4,133 @@ import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
 import com.exe101.auth.dto.RegisterRequest;
 import com.exe101.auth.model.RefreshToken;
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.user.entity.User;
 import com.exe101.user.entity.UserRole;
+import com.exe101.user.entity.UserStatus;
+import com.exe101.user.exception.UserDuplicate;
+import com.exe101.user.exception.UserNotFound;
+import com.exe101.user.mapper.UserMapper;
 import com.exe101.user.repository.IUserRepository;
+import com.exe101.userCredential.entity.CredentialProvider;
+import com.exe101.userCredential.entity.UserCredential;
+import com.exe101.userCredential.repository.IUserCredentialRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import org.springframework.web.server.ResponseStatusException;
 import com.exe101.auth.exception.LoginException;
+
 import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
 
 @Service
 @RequiredArgsConstructor
 public class AuthenticationService {
 
-   private final IUserRepository userRepository;
+    private final IUserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
     private final AuthenticationManager authenticationManager;
     private final RefreshTokenService refreshTokenService;
+    private final IUserCredentialRepository credentialRepository;
+    private final UserMapper userMapper;
 
     public AuthenticationResponse register(RegisterRequest request) {
 
+        // Nhớ làm thêm check phone 0 duplicate nữa
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new RuntimeException(request.getEmail() + " already exists!");
+            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại!");
         }
 
         User user = new User();
-        user.setFullName(request.getFullName());
         user.setEmail(request.getEmail());
-        user.setPassword(passwordEncoder.encode(request.getPassword()));
-        user.setRole(UserRole.STUDENT);
+        user.setFullName(request.getFullName());
+        user.setPhone(request.getPhone());
+        user.setAddress(request.getAddress());
+        user.setAge(request.getAge());
+        user.setAvatarUrlPreview(request.getAvatarUrlPreview());
+        user.setRole(UserRole.CUSTOMER);
+        user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
+        user.setUpdatedAt(LocalDateTime.now());
 
-        userRepository.save(user);
+        user = userRepository.save(user);
 
-        String accessToken = jwtService.generateToken(user);
-        RefreshToken refreshToken =
-                refreshTokenService.create(user.getId());
+        UserCredential cred = new UserCredential();
+        cred.setProvider(CredentialProvider.LOCAL);
+        cred.setPasswordHash(passwordEncoder.encode(request.getPassword()));
+        cred.setUser(user);
+        cred.setCreatedAt(OffsetDateTime.now());
+        cred.setUpdatedAt(OffsetDateTime.now());
+        cred.setProviderUserId(null);
+        credentialRepository.save(cred);
+
+        UserPrincipal principal = new UserPrincipal(user, cred);
+
+        String accessToken = jwtService.generateToken(principal);
+        RefreshToken refreshToken = refreshTokenService.create(user.getId());
 
         return new AuthenticationResponse(
                 accessToken,
                 user.getRole(),
-                refreshToken.getToken()
+                refreshToken.getToken(),
+                userMapper.toDTO(user)
         );
     }
 
     public AuthenticationResponse authenticate(AuthenticationRequest request) {
 
         try {
-            authenticationManager.authenticate(
+            var auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
                             request.getEmail(),
                             request.getPassword()
                     )
             );
-        } catch (BadCredentialsException ex) {
-            throw new LoginException(
-                    "WrongPassOrEmail",
-                    "Sai email hoặc mật khẩu"
+
+            UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+            User user = principal.getUser();
+
+            String accessToken = jwtService.generateToken(principal);
+            RefreshToken refreshToken = refreshTokenService.create(user.getId());
+
+            return new AuthenticationResponse(
+                    accessToken,
+                    user.getRole(),
+                    refreshToken.getToken(),
+                    userMapper.toDTO(user)
+
             );
+
+        } catch (BadCredentialsException ex) {
+            throw new LoginException("WrongPassOrEmail", "Sai email hoặc mật khẩu");
         }
+    }
 
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() ->
-                        new ResponseStatusException(
-                                HttpStatus.NOT_FOUND,
-                                "User not found"
-                        )
-                );
+    public AuthenticationResponse refreshToken(String refreshToken) {
 
-        String accessToken = jwtService.generateToken(user);
-        RefreshToken refreshToken =
-                refreshTokenService.create(user.getId());
+        var rotated = refreshTokenService.rotate(refreshToken);
+
+        User user = userRepository
+                .findById(rotated.getUserId())
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "User not found"));
+
+        var cred = credentialRepository
+                .findById(user.getId())
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "User not found"));
+
+        var principal = new UserPrincipal(user, cred);
+
+        String accessToken = jwtService.generateToken(principal);
 
         return new AuthenticationResponse(
                 accessToken,
                 user.getRole(),
-                refreshToken.getToken()
+                rotated.getToken(),
+                userMapper.toDTO(user)
         );
     }
 
