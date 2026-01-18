@@ -4,6 +4,7 @@ import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
+import org.springframework.web.multipart.MultipartFile;
 
 @Data
 public class RegisterRequest {
@@ -24,5 +25,5 @@ public class RegisterRequest {
 
     private String address;
     private Integer age;
-    private String avatarUrlPreview;
+    private MultipartFile avatarUrlPreview;
 }

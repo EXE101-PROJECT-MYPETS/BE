@@ -8,7 +8,7 @@ import org.springframework.stereotype.Service;
 import java.util.List;
 
 @Service
-public class ShopService implements IService<Shop, ShopDTO, Long> {
+public class ServiceService implements IService<Shop, ShopDTO, Long> {
     @Override
     public List<ShopDTO> getAll() {
         return List.of();

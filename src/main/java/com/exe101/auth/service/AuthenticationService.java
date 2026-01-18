@@ -5,6 +5,7 @@ import com.exe101.auth.dto.AuthenticationResponse;
 import com.exe101.auth.dto.RegisterRequest;
 import com.exe101.auth.model.RefreshToken;
 import com.exe101.auth.model.UserPrincipal;
+import com.exe101.file.FileUploadUtil;
 import com.exe101.user.entity.User;
 import com.exe101.user.entity.UserRole;
 import com.exe101.user.entity.UserStatus;
@@ -22,6 +23,7 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import com.exe101.auth.exception.LoginException;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
@@ -37,12 +39,15 @@ public class AuthenticationService {
     private final RefreshTokenService refreshTokenService;
     private final IUserCredentialRepository credentialRepository;
     private final UserMapper userMapper;
+    private final FileUploadUtil fileUploadUtil;
 
     public AuthenticationResponse register(RegisterRequest request) {
 
-        // Nhớ làm thêm check phone 0 duplicate nữa
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại!");
+        }
+        if (userRepository.existsByPhone(request.getPhone())) {
+            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại!");
         }
 
         User user = new User();
@@ -51,13 +56,20 @@ public class AuthenticationService {
         user.setPhone(request.getPhone());
         user.setAddress(request.getAddress());
         user.setAge(request.getAge());
-        user.setAvatarUrlPreview(request.getAvatarUrlPreview());
         user.setRole(UserRole.CUSTOMER);
         user.setStatus(UserStatus.ACTIVE);
         user.setCreatedAt(LocalDateTime.now());
         user.setUpdatedAt(LocalDateTime.now());
 
         user = userRepository.save(user);
+
+        MultipartFile avatarFile = request.getAvatarUrlPreview();
+        if (avatarFile != null && !avatarFile.isEmpty()) {
+            String avatarUrl = fileUploadUtil.uploadUserAvatar(user.getId(), avatarFile);
+            user.setAvatarUrlPreview(avatarUrl);
+            user.setUpdatedAt(LocalDateTime.now());
+            user = userRepository.save(user);
+        }
 
         UserCredential cred = new UserCredential();
         cred.setProvider(CredentialProvider.LOCAL);
@@ -69,7 +81,6 @@ public class AuthenticationService {
         credentialRepository.save(cred);
 
         UserPrincipal principal = new UserPrincipal(user, cred);
-
         String accessToken = jwtService.generateToken(principal);
         RefreshToken refreshToken = refreshTokenService.create(user.getId());
 

@@ -6,9 +6,11 @@ import com.exe101.auth.service.RefreshTokenService;
 import com.exe101.user.entity.User;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequestMapping("/api/auth")
@@ -19,9 +21,9 @@ public class AuthenticationController {
     private final RefreshTokenService refreshTokenService;
 
 
-    @PostMapping("/register")
+    @PostMapping(value = "/register", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<AuthenticationResponse> register(
-            @RequestBody RegisterRequest request
+            @ModelAttribute @Valid RegisterRequest request
     ) {
         return ResponseEntity.ok(authenticationService.register(request));
     }
