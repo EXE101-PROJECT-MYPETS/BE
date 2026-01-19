@@ -1,37 +1,23 @@
-# ===============================
-# 1️⃣ Stage build: dùng Maven + JDK 17 để build
-# ===============================
+# ===== BUILD STAGE =====
 FROM maven:3.9.9-eclipse-temurin-17 AS build
-
-# Thư mục làm việc
 WORKDIR /app
 
-# Copy pom.xml trước để cache dependency
+# Copy trước để cache dependency
 COPY pom.xml .
+RUN mvn -q -DskipTests dependency:go-offline
 
-# Download dependency trước (tối ưu cache)
-RUN mvn dependency:go-offline -B
-
-# Copy source code
+# Copy source và build jar
 COPY src ./src
+RUN mvn -q clean package -DskipTests
 
-# Build jar (skip test cho nhanh)
-RUN mvn clean package -DskipTests
-
-
-# ===============================
-# 2️⃣ Stage runtime: JRE nhẹ
-# ===============================
-FROM eclipse-temurin:17-jre-alpine
-
-# Thư mục chạy app
+# ===== RUN STAGE =====
+FROM eclipse-temurin:17-jre
 WORKDIR /app
 
-# Copy jar từ stage build
-COPY --from=build /app/target/*jar app.jar
+COPY --from=build /app/target/*.jar app.jar
 
-# Mở cổng Spring Boot (đổi nếu bạn dùng cổng khác)
+# Render cấp PORT qua env
 EXPOSE 8080
+ENV PORT=8080
 
-# Chạy Spring Boot
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java","-jar","/app/app.jar"]

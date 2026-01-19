@@ -34,3 +34,4 @@ build/
 
 # ====== Application properties (DO NOT COMMIT) ======
 resources/
+.env
