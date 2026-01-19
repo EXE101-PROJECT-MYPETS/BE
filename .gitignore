@@ -33,5 +33,4 @@ build/
 .vscode/
 
 # ====== Application properties (DO NOT COMMIT) ======
-resources/
 .env
