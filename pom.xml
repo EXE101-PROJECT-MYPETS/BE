@@ -19,14 +19,11 @@
 
     <properties>
         <java.version>17</java.version>
-
-        <!-- Keep LangChain4j versions consistent -->
         <langchain4j.version>0.35.0</langchain4j.version>
-
-        <!-- Flyway: need both core + database module for PostgreSQL -->
         <flyway.version>11.8.0</flyway.version>
         <lombok.version>1.18.32</lombok.version>
-
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <project.reporting.outputEncoding>UTF-8</project.reporting.outputEncoding>
     </properties>
 
     <dependencies>
@@ -203,6 +200,13 @@
                             <artifactId>lombok</artifactId>
                         </exclude>
                     </excludes>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-resources-plugin</artifactId>
+                <configuration>
+                    <encoding>UTF-8</encoding>
                 </configuration>
             </plugin>
         </plugins>
