@@ -1,18 +1,26 @@
 package com.exe101.file;
 
-import lombok.RequiredArgsConstructor;
+import com.exe101.common.supabase.service.SupabaseStorageService;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
-
 import java.io.IOException;
 import java.nio.file.*;
 import java.util.UUID;
 
 @Component
-@RequiredArgsConstructor
 public class FileUploadUtil {
+
+    private final SupabaseStorageService supabaseStorageService;
+
+    public FileUploadUtil(SupabaseStorageService supabaseStorageService) {
+        this.supabaseStorageService = supabaseStorageService;
+    }
+
+    public String uploadUserAvatar(Long userId, MultipartFile avatarFile) {
+        return supabaseStorageService.uploadPublic(avatarFile, "users/" + userId + "/avatar");
+    }
 
     @Value("${app.storage.root}")
     private String storageRoot;
@@ -20,7 +28,7 @@ public class FileUploadUtil {
     @Value("${app.storage.public-base-url:/EXE101}")
     private String publicBaseUrl;
 
-    public String uploadUserAvatar(Long userId, MultipartFile file) {
+    public String uploadUserAvatarLocal(Long userId, MultipartFile file) {
         if (file == null || file.isEmpty()) return null;
 
         String contentType = file.getContentType();
