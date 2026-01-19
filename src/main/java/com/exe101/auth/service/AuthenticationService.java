@@ -65,7 +65,7 @@ public class AuthenticationService {
 
         MultipartFile avatarFile = request.getAvatarUrlPreview();
         if (avatarFile != null && !avatarFile.isEmpty()) {
-            String avatarUrl = fileUploadUtil.uploadUserAvatar(user.getId(), avatarFile);
+            String avatarUrl = fileUploadUtil.uploadUserAvatarLocal(user.getId(), avatarFile);
             user.setAvatarUrlPreview(avatarUrl);
             user.setUpdatedAt(LocalDateTime.now());
             user = userRepository.save(user);

@@ -15,21 +15,16 @@ public class StaticResourceConfig implements WebMvcConfigurer {
     @Value("${app.upload-dir}")
     private String uploadDir;
 
-    private String avatarLocationUri;
-
-    @PostConstruct
-    void init() {
-        Path avatarDir = Paths
-                .get(uploadDir, "avatars")
-                .toAbsolutePath()
-                .normalize();
-        avatarLocationUri = avatarDir.toUri().toString();
-    }
-
     @Override
     public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        registry.addResourceHandler("/EXE101/avatars/**")
-                .addResourceLocations(avatarLocationUri)
+        String rootLocation = Paths.get(uploadDir)
+                .toAbsolutePath()
+                .normalize()
+                .toUri()
+                .toString();
+
+        registry.addResourceHandler("/files/**")
+                .addResourceLocations(rootLocation)
                 .setCachePeriod(3600);
     }
 }

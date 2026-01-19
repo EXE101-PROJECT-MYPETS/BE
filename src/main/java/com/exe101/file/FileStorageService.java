@@ -13,18 +13,14 @@ import java.util.UUID;
 public class FileStorageService {
 
     @Value("${app.upload-dir}")
-    private String uploadDir;
+    private String uploadDir; // D:/EXE101
 
-    /**
-     * @param file     file upload
-     * @param module   avatars, shops, pets...
-     * @param ownerId  userId
-     */
-    public String save(
-            MultipartFile file,
-            String module,
-            Long ownerId
-    ) {
+    @Value("${app.public-base-url:/files}")
+    private String publicBaseUrl;
+
+    public String save(MultipartFile file, String module, Long ownerId) {
+        if (file == null || file.isEmpty()) return null;
+
         try {
             Path baseDir = Paths.get(uploadDir, module, ownerId.toString());
             Files.createDirectories(baseDir);
@@ -37,14 +33,10 @@ public class FileStorageService {
             String fileName = UUID.randomUUID() + ext;
             Path target = baseDir.resolve(fileName);
 
-            Files.copy(
-                    file.getInputStream(),
-                    target,
-                    StandardCopyOption.REPLACE_EXISTING
-            );
+            Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
             // URL public cho FE
-            return "/" + uploadDir + "/" + module + "/" + ownerId + "/" + fileName;
+            return publicBaseUrl + "/" + module + "/" + ownerId + "/" + fileName;
 
         } catch (IOException e) {
             throw new RuntimeException("Không thể lưu file", e);

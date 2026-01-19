@@ -43,8 +43,7 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
         return "OPTIONS".equalsIgnoreCase(request.getMethod())
                 || path.startsWith("/api/auth/")
                 || "/graphql".equals(path)
-                || path.startsWith("/EXE101/")
-                || path.startsWith("/avatars/");
+                || path.startsWith("/files/");
     }
 
     @Override
