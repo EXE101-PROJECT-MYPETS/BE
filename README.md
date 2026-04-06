@@ -2,24 +2,52 @@
 
 ## Overview
 
-This is a Spring Boot backend for a pet spa / pet service management system.
+This repository is a Spring Boot backend for a pet spa / pet service management system.
 
-The current project already has:
+What is already in place:
 
-- JWT-based authentication and refresh token flow
-- PostgreSQL + Flyway schema management
-- cloud-only image upload via Supabase Storage
-- JPA entity mapping for most of the database schema
-- CRUD-style repositories, DTOs, mappers, services, and controllers for many main aggregates
+- JWT authentication with access token + refresh token flow
+- PostgreSQL schema managed by Flyway
+- Cloud-only avatar upload via Supabase Storage
+- JPA entity mapping for most of the SQL schema
+- CRUD-style DTO, mapper, repository, service, and controller layers for many main aggregates
 
-The project does **not** yet have full domain workflows for every module. A large part of the newly added modules are
-structural CRUD scaffolding and still need business rules, authorization checks, and workflow-specific validation.
+What is not true yet:
 
-Read this file before making changes. It is the project-level onboarding note for future agents and engineers.
+- Not every mapped entity represents a finished business feature
+- Many newly added domains are still thin CRUD scaffolding
+- Several workflows still need validation, authorization, and cross-aggregate rules
+
+Treat this README as the primary onboarding note for future agents and engineers. Read it before scanning the codebase.
+
+## Quick Reality Check
+
+- Main Java package: `com.exe101`
+- Maven coordinates still use `artifactId=react` and `name=react`
+- Runtime DB schema defaults to `prod`
+- Avatar storage is Supabase-only, not local disk
+- `auth` is the most real feature area
+- Most other aggregate modules compile and expose CRUD endpoints, but they are not final workflow implementations
+- `compile` passes
+- `test` is currently broken because the test package is `com.react`, not `com.exe101`
+
+## Fast Start For New Agents
+
+Read in this order before changing anything substantial:
+
+1. This `README.md`
+2. `src/main/resources/application.properties`
+3. `src/main/resources/db/migration/V1__init_db.sql` through `V4__alter_refresh_tokens.sql`
+4. `src/main/java/com/exe101/config/SecurityConfig.java`
+5. `src/main/java/com/exe101/auth/controller/AuthenticationController.java`
+6. `src/main/java/com/exe101/auth/service/AuthenticationService.java`
+7. The specific feature package you are about to touch
+
+If your change touches DB-backed behavior, read the Flyway SQL before reading the entity class.
 
 ## Architecture
 
-### Tech stack
+### Tech Stack
 
 - Spring Boot 3.2.7
 - Java 17
@@ -29,110 +57,101 @@ Read this file before making changes. It is the project-level onboarding note fo
 - Spring Data JPA
 - PostgreSQL
 - Flyway
-- JWT via `jjwt`
-- Supabase Storage
+- `jjwt`
+- Supabase Storage integration
 - WebSocket support
-- LangChain4j / Qdrant dependencies are present in `pom.xml`, but they are not part of the main documented runtime flow
-  yet
+- LangChain4j and Qdrant dependencies are present in `pom.xml`, but they are not part of the main documented runtime
+  flow yet
 
-### Source of truth
+### Source Of Truth
 
+- Application entrypoint: `src/main/java/com/exe101/ProjectEXE101Application.java`
+- Runtime config: `src/main/resources/application.properties`
 - Database source of truth: `src/main/resources/db/migration`
-- Runtime schema: `prod`
-- Main application entrypoint: `src/main/java/com/exe101/ProjectEXE101Application.java`
+- Default runtime schema: `prod`
+- Root `init_db.sql` is reference/bootstrap material, not the primary runtime migration source
 
-### Package structure
+### High-Level Request Flow
 
-Current top-level feature packages:
+Normal request flow in this repo is:
 
-- `auth`
-- `booking`
-- `common`
-- `config`
-- `conversation`
-- `customer`
-- `exception`
-- `file`
-- `inventory`
-- `invoice`
-- `payment`
-- `pet`
-- `product`
-- `resource`
-- `servicePackage`
-- `service_shop`
-- `shop`
-- `shopMember`
-- `user`
-- `userCredential`
-- `vaccine`
+1. `controller` receives HTTP request
+2. DTO validation runs via Jakarta Validation
+3. `service` handles business logic
+4. `repository` performs persistence access
+5. `mapper` converts entity <-> DTO
+6. `RestExceptionHandler` normalizes API errors
 
-### Layering convention
+For most CRUD modules, services follow the shared generic contract in `com.exe101.common.IService<E, D, ID>`.
 
-Each feature generally follows this structure:
+### Package Structure
 
-- `controller`: HTTP entrypoints
-- `service`: business logic
-- `repository`: Spring Data JPA access
+Current top-level packages under `src/main/java/com/exe101`:
+
+- `auth`: authentication, JWT, refresh token flow
+- `booking`: booking aggregate and helper booking tables
+- `common`: shared interfaces and shared integrations such as Supabase storage
+- `config`: security and application configuration
+- `conversation`: conversations, members, messages
+- `customer`: customers
+- `exception`: base exceptions, error payload, exception handlers
+- `file`: upload utility
+- `inventory`: inventory aggregate and movements
+- `invoice`: invoices and invoice lines
+- `payment`: payment intents and payment transactions
+- `pet`: pets, species, breeds, health profile
+- `product`: products
+- `resource`: shop resources
+- `servicePackage`: packages, customer packages, package ledger
+- `service_shop`: service catalog for shops
+- `shop`: shop aggregate placeholder
+- `shopMember`: shop member placeholder
+- `user`: users and basic user endpoint
+- `userCredential`: login credential model
+- `vaccine`: vaccine catalog and pet vaccination support
+
+### Layering Convention
+
+Feature packages generally follow this layout:
+
 - `entity`: JPA mappings
-- `dto`: request / response models
-- `mapper`: entity <-> DTO mapping
-- `exception`: domain exceptions
+- `repository`: Spring Data repositories
+- `dto`: API request / response models
+- `mapper`: manual mapping code
+- `service`: orchestration and domain logic
+- `controller`: HTTP entrypoints
+- `exception`: feature-specific exceptions
 
-### Runtime shape
+If a feature already follows this structure, keep it consistent. Do not introduce a different style in a nearby package
+unless there is a real architectural reason.
 
-#### Auth flow
+### Module Status Matrix
 
-- `POST /api/auth/register`
-  - creates `users`
-  - uploads avatar to Supabase Storage if present
-  - creates `user_credentials`
-  - returns access token + refresh token
-- `POST /api/auth/authenticate`
-  - logs in with email/password
-- `POST /api/auth/refreshToken`
-  - rotates refresh token
-- `POST /api/auth/logout`
-  - revokes a refresh token
-- `POST /api/auth/logout-all`
-  - revokes all refresh tokens for the authenticated user
+| Module           | Current state | HTTP surface         | Notes                                                            |
+|------------------|---------------|----------------------|------------------------------------------------------------------|
+| `auth`           | Concrete      | `/api/auth/*`        | Register, login, refresh, logout, logout-all                     |
+| `user`           | Partial       | `GET /api/user/{id}` | Read-only user endpoint                                          |
+| `service_shop`   | CRUD scaffold | `/api/services`      | Service catalog CRUD                                             |
+| `customer`       | CRUD scaffold | `/api/customers`     | Basic aggregate CRUD                                             |
+| `pet`            | CRUD scaffold | `/api/pets`          | Basic aggregate CRUD                                             |
+| `vaccine`        | CRUD scaffold | `/api/vaccines`      | Vaccine master data CRUD                                         |
+| `product`        | CRUD scaffold | `/api/products`      | Product CRUD                                                     |
+| `inventory`      | CRUD scaffold | `/api/inventories`   | Composite key aggregate                                          |
+| `resource`       | CRUD scaffold | `/api/resources`     | Shop resource CRUD                                               |
+| `booking`        | CRUD scaffold | `/api/bookings`      | Helper tables exist but are mostly internal                      |
+| `servicePackage` | CRUD scaffold | `/api/packages`      | Customer package and ledger exist behind the aggregate           |
+| `invoice`        | CRUD scaffold | `/api/invoices`      | Invoice line support exists in mapping layer                     |
+| `payment`        | CRUD scaffold | `/api/payments`      | Public aggregate is payment intent, not every transaction detail |
+| `conversation`   | CRUD scaffold | `/api/conversations` | Members and messages are mostly internal/helper models           |
+| `shop`           | Incomplete    | route prefix only    | Controller exists, no real endpoints                             |
+| `shopMember`     | Incomplete    | route prefix only    | Controller exists, no real endpoints                             |
 
-#### Main CRUD controllers currently exposed
+### Security Architecture
 
-- `/api/services`
-- `/api/customers`
-- `/api/pets`
-- `/api/vaccines`
-- `/api/products`
-- `/api/resources`
-- `/api/bookings`
-- `/api/packages`
-- `/api/invoices`
-- `/api/payments`
-- `/api/conversations`
-- `/api/inventories`
-- `/api/user`
-- `/api/shop`
-- `/api/shop-member`
-
-#### Current architectural reality
-
-- `auth` is the most concrete area with actual application flow.
-- `customer`, `pet`, `booking`, `product`, `invoice`, `payment`, `conversation`, `resource`, `servicePackage`, `vaccine`
-  now have structural CRUD layers.
-- `shop` and `shopMember` still exist but are not fully implemented at the same quality level.
-- Many modules compile and expose CRUD routes, but they are still thin and should not be mistaken for finished domain
-  behavior.
-
-### Security architecture
-
-- Stateless JWT authentication
+- Authentication is stateless JWT
 - `JwtAuthenticationFilterController` reads `Authorization: Bearer <token>`
-- JWT contains at least:
-  - `sub`: email
-  - `role`
-  - `userId`
-- Current public routes:
+- JWT currently carries at least `sub`, `role`, and `userId`
+- Public routes configured in `SecurityConfig`:
   - `/api/auth/**`
   - `/error`
   - `/graphql`
@@ -140,123 +159,142 @@ Each feature generally follows this structure:
   - `/ws-sockjs/**`
   - `/chat/**`
   - `/api/test/**`
-- Everything else requires authentication
+- Everything else is authenticated
+- Current CORS allows:
+  - `http://localhost:5173`
+  - `https://*.vercel.app`
 
-### Storage architecture
+### Storage Architecture
 
-- Image upload is cloud-only
-- Supabase Storage is used for public avatar upload
+- Avatar upload is cloud-only
+- `FileUploadUtil` delegates upload to Supabase
 - Local file serving via `/files/**` is no longer part of the runtime design
+- If frontend consumes avatar URLs directly, the target Supabase bucket must support public access or an equivalent
+  signed URL strategy
 
-### Database architecture
+### Database Architecture
 
-- Flyway is enabled
-- Default schema is `prod`
-- Runtime migrations:
-  - `V1__init_db.sql`
-  - `V2__add_last_login_at_to_users.sql`
-  - `V3__add_col_user_credentials.sql`
-  - `V4__alter_refresh_tokens.sql`
-- Root `init_db.sql` is not the main runtime migration source
+Runtime migrations currently used by Flyway:
 
-### Database design style
+- `V1__init_db.sql`
+- `V2__add_last_login_at_to_users.sql`
+- `V3__add_col_user_credentials.sql`
+- `V4__alter_refresh_tokens.sql`
+
+Important database characteristics:
 
 - PostgreSQL-first design
-- DB enums for many domain states
-- trigger-based `updated_at` handling in SQL
-- composite uniqueness and composite FKs for `shop_id`-based multi-tenancy
+- DB enums are used heavily
+- `updated_at` is managed in SQL through triggers
+- Multi-tenancy is represented through `shop_id`
+- Some tables use composite foreign keys such as `(shop_id, id)` to prevent cross-shop references
+- Several nullable uniqueness constraints are implemented with partial indexes in SQL
 
-### Mapping status
+### Mapping Coverage
 
-- Most tables from Flyway are now mapped as JPA entities
-- Many primary aggregates also have repository + DTO + mapper + service + controller
-- The main remaining gap is business logic depth, not entity coverage
+The codebase now maps most of the main schema areas, including:
 
-### Architecture warning
+- auth and users
+- shops and shop members
+- customers
+- pets, species, breeds, health profiles
+- vaccines and pet vaccinations
+- services
+- products and inventories
+- bookings and related helper tables
+- packages and package ledgers
+- invoices
+- payment intents and payment transactions
+- conversations, members, and messages
 
-Do not assume that "entity exists" means "feature is done".
+What that does not mean:
 
-Before extending a module, check:
-
-- migration SQL
-- entity mapping
-- DTO coverage
-- mapper coverage
-- controller route
-- authorization expectations
-- multi-tenant implications
+- It does not mean every table needs a public controller
+- It does not mean every aggregate already enforces all business rules
+- It does not mean SQL and Java are fully aligned in every edge case
 
 ## Coding Rules
 
-### General
+### Layer Rules
 
 - Keep business logic in `service`, not in `controller`
-- Controllers should:
-  - validate request
-  - call service
-  - return DTO / response
-  - map status only when needed
-- Repositories are for persistence access only
-- Entities are persistence models, not public API contracts
-- Prefer DTOs for request and response payloads
+- Keep controllers thin
+- Repositories should only handle persistence access
+- Entities are persistence models, not API contracts
+- Return DTOs to clients, not entities
+- If a module already uses the generic `IService` contract, keep following it unless there is a clear reason to diverge
 
-### Package and naming
+### Package And Naming Rules
 
-- Follow feature-first packaging
-- Use explicit names:
+- Keep the current feature-first package layout
+- Follow existing naming patterns:
+  - `CustomerController`
   - `CustomerService`
-  - `BookingController`
-  - `IInvoiceRepository`
-  - `PaymentIntentDTO`
-- Avoid generic packages like `misc`, `commonUtils`, `helpers`, etc. unless they are truly cross-cutting
+  - `ICustomerRepository`
+  - `CustomerDTO`
+  - `CustomerMapper`
+  - `CustomerNotFound`
+- Preserve existing package names such as `service_shop` and `servicePackage`; do not rename them casually in unrelated
+  PRs
 
-### Database and JPA
+### DTO And Mapper Rules
 
-- Every schema change must go through a new Flyway migration
-- Do not manually change production schema without migration
+- Use DTOs consistently for request and response payloads
+- Update mapper and DTO in the same change when an exposed field changes
+- Prefer explicit manual mapping over hidden magic
+- For helper and join tables, keep DTOs scalar-first unless nested payloads are clearly needed
+
+### Database And JPA Rules
+
+- Every schema change must be a new Flyway migration
+- Never rewrite released migrations unless the branch has not been shared yet
+- Do not change production schema manually
 - Prefer `EnumType.STRING`
-- If a table contains `shop_id`, think about multi-tenancy before writing queries or APIs
-- When a migration changes structure, update:
+- Re-check SQL defaults, enum names, and nullability before changing entities
+- If a table contains `shop_id`, think about multi-tenancy before writing repository methods or APIs
+- When a migration changes structure, update all affected layers in the same work:
   - entity
   - repository
   - DTO
   - mapper
   - service
-  - controller if contract changed
+  - controller
+  - README
 
-### Error handling
+### Error Handling Rules
 
-- Domain exceptions should extend `AppException`
-- "Not found" exceptions should implement `NotFoundException`
-- Global API errors are normalized by `RestExceptionHandler`
-- Validation errors currently return `412 PRECONDITION_FAILED`
+- Feature-specific exceptions should extend `AppException`
+- "Not found" exceptions should also implement `NotFoundException`
+- API error normalization is centralized in `exception/rest/RestExceptionHandler`
+- Validation failures currently return `412 PRECONDITION_FAILED`
 
-### Mapping and DTOs
+### Security Rules
 
-- Mappers are mostly manual
-- When a field is added to an entity that is exposed to client code, update DTO and mapper in the same change
-- For helper tables and join tables, prefer scalar-first DTOs unless nested objects are clearly required
+- Assume every non-public route requires JWT unless `SecurityConfig` says otherwise
+- Re-check whitelist rules before exposing a new endpoint
+- Do not add an endpoint and assume authorization later
+- Be explicit about ownership and `shop_id` scoping for all multi-tenant data access
 
-### Scope discipline
+### Scope Discipline
 
-- Do not assume a domain is complete just because the package exists
-- Do not assume CRUD scaffolding equals real workflow support
-- Before coding, identify whether the target area needs:
+- Do not confuse CRUD scaffolding with finished business behavior
+- Do not assume a mapped helper table needs a public controller
+- Before coding, decide whether the task is:
   - structural mapping
-  - business rules
-  - validation
-  - authorization
-  - orchestration across multiple aggregates
+  - CRUD completion
+  - business rule implementation
+  - authorization work
+  - validation work
+  - cross-aggregate orchestration
 
 ## API Rules
 
-### Base conventions
+### Base Conventions
 
-- Base path: `/api`
-- Auth: Bearer token in `Authorization`
-- Uploaded image URLs should be public Supabase Storage URLs
+- Base path is `/api`
+- Auth is Bearer token in `Authorization`
 - Successful responses usually return DTOs directly
-- Error response format:
+- Error responses use the normalized payload shape:
 
 ```json
 {
@@ -266,23 +304,20 @@ Before extending a module, check:
 }
 ```
 
-### Validation and status codes
+- Most aggregate controllers follow classic CRUD style:
+  - `GET /resource`
+  - `GET /resource/{id}`
+  - `POST /resource`
+  - `PUT /resource/{id}`
+  - `DELETE /resource/{id}`
+- Inventory is the main composite-key exception:
+  - `GET /api/inventories/{shopId}/{productId}`
+  - `PUT /api/inventories/{shopId}/{productId}`
+  - `DELETE /api/inventories/{shopId}/{productId}`
 
-- `412 PRECONDITION_FAILED`
-  - request validation errors
-  - `ValidateException`
-- `404 NOT_FOUND`
-  - domain not found exceptions
-- `403 FORBIDDEN`
-  - `PermissionNotAllowedException`
-- `400 BAD_REQUEST`
-  - other `AppException` cases
-- `500 INTERNAL_SERVER_ERROR`
-  - unhandled runtime errors
+### Auth Endpoints
 
-### Auth endpoints
-
-#### `POST /api/auth/register`
+`POST /api/auth/register`
 
 - Content-Type: `multipart/form-data`
 - Fields:
@@ -299,9 +334,7 @@ Before extending a module, check:
   - `refreshToken`
   - `user`
 
-#### `POST /api/auth/authenticate`
-
-- Content-Type: `application/json`
+`POST /api/auth/authenticate`
 
 ```json
 {
@@ -310,7 +343,7 @@ Before extending a module, check:
 }
 ```
 
-#### `POST /api/auth/refreshToken`
+`POST /api/auth/refreshToken`
 
 ```json
 {
@@ -318,7 +351,7 @@ Before extending a module, check:
 }
 ```
 
-#### `POST /api/auth/logout`
+`POST /api/auth/logout`
 
 ```json
 {
@@ -326,48 +359,85 @@ Before extending a module, check:
 }
 ```
 
-### CRUD controllers currently exposed
+`POST /api/auth/logout-all`
 
-- `GET/POST/PUT/DELETE /api/services`
-- `GET/POST/PUT/DELETE /api/customers`
-- `GET/POST/PUT/DELETE /api/pets`
-- `GET/POST/PUT/DELETE /api/vaccines`
-- `GET/POST/PUT/DELETE /api/products`
-- `GET/POST/PUT/DELETE /api/resources`
-- `GET/POST/PUT/DELETE /api/bookings`
-- `GET/POST/PUT/DELETE /api/packages`
-- `GET/POST/PUT/DELETE /api/invoices`
-- `GET/POST/PUT/DELETE /api/payments`
-- `GET/POST/PUT/DELETE /api/conversations`
-- `GET/POST/PUT/DELETE /api/inventories/{shopId}/{productId}` for composite-key inventory rows
+- No request body
+- Requires authentication
+- Current implementation has a principal-casting bug; see "Known Gaps and Mismatches"
 
-### API stability note
+### Controllers Currently Exposed
 
-- `auth` is the most concrete feature area
-- Aggregate controllers now exist for many modules, but they are still thin
-- `shop` and `shopMember` are still incomplete
-- Do not assume advanced domain invariants are already enforced
+Concrete route prefixes currently present in code:
+
+- `/api/auth`
+- `/api/user`
+- `/api/services`
+- `/api/customers`
+- `/api/pets`
+- `/api/vaccines`
+- `/api/products`
+- `/api/inventories`
+- `/api/resources`
+- `/api/bookings`
+- `/api/packages`
+- `/api/invoices`
+- `/api/payments`
+- `/api/conversations`
+- `/api/shop`
+- `/api/shop-member`
+
+Route behavior today:
+
+- `/api/services`, `/api/customers`, `/api/pets`, `/api/vaccines`, `/api/products`, `/api/resources`, `/api/bookings`,
+  `/api/packages`, `/api/invoices`, `/api/payments`, and `/api/conversations` expose `GET/POST/PUT/DELETE`
+- `/api/inventories` exposes CRUD using `{shopId}/{productId}` as the identifier
+- `/api/user` currently exposes only `GET /api/user/{id}`
+- `/api/shop` and `/api/shop-member` only expose route prefixes right now; do not assume usable CRUD behavior
+
+### Status Codes
+
+- `200 OK`: standard successful read, update, logout
+- `201` is not consistently used by current controllers; many creates still return `200`
+- `400 BAD_REQUEST`: generic `AppException`
+- `403 FORBIDDEN`: `PermissionNotAllowedException`
+- `404 NOT_FOUND`: `NotFoundException`
+- `412 PRECONDITION_FAILED`: validation errors and `ValidateException`
+- `500 INTERNAL_SERVER_ERROR`: unhandled runtime errors
+
+### API Stability Notes
+
+- `auth` is the most stable area
+- Most new aggregate controllers are intentionally thin
+- Advanced domain invariants are not guaranteed yet
+- Do not change route contracts silently
+- If an endpoint changes shape, update README and notify frontend consumers in the same PR
 
 ## Build/Test
 
 ### Prerequisites
 
 - Java 17
-- Maven Wrapper (`mvnw.cmd`)
+- Maven Wrapper via `mvnw.cmd`
 - PostgreSQL reachable from the app
 - Required environment variables:
   - `DB_URL`
   - `DB_USER`
   - `DB_PASS`
-  - `DB_SCHEMA`
   - `JWT_SECRET`
   - `SUPABASE_URL`
   - `SUPABASE_SERVICE_KEY`
   - `SUPABASE_BUCKET`
 
+Optional environment variables:
+
+- `DB_SCHEMA`
+  - defaults to `prod`
+- `PORT`
+  - defaults to `8080`
+
 Never commit real secrets to source control, logs, docs, or fixtures.
 
-### Local commands
+### Local Commands
 
 Compile:
 
@@ -375,7 +445,7 @@ Compile:
 .\mvnw.cmd -q -DskipTests compile
 ```
 
-Run app:
+Run the app:
 
 ```powershell
 .\mvnw.cmd spring-boot:run
@@ -387,68 +457,70 @@ Run tests:
 .\mvnw.cmd test
 ```
 
-### Current build/test status
+### Current Build/Test Status
 
 - `compile` is passing
-- `test` is still failing at bootstrap, not because of domain code
-- Current cause:
-  - `src/test/java/com/react/ProjectEXE101ApplicationTests.java` is in package `com.react`
-  - the main application is in package `com.exe101`
-  - `@SpringBootTest` therefore cannot find `@SpringBootConfiguration`
+- `test` is failing during Spring bootstrap, not because of the newly mapped domain code
+- Current failure cause:
+  - `src/test/java/com/react/ProjectEXE101ApplicationTests.java` uses package `com.react`
+  - the application package is `com.exe101`
+  - `@SpringBootTest` therefore cannot locate `@SpringBootConfiguration`
 
-### Test reality
+### Test Reality
 
 - Test coverage is still very low
-- The only existing test is a context-load test and it is currently broken due to package mismatch
-- Before building real workflows, add:
+- The only existing test is a context-load test and it is currently broken
+- Before implementing real workflows, add:
   - service tests
   - controller integration tests
-  - repository tests where custom queries appear
+  - repository tests where custom queries or composite keys matter
 
 ## Do & Don't
 
 ### Do
 
-- Read Flyway migrations before changing entity/repository code
-- Keep this README updated when architecture or API shape changes
+- Read Flyway migrations before changing entities or repositories
 - Keep controllers thin and services explicit
-- Add new migrations instead of rewriting released migrations
-- Use DTOs consistently
-- Re-check security rules before exposing new endpoints
-- Be explicit about `shop_id` and multi-tenancy
-- Treat CRUD scaffolding as a starting point, not as finished domain logic
+- Keep DTOs and mappers aligned with exposed entity fields
+- Add new Flyway migrations instead of mutating released migrations
+- Re-check security rules before exposing a new endpoint
+- Be explicit about `shop_id` and multi-tenant scope
+- Update README in the same PR when architecture, API, auth flow, schema, or package structure changes
+- Treat CRUD scaffolding as a starting point, not proof that a domain is finished
 
 ### Don't
 
-- Don't manually change production schema without migration
-- Don't expose entities directly to clients
-- Don't assume SQL and Java are fully aligned just because code compiles
-- Don't assume every mapped table needs a public controller
-- Don't hardcode secrets, DB passwords, tokens, or Supabase keys
-- Don't silently change route contracts without updating README and frontend consumers
-- Don't skip validation and authorization planning for new business flows
+- Do not expose entities directly to clients
+- Do not change production schema manually
+- Do not assume compile success means SQL and Java are fully aligned
+- Do not assume every mapped table deserves a public controller
+- Do not hardcode DB credentials, JWT secrets, refresh tokens, or Supabase keys
+- Do not silently change route contracts without updating README and frontend consumers
+- Do not skip validation and authorization planning for new business flows
+- Do not treat `shop` or `shopMember` as complete modules without checking their actual implementation first
 
-## Known Gaps and Mismatches
+## Known Gaps And Mismatches
 
-- `CredentialProvider` in Java is `LOCAL, GOOGLE, FACEBOOK`, while DB migration defines `LOCAL, GOOGLE, APPLE`
-- `AuthenticationController.logout-all` still casts principal to `User`, while the security flow is using
+- `CredentialProvider` in Java is `LOCAL, GOOGLE, FACEBOOK`, while the DB migration defines `LOCAL, GOOGLE, APPLE`
+- `AuthenticationController.logout-all` still casts the authenticated principal to `User`, while the security flow uses
   `UserPrincipal`
-- `shop` and `shopMember` still have incomplete service/controller implementation
-- Newly added aggregate services are mostly thin CRUD wrappers and still need domain-specific rules
-- Several helper tables are mapped but do not yet have dedicated service/controller layers because they are not primary
-  aggregates
+- `shop` and `shopMember` are still incomplete and currently expose only route prefixes
+- Many newly added aggregate services are still thin CRUD wrappers
+- Several helper tables are mapped but intentionally do not have dedicated public controllers
+- Maven metadata still says `react`, while the real application package is `com.exe101`
 
 ## Documentation Rule
 
-- Always update this `README.md` when:
-  - adding a new module
-  - changing an API endpoint
-  - modifying database schema
-  - updating authentication flow
-  - changing package structure
-- If a change affects architecture, API, or database:
-  - updating `README.md` is required in the same PR
-- Do not merge code that changes system behavior without updating `README.md`
+Always update this `README.md` when:
 
-This README should be treated as the working onboarding note for future agents and engineers. If schema shape, security
-flow, package structure, or route contracts change, update this file in the same PR.
+- adding a new module
+- changing an API endpoint
+- modifying database schema
+- updating authentication flow
+- changing package structure
+- changing storage behavior
+- changing security whitelist or auth requirements
+
+If a change affects architecture, API, auth, or database behavior, updating `README.md` is required in the same PR.
+
+Do not merge code that changes system behavior without updating this file.
