@@ -1,7 +1,7 @@
-package com.exe101.service.mapper;
+package com.exe101.service_shop.mapper;
 
-import com.exe101.service.dto.ServiceDTO;
-import com.exe101.service.entity.Service;
+import com.exe101.service_shop.dto.ServiceDTO;
+import com.exe101.service_shop.entity.Service;
 import org.springframework.stereotype.Component;
 
 @Component

@@ -1,4 +1,4 @@
-package com.exe101.service.entity;
+package com.exe101.service_shop.entity;
 
 import com.exe101.shop.entity.Shop;
 import com.fasterxml.jackson.annotation.JsonIgnore;

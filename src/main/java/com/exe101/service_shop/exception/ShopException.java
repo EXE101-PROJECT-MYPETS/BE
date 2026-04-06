@@ -1,4 +1,4 @@
-package com.exe101.service.exception;
+package com.exe101.service_shop.exception;
 
 import com.exe101.exception.AppException;
 

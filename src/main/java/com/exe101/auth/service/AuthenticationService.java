@@ -3,6 +3,7 @@ package com.exe101.auth.service;
 import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
 import com.exe101.auth.dto.RegisterRequest;
+import com.exe101.auth.exception.LoginException;
 import com.exe101.auth.model.RefreshToken;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.file.FileUploadUtil;
@@ -22,7 +23,6 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import com.exe101.auth.exception.LoginException;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -65,7 +65,7 @@ public class AuthenticationService {
 
         MultipartFile avatarFile = request.getAvatarUrlPreview();
         if (avatarFile != null && !avatarFile.isEmpty()) {
-            String avatarUrl = fileUploadUtil.uploadUserAvatarLocal(user.getId(), avatarFile);
+            String avatarUrl = fileUploadUtil.uploadUserAvatar(user.getId(), avatarFile);
             user.setAvatarUrlPreview(avatarUrl);
             user.setUpdatedAt(LocalDateTime.now());
             user = userRepository.save(user);

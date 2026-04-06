@@ -105,7 +105,7 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         //các đường dẫn sau được đi qua bước phân quyền nhưng vẫn phải đi qua jwtFilter
-                        .requestMatchers("/api/auth/**", "/error","/files/**", "/graphql", "/ws/**", "/ws-sockjs/**", "/chat/**", "/api/test/**")
+                        .requestMatchers("/api/auth/**", "/error", "/graphql", "/ws/**", "/ws-sockjs/**", "/chat/**", "/api/test/**")
                         .permitAll()
                         // các đường dẫn khác phải đi qua được jwtFilter và setAuthentication được thì mới qua được day
                         .anyRequest().authenticated()
