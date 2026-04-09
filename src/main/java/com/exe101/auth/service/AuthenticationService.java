@@ -3,10 +3,13 @@ package com.exe101.auth.service;
 import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
 import com.exe101.auth.dto.RegisterRequest;
+import com.exe101.auth.exception.AuthAccessDeniedException;
 import com.exe101.auth.exception.LoginException;
 import com.exe101.auth.model.RefreshToken;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.file.FileUploadUtil;
+import com.exe101.shopMember.entity.MemberStatus;
+import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.user.entity.User;
 import com.exe101.user.entity.UserRole;
 import com.exe101.user.entity.UserStatus;
@@ -40,14 +43,14 @@ public class AuthenticationService {
     private final IUserCredentialRepository credentialRepository;
     private final UserMapper userMapper;
     private final FileUploadUtil fileUploadUtil;
+    private final IShopMemberRepository shopMemberRepository;
 
     public AuthenticationResponse register(RegisterRequest request) {
-
         if (userRepository.existsByEmail(request.getEmail())) {
-            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại!");
+            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại");
         }
         if (userRepository.existsByPhone(request.getPhone())) {
-            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại!");
+            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại");
         }
 
         User user = new User();
@@ -92,8 +95,33 @@ public class AuthenticationService {
         );
     }
 
-    public AuthenticationResponse authenticate(AuthenticationRequest request) {
+    public AuthenticationResponse authenticateCustomer(AuthenticationRequest request) {
+        return authenticateForRole(
+                request,
+                UserRole.CUSTOMER,
+                false,
+                "CustomerPortalOnly",
+                "Tài khoản này không thể đăng nhập vào ứng dụng khách hàng"
+        );
+    }
 
+    public AuthenticationResponse authenticateShop(AuthenticationRequest request) {
+        return authenticateForRole(
+                request,
+                UserRole.SHOP,
+                true,
+                "ShopPortalOnly",
+                "Tài khoản này không thể đăng nhập vào trang quản lý shop"
+        );
+    }
+
+    private AuthenticationResponse authenticateForRole(
+            AuthenticationRequest request,
+            UserRole expectedRole,
+            boolean requireActiveShopMembership,
+            String accessDeniedCode,
+            String accessDeniedMessage
+    ) {
         try {
             var auth = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(
@@ -104,6 +132,13 @@ public class AuthenticationService {
 
             UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
             User user = principal.getUser();
+            validateAuthenticatedUser(
+                    user,
+                    expectedRole,
+                    requireActiveShopMembership,
+                    accessDeniedCode,
+                    accessDeniedMessage
+            );
 
             String accessToken = jwtService.generateToken(principal);
             RefreshToken refreshToken = refreshTokenService.create(user.getId());
@@ -117,7 +152,27 @@ public class AuthenticationService {
             );
 
         } catch (BadCredentialsException ex) {
-            throw new LoginException("WrongPassOrEmail", "Sai email hoặc mật khẩu");
+            throw new LoginException("WrongPassOrEmail", "Email hoặc mật khẩu không đúng");
+        }
+    }
+
+    private void validateAuthenticatedUser(
+            User user,
+            UserRole expectedRole,
+            boolean requireActiveShopMembership,
+            String accessDeniedCode,
+            String accessDeniedMessage
+    ) {
+        if (user.getRole() != expectedRole) {
+            throw new AuthAccessDeniedException(accessDeniedCode, accessDeniedMessage);
+        }
+
+        if (requireActiveShopMembership
+                && !shopMemberRepository.existsByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)) {
+            throw new AuthAccessDeniedException(
+                    "ShopMembershipInactive",
+                    "Tai khoan shop nay chua co lien ket shop dang hoat dong"
+            );
         }
     }
 

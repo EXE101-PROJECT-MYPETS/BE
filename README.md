@@ -128,24 +128,24 @@ Errors
 
 ### Module Status Matrix
 
-| Module           | Status        | Base path            | Notes                                        |
-|------------------|---------------|----------------------|----------------------------------------------|
-| `auth`           | Concrete      | `/api/auth`          | Register, login, refresh, logout, logout-all |
-| `user`           | Partial       | `/api/user`          | Only `GET /api/user/{id}` is exposed         |
-| `service_shop`   | CRUD scaffold | `/api/services`      | Service catalog CRUD                         |
-| `customer`       | CRUD scaffold | `/api/customers`     | Customer aggregate CRUD                      |
-| `pet`            | CRUD scaffold | `/api/pets`          | Pet aggregate CRUD                           |
-| `vaccine`        | CRUD scaffold | `/api/vaccines`      | Vaccine master CRUD                          |
-| `product`        | CRUD scaffold | `/api/products`      | Product CRUD                                 |
-| `inventory`      | CRUD scaffold | `/api/inventories`   | Composite-key inventory CRUD                 |
-| `resource`       | CRUD scaffold | `/api/resources`     | Shop resource CRUD                           |
-| `booking`        | CRUD scaffold | `/api/bookings`      | Booking aggregate CRUD                       |
-| `servicePackage` | CRUD scaffold | `/api/packages`      | Package CRUD                                 |
-| `invoice`        | CRUD scaffold | `/api/invoices`      | Invoice CRUD                                 |
-| `payment`        | CRUD scaffold | `/api/payments`      | Payment intent CRUD                          |
-| `conversation`   | CRUD scaffold | `/api/conversations` | Conversation CRUD                            |
-| `shop`           | Incomplete    | `/api/shop`          | Prefix exists, no real handler methods       |
-| `shopMember`     | Incomplete    | `/api/shop-member`   | Prefix exists, no real handler methods       |
+| Module           | Status        | Base path            | Notes                                                                                           |
+|------------------|---------------|----------------------|-------------------------------------------------------------------------------------------------|
+| `auth`           | Concrete      | `/api/auth`          | Customer register, shop-owner register, customer login, shop login, refresh, logout, logout-all |
+| `user`           | Partial       | `/api/user`          | Only `GET /api/user/{id}` is exposed                                                            |
+| `service_shop`   | CRUD scaffold | `/api/services`      | Service catalog CRUD                                                                            |
+| `customer`       | CRUD scaffold | `/api/customers`     | Customer aggregate CRUD                                                                         |
+| `pet`            | CRUD scaffold | `/api/pets`          | Pet aggregate CRUD                                                                              |
+| `vaccine`        | CRUD scaffold | `/api/vaccines`      | Vaccine master CRUD                                                                             |
+| `product`        | CRUD scaffold | `/api/products`      | Product CRUD                                                                                    |
+| `inventory`      | CRUD scaffold | `/api/inventories`   | Composite-key inventory CRUD                                                                    |
+| `resource`       | CRUD scaffold | `/api/resources`     | Shop resource CRUD                                                                              |
+| `booking`        | CRUD scaffold | `/api/bookings`      | Booking aggregate CRUD                                                                          |
+| `servicePackage` | CRUD scaffold | `/api/packages`      | Package CRUD                                                                                    |
+| `invoice`        | CRUD scaffold | `/api/invoices`      | Invoice CRUD                                                                                    |
+| `payment`        | CRUD scaffold | `/api/payments`      | Payment intent CRUD                                                                             |
+| `conversation`   | CRUD scaffold | `/api/conversations` | Conversation CRUD                                                                               |
+| `shop`           | Incomplete    | `/api/shop`          | Prefix exists, no real handler methods                                                          |
+| `shopMember`     | Incomplete    | `/api/shop-member`   | Prefix exists, no real handler methods                                                          |
 
 ### Security Architecture
 
@@ -308,17 +308,19 @@ Error payload shape:
 
 ### Auth API
 
-| Method | Endpoint                 | Description                                                                                                                        |
-|--------|--------------------------|------------------------------------------------------------------------------------------------------------------------------------|
-| `POST` | `/api/auth/register`     | Register with `multipart/form-data`, create user and credential, optionally upload avatar to Supabase, return tokens plus user DTO |
-| `POST` | `/api/auth/authenticate` | Login with email/password JSON payload                                                                                             |
-| `POST` | `/api/auth/refreshToken` | Rotate refresh token using `{ "refreshToken": "token" }`                                                                           |
-| `POST` | `/api/auth/logout`       | Revoke one refresh token using `{ "refreshToken": "token" }`                                                                       |
-| `POST` | `/api/auth/logout-all`   | Revoke all refresh tokens for the authenticated user; current implementation still has a principal-casting bug                     |
+| Method | Endpoint                        | Description                                                                                                                                              |
+|--------|---------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
+| `POST` | `/api/auth/register`            | Register with `multipart/form-data`, create user and credential, optionally upload avatar to Supabase, return tokens plus user DTO                       |
+| `POST` | `/api/auth/shop-owner/register` | Register a shop owner with `multipart/form-data`, create `users`, `user_credentials`, `shops`, `shop_members`, then return tokens plus user and shop DTO |
+| `POST` | `/api/auth/customer/login`      | Customer login with email/password JSON payload                                                                                                          |
+| `POST` | `/api/auth/shop/login`          | Shop login with email/password JSON payload; only `SHOP` accounts with active `shop_members` are allowed                                                 |
+| `POST` | `/api/auth/refreshToken`        | Rotate refresh token using `{ "refreshToken": "token" }`                                                                                                 |
+| `POST` | `/api/auth/logout`              | Revoke one refresh token using `{ "refreshToken": "token" }`                                                                                             |
+| `POST` | `/api/auth/logout-all`          | Revoke all refresh tokens for the authenticated user; current implementation still has a principal-casting bug                                           |
 
 Auth payload examples:
 
-`POST /api/auth/authenticate`
+`POST /api/auth/customer/login`
 
 ```json
 {
@@ -345,24 +347,24 @@ Auth payload examples:
 
 ### Controller Overview
 
-| Module           | Base path            | Methods               | Status        | Description                      |
-|------------------|----------------------|-----------------------|---------------|----------------------------------|
-| `auth`           | `/api/auth`          | `POST`                | Concrete      | Register, login, refresh, logout |
-| `user`           | `/api/user`          | `GET`                 | Partial       | Read-only user lookup            |
-| `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD             |
-| `customer`       | `/api/customers`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Customer CRUD                    |
-| `pet`            | `/api/pets`          | `GET/POST/PUT/DELETE` | CRUD scaffold | Pet CRUD                         |
-| `vaccine`        | `/api/vaccines`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Vaccine CRUD                     |
-| `product`        | `/api/products`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Product CRUD                     |
-| `inventory`      | `/api/inventories`   | `GET/POST/PUT/DELETE` | CRUD scaffold | Composite-key inventory CRUD     |
-| `resource`       | `/api/resources`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Resource CRUD                    |
-| `booking`        | `/api/bookings`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Booking CRUD                     |
-| `servicePackage` | `/api/packages`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Package CRUD                     |
-| `invoice`        | `/api/invoices`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Invoice CRUD                     |
-| `payment`        | `/api/payments`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Payment CRUD                     |
-| `conversation`   | `/api/conversations` | `GET/POST/PUT/DELETE` | CRUD scaffold | Conversation CRUD                |
-| `shop`           | `/api/shop`          | route prefix only     | Incomplete    | No real handler methods yet      |
-| `shopMember`     | `/api/shop-member`   | route prefix only     | Incomplete    | No real handler methods yet      |
+| Module           | Base path            | Methods               | Status        | Description                                                                         |
+|------------------|----------------------|-----------------------|---------------|-------------------------------------------------------------------------------------|
+| `auth`           | `/api/auth`          | `POST`                | Concrete      | Customer register, shop-owner register, customer login, shop login, refresh, logout |
+| `user`           | `/api/user`          | `GET`                 | Partial       | Read-only user lookup                                                               |
+| `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD                                                                |
+| `customer`       | `/api/customers`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Customer CRUD                                                                       |
+| `pet`            | `/api/pets`          | `GET/POST/PUT/DELETE` | CRUD scaffold | Pet CRUD                                                                            |
+| `vaccine`        | `/api/vaccines`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Vaccine CRUD                                                                        |
+| `product`        | `/api/products`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Product CRUD                                                                        |
+| `inventory`      | `/api/inventories`   | `GET/POST/PUT/DELETE` | CRUD scaffold | Composite-key inventory CRUD                                                        |
+| `resource`       | `/api/resources`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Resource CRUD                                                                       |
+| `booking`        | `/api/bookings`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Booking CRUD                                                                        |
+| `servicePackage` | `/api/packages`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Package CRUD                                                                        |
+| `invoice`        | `/api/invoices`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Invoice CRUD                                                                        |
+| `payment`        | `/api/payments`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Payment CRUD                                                                        |
+| `conversation`   | `/api/conversations` | `GET/POST/PUT/DELETE` | CRUD scaffold | Conversation CRUD                                                                   |
+| `shop`           | `/api/shop`          | route prefix only     | Incomplete    | No real handler methods yet                                                         |
+| `shopMember`     | `/api/shop-member`   | route prefix only     | Incomplete    | No real handler methods yet                                                         |
 
 ### Standard CRUD Pattern
 

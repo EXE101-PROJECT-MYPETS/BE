@@ -34,3 +34,5 @@ build/
 
 # ====== Application properties (DO NOT COMMIT) ======
 .env
+.agents/
+AGENTS.md
