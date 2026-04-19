@@ -1,13 +1,12 @@
 package com.exe101.service_shop.controller;
 
+import com.exe101.common.PageResponse;
 import com.exe101.service_shop.dto.ServiceDTO;
 import com.exe101.service_shop.service.ServiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/services")
@@ -17,8 +16,12 @@ public class ServiceController {
     private final ServiceService serviceService;
 
     @GetMapping
-    public ResponseEntity<List<ServiceDTO>> getAll() {
-        return ResponseEntity.ok(serviceService.getAll());
+    public ResponseEntity<PageResponse<ServiceDTO>> getAll(
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(serviceService.getAll(search, page, size));
     }
 
     @GetMapping("/{id}")

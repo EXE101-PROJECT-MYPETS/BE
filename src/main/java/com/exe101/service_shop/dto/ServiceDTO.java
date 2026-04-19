@@ -33,5 +33,7 @@ public class ServiceDTO {
     @Min(value = 0, message = "basePrice must be >= 0")
     private Long basePrice;
 
+    private Long categoryId;
+
     private Boolean active;
 }

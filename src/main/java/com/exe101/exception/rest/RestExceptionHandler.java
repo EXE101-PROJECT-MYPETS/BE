@@ -1,10 +1,12 @@
 package com.exe101.exception.rest;
 
 import com.exe101.exception.AppException;
+import com.exe101.exception.DuplicateException;
 import com.exe101.exception.NotFoundException;
 import com.exe101.exception.PermissionNotAllowedException;
 import com.exe101.exception.ValidateException;
 import com.exe101.exception.payload.ErrorPayload;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.MethodArgumentNotValidException;
@@ -39,6 +41,8 @@ public class RestExceptionHandler {
 
         if (ex instanceof ValidateException) {
             status = HttpStatus.PRECONDITION_FAILED;
+        } else if (ex instanceof DuplicateException) {
+            status = HttpStatus.CONFLICT;
         } else if (ex instanceof NotFoundException) {
             status = HttpStatus.NOT_FOUND;
         } else if (ex instanceof PermissionNotAllowedException) {
@@ -53,6 +57,25 @@ public class RestExceptionHandler {
                         ex.getCode(),
                         ex.getMessage() != null ? ex.getMessage() : "",
                         ex.getData()
+                ));
+    }
+
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ErrorPayload> handleDataIntegrityViolationException(
+            DataIntegrityViolationException ex
+    ) {
+        String message = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+
+        boolean duplicate = message != null && message.contains("duplicate key value violates unique constraint");
+
+        return ResponseEntity
+                .status(duplicate ? HttpStatus.CONFLICT : HttpStatus.BAD_REQUEST)
+                .body(new ErrorPayload(
+                        duplicate ? "DuplicateResource" : "DataIntegrityViolation",
+                        duplicate ? "Dữ liệu đã tồn tại" : "Dữ liệu không hợp lệ",
+                        null
                 ));
     }
 

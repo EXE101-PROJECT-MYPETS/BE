@@ -22,6 +22,7 @@ Use this README as the onboarding note for future agents and engineers before re
 - Runtime schema defaults to `prod`
 - Auth is the most mature feature area
 - Most other domains expose CRUD routes, but still need domain rules and authorization hardening
+- Service categories are implemented under shop-scoped routes and are used by the frontend service manager
 - `compile` passes
 - `test` is currently broken because the test package is `com.react`, while the app package is `com.exe101`
 
@@ -31,7 +32,7 @@ Read in this order before touching the code:
 
 1. `README.md`
 2. `src/main/resources/application.properties`
-3. `src/main/resources/db/migration/V1__init_db.sql` through `V4__alter_refresh_tokens.sql`
+3. `src/main/resources/db/migration/V1__init_db.sql` through `V6__seed_default_service_categories.sql`
 4. `src/main/java/com/exe101/config/SecurityConfig.java`
 5. `src/main/java/com/exe101/auth/controller/AuthenticationController.java`
 6. `src/main/java/com/exe101/auth/service/AuthenticationService.java`
@@ -85,7 +86,7 @@ com.exe101/
 |-- product/           # Products
 |-- resource/          # Shop resources
 |-- servicePackage/    # Packages, customer packages, package ledger
-|-- service_shop/      # Service catalog for shops
+|-- service_shop/      # Service catalog and service categories for shops
 |-- shop/              # Shop aggregate placeholder
 |-- shopMember/        # Shop member placeholder
 |-- user/              # Users and basic user endpoint
@@ -132,7 +133,7 @@ Errors
 |------------------|---------------|----------------------|-------------------------------------------------------------------------------------------------|
 | `auth`           | Concrete      | `/api/auth`          | Customer register, shop-owner register, customer login, shop login, refresh, logout, logout-all |
 | `user`           | Partial       | `/api/user`          | Only `GET /api/user/{id}` is exposed                                                            |
-| `service_shop`   | CRUD scaffold | `/api/services`      | Service catalog CRUD                                                                            |
+| `service_shop`   | CRUD scaffold | `/api/services`, `/api/shops/{shopId}/service-categories` | Service catalog CRUD and shop-scoped service category CRUD                                      |
 | `customer`       | CRUD scaffold | `/api/customers`     | Customer aggregate CRUD                                                                         |
 | `pet`            | CRUD scaffold | `/api/pets`          | Pet aggregate CRUD                                                                              |
 | `vaccine`        | CRUD scaffold | `/api/vaccines`      | Vaccine master CRUD                                                                             |
@@ -171,12 +172,14 @@ Errors
 
 Flyway migrations currently active:
 
-| Version | File                                 | Purpose                                     |
-|---------|--------------------------------------|---------------------------------------------|
-| `V1`    | `V1__init_db.sql`                    | Main schema bootstrap                       |
-| `V2`    | `V2__add_last_login_at_to_users.sql` | Add `users.last_login_at`                   |
-| `V3`    | `V3__add_col_user_credentials.sql`   | Extend credential data and add `users.role` |
-| `V4`    | `V4__alter_refresh_tokens.sql`       | Align refresh token column names with code  |
+| Version | File                                      | Purpose                                                   |
+|---------|-------------------------------------------|-----------------------------------------------------------|
+| `V1`    | `V1__init_db.sql`                         | Main schema bootstrap                                     |
+| `V2`    | `V2__add_last_login_at_to_users.sql`      | Add `users.last_login_at`                                 |
+| `V3`    | `V3__add_col_user_credentials.sql`        | Extend credential data and add `users.role`               |
+| `V4`    | `V4__alter_refresh_tokens.sql`            | Align refresh token column names with code                |
+| `V5`    | `V5__add_service_categories.sql`          | Add `service_categories`, `services.category_id`, indexes |
+| `V6`    | `V6__seed_default_service_categories.sql` | Seed default service categories for every existing shop   |
 
 Important SQL design traits:
 
@@ -196,7 +199,7 @@ The codebase now maps most of the main SQL areas:
 - customers
 - pets, species, breeds, health profiles
 - vaccines and pet vaccinations
-- services
+- services and service categories
 - products and inventories
 - bookings and helper booking tables
 - packages and package ledgers
@@ -352,6 +355,7 @@ Auth payload examples:
 | `auth`           | `/api/auth`          | `POST`                | Concrete      | Customer register, shop-owner register, customer login, shop login, refresh, logout |
 | `user`           | `/api/user`          | `GET`                 | Partial       | Read-only user lookup                                                               |
 | `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD                                                                |
+| `service_category` | `/api/shops/{shopId}/service-categories` | `GET/POST/PUT/DELETE` | CRUD scaffold | Shop-scoped service category CRUD with active filter                                |
 | `customer`       | `/api/customers`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Customer CRUD                                                                       |
 | `pet`            | `/api/pets`          | `GET/POST/PUT/DELETE` | CRUD scaffold | Pet CRUD                                                                            |
 | `vaccine`        | `/api/vaccines`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Vaccine CRUD                                                                        |
@@ -371,6 +375,7 @@ Auth payload examples:
 Applies to these route groups:
 
 - `/api/services`
+- `/api/shops/{shopId}/service-categories`
 - `/api/customers`
 - `/api/pets`
 - `/api/vaccines`
@@ -392,16 +397,21 @@ Applies to these route groups:
 
 ### Special Route Shapes
 
-| Module       | Method   | Endpoint                                | Description               |
-|--------------|----------|-----------------------------------------|---------------------------|
-| `inventory`  | `GET`    | `/api/inventories`                      | List inventory rows       |
-| `inventory`  | `GET`    | `/api/inventories/{shopId}/{productId}` | Get one composite-key row |
-| `inventory`  | `POST`   | `/api/inventories`                      | Create inventory row      |
-| `inventory`  | `PUT`    | `/api/inventories/{shopId}/{productId}` | Update inventory row      |
-| `inventory`  | `DELETE` | `/api/inventories/{shopId}/{productId}` | Delete inventory row      |
-| `user`       | `GET`    | `/api/user/{id}`                        | Get user DTO by id        |
-| `shop`       | none     | `/api/shop`                             | Prefix exists only        |
-| `shopMember` | none     | `/api/shop-member`                      | Prefix exists only        |
+| Module             | Method   | Endpoint                                             | Description                                          |
+|--------------------|----------|------------------------------------------------------|------------------------------------------------------|
+| `inventory`        | `GET`    | `/api/inventories`                                   | List inventory rows                                  |
+| `inventory`        | `GET`    | `/api/inventories/{shopId}/{productId}`              | Get one composite-key row                            |
+| `inventory`        | `POST`   | `/api/inventories`                                   | Create inventory row                                 |
+| `inventory`        | `PUT`    | `/api/inventories/{shopId}/{productId}`              | Update inventory row                                 |
+| `inventory`        | `DELETE` | `/api/inventories/{shopId}/{productId}`              | Delete inventory row                                 |
+| `service_category` | `GET`    | `/api/shops/{shopId}/service-categories?active=true` | List service categories by shop and optional active flag |
+| `service_category` | `GET`    | `/api/shops/{shopId}/service-categories/{id}`        | Get one category inside a shop                       |
+| `service_category` | `POST`   | `/api/shops/{shopId}/service-categories`             | Create category; requires active owner/manager membership |
+| `service_category` | `PUT`    | `/api/shops/{shopId}/service-categories/{id}`        | Update category; requires active owner/manager membership |
+| `service_category` | `DELETE` | `/api/shops/{shopId}/service-categories/{id}`        | Soft-disable category by setting `active=false`      |
+| `user`             | `GET`    | `/api/user/{id}`                                     | Get user DTO by id                                   |
+| `shop`             | none     | `/api/shop`                                          | Prefix exists only                                   |
+| `shopMember`       | none     | `/api/shop-member`                                   | Prefix exists only                                   |
 
 ### Status Codes
 
@@ -422,6 +432,7 @@ Applies to these route groups:
 - Advanced domain invariants are not guaranteed yet
 - Do not silently change route contracts
 - If a route contract changes, update README and notify frontend consumers in the same PR
+- Frontend service management currently assumes `shopId=1` and calls `/api/shops/1/service-categories?active=true`; update FE and README together when tenant/shop resolution changes
 
 ## Build/Test
 
@@ -522,6 +533,7 @@ Current `test` failure cause:
 | Aggregate services   | Many are still thin CRUD wrappers                                                      |
 | Helper tables        | Several are mapped intentionally without public controllers                            |
 | Maven metadata       | Still says `react`, while real application package is `com.exe101`                     |
+| FE service tenant    | Frontend service module currently hard-codes `SHOP_ID = 1`                             |
 
 ## Documentation Rule
 
