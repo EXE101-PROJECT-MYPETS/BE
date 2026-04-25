@@ -22,6 +22,12 @@ public class ConversationService implements IService<Conversation, ConversationD
         return conversationRepository.findAll().stream().map(ConversationMapper::toDTO).toList();
     }
 
+    public List<ConversationDTO> getAllByShopId(Long shopId) {
+        return conversationRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(ConversationMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public ConversationDTO getById(Long id) {
         return conversationRepository.findById(id)

@@ -10,7 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 
 @RestController
-@RequestMapping("/api/shops/{shopId}/service-categories")
+@RequestMapping("/api/service-categories")
 @RequiredArgsConstructor
 public class ServiceCategoryController {
 
@@ -18,7 +18,7 @@ public class ServiceCategoryController {
 
     @GetMapping
     public ResponseEntity<List<ServiceCategoryDTO>> getAllByShop(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @RequestParam(defaultValue = "true") Boolean active
     ) {
         return ResponseEntity.ok(serviceCategoryService.getAllByShop(shopId, active));
@@ -26,7 +26,7 @@ public class ServiceCategoryController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ServiceCategoryDTO> getById(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(serviceCategoryService.getById(shopId, id));
@@ -34,7 +34,7 @@ public class ServiceCategoryController {
 
     @PostMapping
     public ResponseEntity<ServiceCategoryDTO> create(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @Valid @RequestBody ServiceCategoryDTO dto
     ) {
         return ResponseEntity.ok(serviceCategoryService.create(shopId, dto));
@@ -42,7 +42,7 @@ public class ServiceCategoryController {
 
     @PutMapping("/{id}")
     public ResponseEntity<ServiceCategoryDTO> update(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
             @Valid @RequestBody ServiceCategoryDTO dto
     ) {
@@ -51,7 +51,7 @@ public class ServiceCategoryController {
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> delete(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id
     ) {
         serviceCategoryService.delete(shopId, id);

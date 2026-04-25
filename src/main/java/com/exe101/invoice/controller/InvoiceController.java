@@ -17,8 +17,8 @@ public class InvoiceController {
     private final InvoiceService invoiceService;
 
     @GetMapping
-    public ResponseEntity<List<InvoiceDTO>> getAll() {
-        return ResponseEntity.ok(invoiceService.getAll());
+    public ResponseEntity<List<InvoiceDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(invoiceService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class InvoiceController {
     }
 
     @PostMapping
-    public ResponseEntity<InvoiceDTO> create(@Valid @RequestBody InvoiceDTO dto) {
+    public ResponseEntity<InvoiceDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody InvoiceDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(invoiceService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<InvoiceDTO> update(@PathVariable Long id, @Valid @RequestBody InvoiceDTO dto) {
+    public ResponseEntity<InvoiceDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody InvoiceDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(invoiceService.update(id, dto));
     }
 

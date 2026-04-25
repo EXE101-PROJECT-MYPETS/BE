@@ -22,6 +22,12 @@ public class ServicePackageService implements IService<ServicePackage, ServicePa
         return servicePackageRepository.findAll().stream().map(ServicePackageMapper::toDTO).toList();
     }
 
+    public List<ServicePackageDTO> getAllByShopId(Long shopId) {
+        return servicePackageRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(ServicePackageMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public ServicePackageDTO getById(Long id) {
         return servicePackageRepository.findById(id)

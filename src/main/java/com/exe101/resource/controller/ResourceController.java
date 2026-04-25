@@ -17,8 +17,8 @@ public class ResourceController {
     private final ResourceService resourceService;
 
     @GetMapping
-    public ResponseEntity<List<ShopResourceDTO>> getAll() {
-        return ResponseEntity.ok(resourceService.getAll());
+    public ResponseEntity<List<ShopResourceDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(resourceService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class ResourceController {
     }
 
     @PostMapping
-    public ResponseEntity<ShopResourceDTO> create(@Valid @RequestBody ShopResourceDTO dto) {
+    public ResponseEntity<ShopResourceDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody ShopResourceDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(resourceService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ShopResourceDTO> update(@PathVariable Long id, @Valid @RequestBody ShopResourceDTO dto) {
+    public ResponseEntity<ShopResourceDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody ShopResourceDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(resourceService.update(id, dto));
     }
 

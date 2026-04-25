@@ -17,8 +17,8 @@ public class ConversationController {
     private final ConversationService conversationService;
 
     @GetMapping
-    public ResponseEntity<List<ConversationDTO>> getAll() {
-        return ResponseEntity.ok(conversationService.getAll());
+    public ResponseEntity<List<ConversationDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(conversationService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class ConversationController {
     }
 
     @PostMapping
-    public ResponseEntity<ConversationDTO> create(@Valid @RequestBody ConversationDTO dto) {
+    public ResponseEntity<ConversationDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody ConversationDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(conversationService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ConversationDTO> update(@PathVariable Long id, @Valid @RequestBody ConversationDTO dto) {
+    public ResponseEntity<ConversationDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody ConversationDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(conversationService.update(id, dto));
     }
 

@@ -17,8 +17,8 @@ public class ProductController {
     private final ProductService productService;
 
     @GetMapping
-    public ResponseEntity<List<ProductDTO>> getAll() {
-        return ResponseEntity.ok(productService.getAll());
+    public ResponseEntity<List<ProductDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(productService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class ProductController {
     }
 
     @PostMapping
-    public ResponseEntity<ProductDTO> create(@Valid @RequestBody ProductDTO dto) {
+    public ResponseEntity<ProductDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody ProductDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(productService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ProductDTO> update(@PathVariable Long id, @Valid @RequestBody ProductDTO dto) {
+    public ResponseEntity<ProductDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody ProductDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(productService.update(id, dto));
     }
 

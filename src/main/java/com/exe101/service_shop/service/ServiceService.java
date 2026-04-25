@@ -2,7 +2,7 @@ package com.exe101.service_shop.service;
 
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.IService;
-import com.exe101.common.PageResponse;
+import com.exe101.common.ScrollResponse;
 import com.exe101.service_shop.dto.ServiceDTO;
 import com.exe101.service_shop.exception.ServiceAccessDenied;
 import com.exe101.service_shop.exception.ServiceDuplicate;
@@ -13,10 +13,7 @@ import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
@@ -28,6 +25,7 @@ import java.util.List;
 public class ServiceService implements IService<com.exe101.service_shop.entity.Service, ServiceDTO, Long> {
 
     private static final List<ShopRole> SERVICE_CREATE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
+    private static final int MAX_SCROLL_SIZE = 50;
 
     private final IServiceRepository serviceRepository;
     private final IShopMemberRepository shopMemberRepository;
@@ -37,22 +35,37 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
         return serviceRepository.findAll().stream().map(ServiceMapper::toDTO).toList();
     }
 
-    public PageResponse<ServiceDTO> getAll(String search, int page, int size) {
-        Pageable pageable = PageRequest.of(
-                Math.max(page, 0),
-                Math.min(Math.max(size, 1), 100),
-                Sort.by(Sort.Direction.DESC, "id")
+    public ScrollResponse<ServiceDTO> getAllForScroll(
+            Long shopId,
+            String search,
+            Long categoryId,
+            Boolean active,
+            Long cursor,
+            int size
+    ) {
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_SCROLL_SIZE);
+        Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
+        String normalizedSearch = StringUtils.hasText(search) ? search.trim() : null;
+
+        List<com.exe101.service_shop.entity.Service> services = serviceRepository.findForScroll(
+                shopId,
+                normalizedSearch,
+                categoryId,
+                active,
+                normalizedCursor,
+                PageRequest.of(0, normalizedSize + 1)
         );
 
-        Page<ServiceDTO> services;
-        if (StringUtils.hasText(search)) {
-            services = serviceRepository.findByNameContainingIgnoreCase(search.trim(), pageable)
-                    .map(ServiceMapper::toDTO);
-        } else {
-            services = serviceRepository.findAll(pageable).map(ServiceMapper::toDTO);
-        }
+        boolean hasNext = services.size() > normalizedSize;
+        List<ServiceDTO> content = services.stream()
+                .limit(normalizedSize)
+                .map(ServiceMapper::toDTO)
+                .toList();
+        Long nextCursor = hasNext && !content.isEmpty()
+                ? content.get(content.size() - 1).getId()
+                : null;
 
-        return PageResponse.from(services);
+        return ScrollResponse.of(content, normalizedSize, nextCursor, hasNext);
     }
 
     @Override

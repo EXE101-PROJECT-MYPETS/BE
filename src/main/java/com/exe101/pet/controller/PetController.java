@@ -17,8 +17,8 @@ public class PetController {
     private final PetService petService;
 
     @GetMapping
-    public ResponseEntity<List<PetDTO>> getAll() {
-        return ResponseEntity.ok(petService.getAll());
+    public ResponseEntity<List<PetDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(petService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class PetController {
     }
 
     @PostMapping
-    public ResponseEntity<PetDTO> create(@Valid @RequestBody PetDTO dto) {
+    public ResponseEntity<PetDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody PetDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(petService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PetDTO> update(@PathVariable Long id, @Valid @RequestBody PetDTO dto) {
+    public ResponseEntity<PetDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody PetDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(petService.update(id, dto));
     }
 

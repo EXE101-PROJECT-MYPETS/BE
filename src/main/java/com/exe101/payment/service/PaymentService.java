@@ -22,6 +22,12 @@ public class PaymentService implements IService<PaymentIntent, PaymentIntentDTO,
         return paymentIntentRepository.findAll().stream().map(PaymentIntentMapper::toDTO).toList();
     }
 
+    public List<PaymentIntentDTO> getAllByShopId(Long shopId) {
+        return paymentIntentRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(PaymentIntentMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public PaymentIntentDTO getById(Long id) {
         return paymentIntentRepository.findById(id)

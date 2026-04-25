@@ -17,8 +17,8 @@ public class ServicePackageController {
     private final ServicePackageService servicePackageService;
 
     @GetMapping
-    public ResponseEntity<List<ServicePackageDTO>> getAll() {
-        return ResponseEntity.ok(servicePackageService.getAll());
+    public ResponseEntity<List<ServicePackageDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(servicePackageService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class ServicePackageController {
     }
 
     @PostMapping
-    public ResponseEntity<ServicePackageDTO> create(@Valid @RequestBody ServicePackageDTO dto) {
+    public ResponseEntity<ServicePackageDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody ServicePackageDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(servicePackageService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<ServicePackageDTO> update(@PathVariable Long id, @Valid @RequestBody ServicePackageDTO dto) {
+    public ResponseEntity<ServicePackageDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody ServicePackageDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(servicePackageService.update(id, dto));
     }
 

@@ -22,6 +22,12 @@ public class InvoiceService implements IService<Invoice, InvoiceDTO, Long> {
         return invoiceRepository.findAll().stream().map(InvoiceMapper::toDTO).toList();
     }
 
+    public List<InvoiceDTO> getAllByShopId(Long shopId) {
+        return invoiceRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(InvoiceMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public InvoiceDTO getById(Long id) {
         return invoiceRepository.findById(id)

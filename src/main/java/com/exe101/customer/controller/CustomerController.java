@@ -17,8 +17,8 @@ public class CustomerController {
     private final CustomerService customerService;
 
     @GetMapping
-    public ResponseEntity<List<CustomerDTO>> getAll() {
-        return ResponseEntity.ok(customerService.getAll());
+    public ResponseEntity<List<CustomerDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(customerService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class CustomerController {
     }
 
     @PostMapping
-    public ResponseEntity<CustomerDTO> create(@Valid @RequestBody CustomerDTO dto) {
+    public ResponseEntity<CustomerDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody CustomerDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(customerService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<CustomerDTO> update(@PathVariable Long id, @Valid @RequestBody CustomerDTO dto) {
+    public ResponseEntity<CustomerDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody CustomerDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(customerService.update(id, dto));
     }
 

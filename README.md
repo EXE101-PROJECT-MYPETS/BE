@@ -22,9 +22,39 @@ Use this README as the onboarding note for future agents and engineers before re
 - Runtime schema defaults to `prod`
 - Auth is the most mature feature area
 - Most other domains expose CRUD routes, but still need domain rules and authorization hardening
-- Service categories are implemented under shop-scoped routes and are used by the frontend service manager
+- Service listing uses cursor-based infinite scroll on `/api/services`
+- Multi-shop endpoints must require `X-Shop-Id`; never expose all shops by default
 - `compile` passes
 - `test` is currently broken because the test package is `com.react`, while the app package is `com.exe101`
+
+## Multi-Shop API Rule
+
+This system can contain many shops. Any endpoint that lists or searches shop-owned data must require a shop scope on every request.
+
+Required rule:
+
+- Shop-owned endpoints must require the `X-Shop-Id` request header when shop scope is needed.
+- Do not make `X-Shop-Id` optional on shop-owned list/search APIs.
+- Do not use `(:shopId IS NULL OR ...)` as an API behavior for shop-owned lists. Repository queries may keep null handling for internal reuse, but controllers must require `X-Shop-Id`.
+- Create/update endpoints must take shop scope from `X-Shop-Id`; body `shopId`, when present, is not the source of truth.
+- Global catalog endpoints can omit `X-Shop-Id` only when the entity has no `shop_id`, for example `/api/vaccines`.
+
+Shop-owned endpoint groups currently requiring `X-Shop-Id`:
+
+- `/api/services`
+- `/api/bookings`
+- `/api/orders`
+- `/api/customers`
+- `/api/pets`
+- `/api/products`
+- `/api/resources`
+- `/api/inventories`
+- `/api/packages`
+- `/api/invoices`
+- `/api/payments`
+- `/api/conversations`
+- `/api/service-categories`
+- `/api/shops/staff`
 
 ## Fast Start For New Agents
 
@@ -133,14 +163,15 @@ Errors
 |------------------|---------------|----------------------|-------------------------------------------------------------------------------------------------|
 | `auth`           | Concrete      | `/api/auth`          | Customer register, shop-owner register, customer login, shop login, refresh, logout, logout-all |
 | `user`           | Partial       | `/api/user`          | Only `GET /api/user/{id}` is exposed                                                            |
-| `service_shop`   | CRUD scaffold | `/api/services`, `/api/shops/{shopId}/service-categories` | Service catalog CRUD and shop-scoped service category CRUD                                      |
+| `service_shop`   | CRUD scaffold | `/api/services`, `/api/service-categories` | Service catalog CRUD, cursor scroll, and shop-scoped service category CRUD                      |
 | `customer`       | CRUD scaffold | `/api/customers`     | Customer aggregate CRUD                                                                         |
 | `pet`            | CRUD scaffold | `/api/pets`          | Pet aggregate CRUD                                                                              |
 | `vaccine`        | CRUD scaffold | `/api/vaccines`      | Vaccine master CRUD                                                                             |
 | `product`        | CRUD scaffold | `/api/products`      | Product CRUD                                                                                    |
 | `inventory`      | CRUD scaffold | `/api/inventories`   | Composite-key inventory CRUD                                                                    |
 | `resource`       | CRUD scaffold | `/api/resources`     | Shop resource CRUD                                                                              |
-| `booking`        | CRUD scaffold | `/api/bookings`      | Booking aggregate CRUD                                                                          |
+| `booking`        | CRUD scaffold | `/api/bookings`      | Service appointment CRUD plus cursor scroll                                                     |
+| `order`          | CRUD scaffold | `/api/orders`        | Online product order CRUD plus cursor scroll                                                    |
 | `servicePackage` | CRUD scaffold | `/api/packages`      | Package CRUD                                                                                    |
 | `invoice`        | CRUD scaffold | `/api/invoices`      | Invoice CRUD                                                                                    |
 | `payment`        | CRUD scaffold | `/api/payments`      | Payment intent CRUD                                                                             |
@@ -180,6 +211,11 @@ Flyway migrations currently active:
 | `V4`    | `V4__alter_refresh_tokens.sql`            | Align refresh token column names with code                |
 | `V5`    | `V5__add_service_categories.sql`          | Add `service_categories`, `services.category_id`, indexes |
 | `V6`    | `V6__seed_default_service_categories.sql` | Seed default service categories for every existing shop   |
+| `V7`    | `V7__seed_service_management_demo_data.sql` | Seed service catalog demo data                            |
+| `V8`    | `V8__seed_booking_demo_data.sql`          | Seed service appointment demo data                        |
+| `V9`    | `V9__create_orders.sql`                   | Add online order tables and order enums                   |
+| `V10`   | `V10__link_invoices_to_orders.sql`        | Allow invoices to reference orders                        |
+| `V11`   | `V11__seed_order_demo_data.sql`           | Move demo booking products out of bookings and seed orders |
 
 Important SQL design traits:
 
@@ -202,6 +238,7 @@ The codebase now maps most of the main SQL areas:
 - services and service categories
 - products and inventories
 - bookings and helper booking tables
+- orders and helper order tables
 - packages and package ledgers
 - invoices
 - payment intents and payment transactions
@@ -297,7 +334,7 @@ When schema changes, update all impacted layers in the same work:
 | Success payloads     | Usually DTOs returned directly                 |
 | Error payload        | `code`, `message`, `data`                      |
 | Create responses     | Many controllers still return `200`, not `201` |
-| Inventory identifier | Composite key: `{shopId}/{productId}`          |
+| Inventory identifier | Composite key from `X-Shop-Id` header + `{productId}` |
 
 Error payload shape:
 
@@ -316,8 +353,8 @@ Error payload shape:
 | `POST` | `/api/auth/register`            | Register with `multipart/form-data`, create user and credential, optionally upload avatar to Supabase, return tokens plus user DTO                       |
 | `POST` | `/api/auth/shop-owner/register` | Register a shop owner with `multipart/form-data`, create `users`, `user_credentials`, `shops`, `shop_members`, then return tokens plus user and shop DTO |
 | `POST` | `/api/auth/customer/login`      | Customer login with email/password JSON payload                                                                                                          |
-| `POST` | `/api/auth/shop/login`          | Shop login with email/password JSON payload; only `SHOP` accounts with active `shop_members` are allowed                                                 |
-| `POST` | `/api/auth/refreshToken`        | Rotate refresh token using `{ "refreshToken": "token" }`                                                                                                 |
+| `POST` | `/api/auth/shop/login`          | Shop login with email/password JSON payload; only `SHOP` accounts with active `shop_members` are allowed; response includes `shops` and `currentShopId` |
+| `POST` | `/api/auth/refreshToken`        | Rotate refresh token using `{ "refreshToken": "token" }`; shop users receive refreshed `shops` and `currentShopId`                                      |
 | `POST` | `/api/auth/logout`              | Revoke one refresh token using `{ "refreshToken": "token" }`                                                                                             |
 | `POST` | `/api/auth/logout-all`          | Revoke all refresh tokens for the authenticated user; current implementation still has a principal-casting bug                                           |
 
@@ -331,6 +368,35 @@ Auth payload examples:
   "password": "secret123"
 }
 ```
+
+`POST /api/auth/shop/login` response shape:
+
+```json
+{
+  "accessToken": "jwt",
+  "role": "SHOP",
+  "refreshToken": "refresh-token",
+  "user": {
+    "id": 1,
+    "email": "owner@example.com",
+    "fullName": "Shop Owner",
+    "role": "SHOP"
+  },
+  "shops": [
+    {
+      "id": 1,
+      "name": "Pet Spa A",
+      "addressText": "123 Street",
+      "shopStatus": "ACTIVE",
+      "memberRole": "OWNER",
+      "memberStatus": "ACTIVE"
+    }
+  ],
+  "currentShopId": 1
+}
+```
+
+Frontend must send `currentShopId` or a selected item from `shops` as the `X-Shop-Id` header when calling shop-owned endpoints.
 
 `POST /api/auth/refreshToken`
 
@@ -354,15 +420,16 @@ Auth payload examples:
 |------------------|----------------------|-----------------------|---------------|-------------------------------------------------------------------------------------|
 | `auth`           | `/api/auth`          | `POST`                | Concrete      | Customer register, shop-owner register, customer login, shop login, refresh, logout |
 | `user`           | `/api/user`          | `GET`                 | Partial       | Read-only user lookup                                                               |
-| `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD                                                                |
-| `service_category` | `/api/shops/{shopId}/service-categories` | `GET/POST/PUT/DELETE` | CRUD scaffold | Shop-scoped service category CRUD with active filter                                |
+| `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD plus cursor scroll                                             |
+| `service_category` | `/api/service-categories` | `GET/POST/PUT/DELETE` | CRUD scaffold | Shop-scoped service category CRUD with active filter                                |
 | `customer`       | `/api/customers`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Customer CRUD                                                                       |
 | `pet`            | `/api/pets`          | `GET/POST/PUT/DELETE` | CRUD scaffold | Pet CRUD                                                                            |
 | `vaccine`        | `/api/vaccines`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Vaccine CRUD                                                                        |
 | `product`        | `/api/products`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Product CRUD                                                                        |
 | `inventory`      | `/api/inventories`   | `GET/POST/PUT/DELETE` | CRUD scaffold | Composite-key inventory CRUD                                                        |
 | `resource`       | `/api/resources`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Resource CRUD                                                                       |
-| `booking`        | `/api/bookings`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Booking CRUD                                                                        |
+| `booking`        | `/api/bookings`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service appointment CRUD plus cursor scroll                                         |
+| `order`          | `/api/orders`        | `GET/POST/PUT/DELETE` | CRUD scaffold | Online product order CRUD plus cursor scroll                                        |
 | `servicePackage` | `/api/packages`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Package CRUD                                                                        |
 | `invoice`        | `/api/invoices`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Invoice CRUD                                                                        |
 | `payment`        | `/api/payments`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Payment CRUD                                                                        |
@@ -375,13 +442,14 @@ Auth payload examples:
 Applies to these route groups:
 
 - `/api/services`
-- `/api/shops/{shopId}/service-categories`
+- `/api/service-categories`
 - `/api/customers`
 - `/api/pets`
 - `/api/vaccines`
 - `/api/products`
 - `/api/resources`
 - `/api/bookings`
+- `/api/orders`
 - `/api/packages`
 - `/api/invoices`
 - `/api/payments`
@@ -399,11 +467,23 @@ Applies to these route groups:
 
 | Module             | Method   | Endpoint                                             | Description                                          |
 |--------------------|----------|------------------------------------------------------|------------------------------------------------------|
-| `inventory`        | `GET`    | `/api/inventories`                                   | List inventory rows                                  |
+| `customer`         | `GET`    | `/api/customers?shopId=1`                            | List customers for one shop                          |
+| `pet`              | `GET`    | `/api/pets?shopId=1`                                 | List pets for one shop                               |
+| `product`          | `GET`    | `/api/products?shopId=1`                             | List products for one shop                           |
+| `resource`         | `GET`    | `/api/resources?shopId=1`                            | List shop resources for one shop                     |
+| `package`          | `GET`    | `/api/packages?shopId=1`                             | List service packages for one shop                   |
+| `invoice`          | `GET`    | `/api/invoices?shopId=1`                             | List invoices for one shop                           |
+| `payment`          | `GET`    | `/api/payments?shopId=1`                             | List payment intents for one shop                    |
+| `conversation`     | `GET`    | `/api/conversations?shopId=1`                        | List conversations for one shop                      |
+| `inventory`        | `GET`    | `/api/inventories?shopId=1`                          | List inventory rows for one shop                     |
 | `inventory`        | `GET`    | `/api/inventories/{shopId}/{productId}`              | Get one composite-key row                            |
 | `inventory`        | `POST`   | `/api/inventories`                                   | Create inventory row                                 |
 | `inventory`        | `PUT`    | `/api/inventories/{shopId}/{productId}`              | Update inventory row                                 |
 | `inventory`        | `DELETE` | `/api/inventories/{shopId}/{productId}`              | Delete inventory row                                 |
+| `service_shop`     | `GET`    | `/api/services?shopId=1&size=10&cursor=<lastId>`      | Cursor-based service list for infinite scroll; required `shopId`; optional `search`, `categoryId`, and `active` filters |
+| `shop`             | `GET`    | `/api/shops/{shopId}/staff`                           | List active staff members of a shop |
+| `booking`          | `GET`    | `/api/bookings?shopId=1&size=10&cursor=<nextCursor>`  | Cursor-based booking list for infinite scroll; required `shopId`; optional `customerId`, `customerName`, `status`, and `source` filters |
+| `order`            | `GET`    | `/api/orders?shopId=1&size=10&cursor=<lastId>`        | Cursor-based online order list for infinite scroll; required `shopId`; optional `customerId`, `status`, and `source` filters |
 | `service_category` | `GET`    | `/api/shops/{shopId}/service-categories?active=true` | List service categories by shop and optional active flag |
 | `service_category` | `GET`    | `/api/shops/{shopId}/service-categories/{id}`        | Get one category inside a shop                       |
 | `service_category` | `POST`   | `/api/shops/{shopId}/service-categories`             | Create category; requires active owner/manager membership |
@@ -412,6 +492,184 @@ Applies to these route groups:
 | `user`             | `GET`    | `/api/user/{id}`                                     | Get user DTO by id                                   |
 | `shop`             | none     | `/api/shop`                                          | Prefix exists only                                   |
 | `shopMember`       | none     | `/api/shop-member`                                   | Prefix exists only                                   |
+
+### Service Infinite Scroll
+
+Use `GET /api/services` for frontend infinite scroll:
+
+```text
+GET /api/services?shopId=1&size=10
+GET /api/services?shopId=1&size=10&cursor=<nextCursor>
+```
+
+Required query params:
+
+- `shopId`: limits services to one shop
+
+Optional filters:
+
+- `search`: trims and matches service name case-insensitively
+- `categoryId`: limits services to one category
+- `active`: pass `true` or `false`; omit it to include both active and inactive services
+
+Response shape:
+
+```json
+{
+  "content": [
+    {
+      "id": 4,
+      "shopId": 1,
+      "name": "hieuuu123123",
+      "durationMin": 30,
+      "basePrice": 122222,
+      "categoryId": 8,
+      "active": false
+    }
+  ],
+  "size": 10,
+  "nextCursor": 4,
+  "hasNext": true
+}
+```
+
+Frontend should append `content`, then call the next request with `cursor=nextCursor` only while `hasNext=true`. Reset `cursor` to empty when `search`, `shopId`, `categoryId`, or `active` changes.
+
+### Booking Infinite Scroll
+
+Use `GET /api/bookings` for frontend infinite scroll:
+
+```text
+GET /api/bookings?shopId=1&size=10
+GET /api/bookings?shopId=1&size=10&cursor=<nextCursor>
+```
+
+Required query params:
+
+- `shopId`: limits bookings to one shop
+
+Optional filters:
+
+- `customerId`: limits bookings to one customer
+- `customerName`: trims and matches customer full name case-insensitively
+- `status`: one of `DRAFT`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `REJECTED`, `CANCELLED`
+- `source`: one of `STAFF`, `CUSTOMER`, `SYSTEM`
+
+Default sort groups by status first: `DRAFT`, `CONFIRMED`, `IN_PROGRESS`, `COMPLETED`, `REJECTED`, `CANCELLED`. Active statuses sort by appointment time ascending inside each status; closed statuses sort by appointment time descending inside each status.
+
+Response shape:
+
+```json
+{
+  "content": [
+    {
+      "id": 12,
+      "bookingCode": "BKG-012",
+      "shopId": 1,
+      "customerId": 3,
+      "customerName": "Do Thi Thanh",
+      "customerPhone": "096778899",
+      "items": [
+        {
+          "itemType": "SERVICE",
+          "refId": 5,
+          "name": "Tam co ban",
+          "quantity": 1,
+          "unitPrice": 120000,
+          "amount": 120000
+        }
+      ],
+      "totalAmount": 387000,
+      "status": "CONFIRMED",
+      "statusLabel": "Đã xác nhận",
+      "source": "STAFF",
+      "assigneeId": 1,
+      "assigneeName": "Nguyen Van A",
+      "time": "2026-04-20T09:00:00+07:00",
+      "createdAt": "2026-04-20T08:30:00+07:00"
+    }
+  ],
+  "size": 10,
+  "nextCursor": 1,
+  "hasNext": true
+}
+```
+
+Frontend should append `content`, then call the next request with `cursor=nextCursor` only while `hasNext=true`. Reset `cursor` to empty when `shopId`, `customerId`, `customerName`, `status`, or `source` changes.
+For bookings, `nextCursor` is an opaque page cursor returned by the API; do not treat it as a booking id.
+
+Update only booking status:
+
+```http
+PUT /api/bookings/{id}/status
+Content-Type: application/json
+
+{ "status": "CONFIRMED" }
+```
+
+The endpoint also accepts `PUT /api/bookings/{id}/status?status=CONFIRMED`.
+
+### Order Infinite Scroll
+
+Use `GET /api/orders` for frontend online order infinite scroll:
+
+```text
+GET /api/orders?shopId=1&size=10
+GET /api/orders?shopId=1&size=10&cursor=<nextCursor>
+```
+
+Required query params:
+
+- `shopId`: limits orders to one shop
+
+Optional filters:
+
+- `customerId`: limits orders to one customer
+- `status`: one of `PENDING`, `CONFIRMED`, `PACKING`, `SHIPPING`, `COMPLETED`, `CANCELLED`
+- `source`: one of `ONLINE`, `STAFF`
+
+Response shape:
+
+```json
+{
+  "content": [
+    {
+      "id": 8,
+      "orderCode": "ORD-008",
+      "shopId": 1,
+      "customerId": 3,
+      "customerName": "Do Thi Thanh",
+      "customerPhone": "096778899",
+      "receiverName": "Do Thi Thanh",
+      "receiverPhone": "096778899",
+      "shippingAddress": "120 Vo Van Tan, Quan 3",
+      "items": [
+        {
+          "id": 21,
+          "shopId": 1,
+          "orderId": 8,
+          "productId": 4,
+          "productName": "Hat dinh duong premium",
+          "qty": 3,
+          "unitPrice": 129000,
+          "amount": 387000,
+          "createdAt": "2026-04-20T08:30:00+07:00"
+        }
+      ],
+      "totalAmount": 382000,
+      "status": "COMPLETED",
+      "statusLabel": "Hoan thanh",
+      "source": "ONLINE",
+      "createdAt": "2026-04-20T08:30:00+07:00"
+    }
+  ],
+  "size": 10,
+  "nextCursor": 8,
+  "hasNext": true
+}
+```
+
+Frontend should append `content`, then call the next request with `cursor=nextCursor` only while `hasNext=true`. Reset `cursor` to empty when `shopId`, `customerId`, `status`, or `source` changes.
 
 ### Status Codes
 
@@ -432,7 +690,7 @@ Applies to these route groups:
 - Advanced domain invariants are not guaranteed yet
 - Do not silently change route contracts
 - If a route contract changes, update README and notify frontend consumers in the same PR
-- Frontend service management currently assumes `shopId=1` and calls `/api/shops/1/service-categories?active=true`; update FE and README together when tenant/shop resolution changes
+- Frontend must send the selected/current `shopId` to every shop-owned list endpoint. Do not rely on backend defaults for shop scope.
 
 ## Build/Test
 

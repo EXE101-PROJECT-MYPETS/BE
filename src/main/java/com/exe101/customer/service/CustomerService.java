@@ -22,6 +22,12 @@ public class CustomerService implements IService<Customer, CustomerDTO, Long> {
         return customerRepository.findAll().stream().map(CustomerMapper::toDTO).toList();
     }
 
+    public List<CustomerDTO> getAllByShopId(Long shopId) {
+        return customerRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(CustomerMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public CustomerDTO getById(Long id) {
         return customerRepository.findById(id)

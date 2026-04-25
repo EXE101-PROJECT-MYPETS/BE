@@ -22,7 +22,9 @@ public class BookingMapper {
                 entity.getNote(),
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                null,
+                null
         );
     }
 

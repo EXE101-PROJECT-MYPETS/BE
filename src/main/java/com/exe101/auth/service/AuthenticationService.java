@@ -2,6 +2,7 @@ package com.exe101.auth.service;
 
 import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
+import com.exe101.auth.dto.AuthenticatedShopDTO;
 import com.exe101.auth.dto.RegisterRequest;
 import com.exe101.auth.exception.AuthAccessDeniedException;
 import com.exe101.auth.exception.LoginException;
@@ -30,6 +31,7 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -142,12 +144,15 @@ public class AuthenticationService {
 
             String accessToken = jwtService.generateToken(principal);
             RefreshToken refreshToken = refreshTokenService.create(user.getId());
+            List<AuthenticatedShopDTO> shops = resolveAuthenticatedShops(user);
 
             return new AuthenticationResponse(
                     accessToken,
                     user.getRole(),
                     refreshToken.getToken(),
-                    userMapper.toDTO(user)
+                    userMapper.toDTO(user),
+                    shops,
+                    resolveCurrentShopId(shops)
 
             );
 
@@ -191,13 +196,27 @@ public class AuthenticationService {
         var principal = new UserPrincipal(user, cred);
 
         String accessToken = jwtService.generateToken(principal);
+        List<AuthenticatedShopDTO> shops = resolveAuthenticatedShops(user);
 
         return new AuthenticationResponse(
                 accessToken,
                 user.getRole(),
                 rotated.getToken(),
-                userMapper.toDTO(user)
+                userMapper.toDTO(user),
+                shops,
+                resolveCurrentShopId(shops)
         );
+    }
+
+    private List<AuthenticatedShopDTO> resolveAuthenticatedShops(User user) {
+        if (user.getRole() != UserRole.SHOP) {
+            return List.of();
+        }
+        return shopMemberRepository.findAuthenticatedShopsByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE);
+    }
+
+    private Long resolveCurrentShopId(List<AuthenticatedShopDTO> shops) {
+        return shops.isEmpty() ? null : shops.get(0).getId();
     }
 
     public void logout(String refreshToken) {

@@ -15,6 +15,7 @@ public class InvoiceMapper {
                 entity.getShopId(),
                 entity.getCustomerId(),
                 entity.getBookingId(),
+                entity.getOrderId(),
                 entity.getTotalAmount(),
                 entity.getStatus(),
                 entity.getIssuedAt(),
@@ -34,6 +35,7 @@ public class InvoiceMapper {
         entity.setShopId(dto.getShopId());
         entity.setCustomerId(dto.getCustomerId());
         entity.setBookingId(dto.getBookingId());
+        entity.setOrderId(dto.getOrderId());
         entity.setTotalAmount(dto.getTotalAmount() != null ? dto.getTotalAmount() : 0L);
         entity.setStatus(dto.getStatus() != null ? dto.getStatus() : InvoiceStatus.DRAFT);
         entity.setIssuedAt(dto.getIssuedAt());

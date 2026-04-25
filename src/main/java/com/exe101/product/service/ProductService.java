@@ -22,6 +22,12 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         return productRepository.findAll().stream().map(ProductMapper::toDTO).toList();
     }
 
+    public List<ProductDTO> getAllByShopId(Long shopId) {
+        return productRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(ProductMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public ProductDTO getById(Long id) {
         return productRepository.findById(id)

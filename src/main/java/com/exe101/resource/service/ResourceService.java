@@ -22,6 +22,12 @@ public class ResourceService implements IService<ShopResource, ShopResourceDTO, 
         return shopResourceRepository.findAll().stream().map(ShopResourceMapper::toDTO).toList();
     }
 
+    public List<ShopResourceDTO> getAllByShopId(Long shopId) {
+        return shopResourceRepository.findByShopIdOrderByIdDesc(shopId).stream()
+                .map(ShopResourceMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public ShopResourceDTO getById(Long id) {
         return shopResourceRepository.findById(id)

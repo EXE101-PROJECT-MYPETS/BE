@@ -18,7 +18,6 @@ public class ServiceDTO {
 
     private Long id;
 
-    @NotNull(message = "shopId is required for create")
     private Long shopId;
 
     @NotBlank(message = "name is required")

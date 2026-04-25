@@ -17,6 +17,7 @@ public class InvoiceDTO {
     private Long shopId;
     private Long customerId;
     private Long bookingId;
+    private Long orderId;
     private Long totalAmount;
     private InvoiceStatus status;
     private OffsetDateTime issuedAt;

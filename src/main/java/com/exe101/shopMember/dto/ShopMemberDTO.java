@@ -17,15 +17,10 @@ public class ShopMemberDTO {
 
     private Long shopId;
     private Long userId;
-
     private ShopRole role;
     private MemberStatus status;
-
-    // metadata
     private OffsetDateTime createdAt;
-
-    // ===== optional: thông tin user để hiển thị =====
-    // (join bằng query, không map entity)
     private String userFullName;
     private String userEmail;
+    private String avatarUrlPreview;
 }

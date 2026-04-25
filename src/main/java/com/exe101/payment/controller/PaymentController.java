@@ -17,8 +17,8 @@ public class PaymentController {
     private final PaymentService paymentService;
 
     @GetMapping
-    public ResponseEntity<List<PaymentIntentDTO>> getAll() {
-        return ResponseEntity.ok(paymentService.getAll());
+    public ResponseEntity<List<PaymentIntentDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(paymentService.getAllByShopId(shopId));
     }
 
     @GetMapping("/{id}")
@@ -27,12 +27,21 @@ public class PaymentController {
     }
 
     @PostMapping
-    public ResponseEntity<PaymentIntentDTO> create(@Valid @RequestBody PaymentIntentDTO dto) {
+    public ResponseEntity<PaymentIntentDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody PaymentIntentDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(paymentService.create(dto));
     }
 
     @PutMapping("/{id}")
-    public ResponseEntity<PaymentIntentDTO> update(@PathVariable Long id, @Valid @RequestBody PaymentIntentDTO dto) {
+    public ResponseEntity<PaymentIntentDTO> update(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody PaymentIntentDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(paymentService.update(id, dto));
     }
 

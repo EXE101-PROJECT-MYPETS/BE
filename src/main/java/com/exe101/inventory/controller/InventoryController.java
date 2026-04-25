@@ -18,31 +18,43 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping
-    public ResponseEntity<List<InventoryDTO>> getAll() {
-        return ResponseEntity.ok(inventoryService.getAll());
+    public ResponseEntity<List<InventoryDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
+        return ResponseEntity.ok(inventoryService.getAllByShopId(shopId));
     }
 
-    @GetMapping("/{shopId}/{productId}")
-    public ResponseEntity<InventoryDTO> getById(@PathVariable Long shopId, @PathVariable Long productId) {
+    @GetMapping("/{productId}")
+    public ResponseEntity<InventoryDTO> getById(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long productId
+    ) {
         return ResponseEntity.ok(inventoryService.getById(new InventoryId(shopId, productId)));
     }
 
     @PostMapping
-    public ResponseEntity<InventoryDTO> create(@Valid @RequestBody InventoryDTO dto) {
+    public ResponseEntity<InventoryDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody InventoryDTO dto
+    ) {
+        dto.setShopId(shopId);
         return ResponseEntity.ok(inventoryService.create(dto));
     }
 
-    @PutMapping("/{shopId}/{productId}")
+    @PutMapping("/{productId}")
     public ResponseEntity<InventoryDTO> update(
-            @PathVariable Long shopId,
+            @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long productId,
             @Valid @RequestBody InventoryDTO dto
     ) {
+        dto.setShopId(shopId);
+        dto.setProductId(productId);
         return ResponseEntity.ok(inventoryService.update(new InventoryId(shopId, productId), dto));
     }
 
-    @DeleteMapping("/{shopId}/{productId}")
-    public ResponseEntity<Void> delete(@PathVariable Long shopId, @PathVariable Long productId) {
+    @DeleteMapping("/{productId}")
+    public ResponseEntity<Void> delete(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long productId
+    ) {
         inventoryService.delete(new InventoryId(shopId, productId));
         return ResponseEntity.noContent().build();
     }

@@ -23,6 +23,12 @@ public class InventoryService implements IService<Inventory, InventoryDTO, Inven
         return inventoryRepository.findAll().stream().map(InventoryMapper::toDTO).toList();
     }
 
+    public List<InventoryDTO> getAllByShopId(Long shopId) {
+        return inventoryRepository.findByShopId(shopId).stream()
+                .map(InventoryMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public InventoryDTO getById(InventoryId id) {
         return inventoryRepository.findById(id)
