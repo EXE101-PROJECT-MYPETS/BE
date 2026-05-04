@@ -1,7 +1,10 @@
 package com.exe101.common.supabase.service;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
+import org.springframework.http.HttpEntity;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpMethod;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
@@ -26,9 +29,41 @@ public class SupabaseStorageService {
     private final RestTemplate restTemplate = new RestTemplate();
 
     public String uploadPublic(MultipartFile file, String folder) {
+        UploadTarget uploadTarget = upload(file, folder);
+        return buildPublicUrl(uploadTarget.encodedPath());
+    }
+
+    public String uploadPublicPath(MultipartFile file, String folder) {
+        return upload(file, folder).path();
+    }
+
+    public String extractPublicObjectPath(String urlOrPath) {
+        if (urlOrPath == null) {
+            return null;
+        }
+
+        String normalized = urlOrPath.trim();
+        if (normalized.isBlank()) {
+            return normalized;
+        }
+
+        String publicPrefix = buildPublicPrefix();
+        if (normalized.startsWith(publicPrefix)) {
+            return normalized.substring(publicPrefix.length());
+        }
+
+        String bucketPrefix = bucket + "/";
+        if (normalized.startsWith(bucketPrefix)) {
+            return normalized.substring(bucketPrefix.length());
+        }
+
+        return normalized.startsWith("/") ? normalized.substring(1) : normalized;
+    }
+
+    private UploadTarget upload(MultipartFile file, String folder) {
         try {
             if (file == null || file.isEmpty()) {
-                throw new IllegalArgumentException("File rỗng");
+                throw new IllegalArgumentException("Tệp tải lên đang trống");
             }
 
             String original = Objects.requireNonNullElse(file.getOriginalFilename(), "file");
@@ -54,14 +89,22 @@ public class SupabaseStorageService {
             ResponseEntity<String> res = restTemplate.exchange(uploadUrl, HttpMethod.POST, req, String.class);
 
             if (!res.getStatusCode().is2xxSuccessful()) {
-                throw new RuntimeException("Supabase upload lỗi: " + res.getStatusCode());
+                throw new RuntimeException("Tải tệp lên Supabase thất bại: " + res.getStatusCode());
             }
 
-            return supabaseUrl + "/storage/v1/object/public/" + bucket + "/" + encodedPath;
+            return new UploadTarget(path, encodedPath);
 
         } catch (Exception e) {
-            throw new RuntimeException("Upload Supabase thất bại: " + e.getMessage(), e);
+            throw new RuntimeException("Tải tệp lên Supabase thất bại: " + e.getMessage(), e);
         }
+    }
+
+    private String buildPublicUrl(String encodedPath) {
+        return buildPublicPrefix() + encodedPath;
+    }
+
+    private String buildPublicPrefix() {
+        return supabaseUrl + "/storage/v1/object/public/" + bucket + "/";
     }
 
     private String resolveContentType(MultipartFile file) {
@@ -77,7 +120,7 @@ public class SupabaseStorageService {
         if (lower.endsWith(".gif")) return "image/gif";
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
 
-        throw new IllegalArgumentException("File không phải ảnh hợp lệ: " + name);
+        throw new IllegalArgumentException("Tệp không phải ảnh hợp lệ: " + name);
     }
 
     private String encodePath(String path) {
@@ -88,5 +131,8 @@ public class SupabaseStorageService {
             sb.append(URLEncoder.encode(parts[i], StandardCharsets.UTF_8));
         }
         return sb.toString();
+    }
+
+    private record UploadTarget(String path, String encodedPath) {
     }
 }

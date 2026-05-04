@@ -22,8 +22,11 @@ public class CustomerOrder {
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "customer_id")
     private Long customerId;
+
+    @Column(name = "customer_address_id")
+    private Long customerAddressId;
 
     @Column(name = "order_code")
     private String orderCode;
@@ -56,6 +59,21 @@ public class CustomerOrder {
 
     @Column(name = "shipping_address")
     private String shippingAddress;
+
+    @Column(name = "shipping_province")
+    private String shippingProvince;
+
+    @Column(name = "shipping_district")
+    private String shippingDistrict;
+
+    @Column(name = "shipping_ward")
+    private String shippingWard;
+
+    @Column(name = "shipping_street")
+    private String shippingStreet;
+
+    @Column(name = "shipping_hamlet")
+    private String shippingHamlet;
 
     private String note;
 

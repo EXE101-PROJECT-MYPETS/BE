@@ -1,5 +1,6 @@
 package com.exe101.inventory.controller;
 
+import com.exe101.common.ScrollResponse;
 import com.exe101.inventory.dto.InventoryDTO;
 import com.exe101.inventory.entity.InventoryId;
 import com.exe101.inventory.service.InventoryService;
@@ -7,8 +8,6 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/inventories")
@@ -18,8 +17,12 @@ public class InventoryController {
     private final InventoryService inventoryService;
 
     @GetMapping
-    public ResponseEntity<List<InventoryDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
-        return ResponseEntity.ok(inventoryService.getAllByShopId(shopId));
+    public ResponseEntity<ScrollResponse<InventoryDTO>> getAll(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(inventoryService.getAllForScroll(shopId, cursor, size));
     }
 
     @GetMapping("/{productId}")

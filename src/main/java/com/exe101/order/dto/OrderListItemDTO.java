@@ -1,5 +1,7 @@
 package com.exe101.order.dto;
 
+import com.exe101.customer.dto.CustomerDTO;
+import com.exe101.customerAddress.dto.CustomerAddressDTO;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
 import lombok.AllArgsConstructor;
@@ -19,11 +21,10 @@ public class OrderListItemDTO {
     private String orderCode;
     private Long shopId;
     private Long customerId;
-    private String customerName;
-    private String customerPhone;
-    private String receiverName;
-    private String receiverPhone;
-    private String shippingAddress;
+    private CustomerDTO customer;
+    private Long customerAddressId;
+    private CustomerAddressDTO customerAddress;
+    private OrderShippingSnapshotDTO shippingSnapshot;
     private List<OrderItemDTO> items;
     private Long totalAmount;
     private OrderStatus status;

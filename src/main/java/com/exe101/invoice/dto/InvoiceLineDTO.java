@@ -15,6 +15,7 @@ public class InvoiceLineDTO {
     private Long invoiceId;
     private String lineType;
     private Long refId;
+    private String itemName;
     private Integer qty;
     private Long unitPrice;
     private Long amount;

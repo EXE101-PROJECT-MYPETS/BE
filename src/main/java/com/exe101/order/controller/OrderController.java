@@ -8,8 +8,11 @@ import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.service.OrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -24,6 +27,9 @@ public class OrderController {
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) OrderSource source,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate createdDate,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -32,14 +38,18 @@ public class OrderController {
                 customerId,
                 status,
                 source,
+                createdDate,
                 cursor,
                 size
         ));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<OrderDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(orderService.getById(id));
+    public ResponseEntity<OrderListItemDTO> getById(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.getDetail(shopId, id));
     }
 
     @PostMapping

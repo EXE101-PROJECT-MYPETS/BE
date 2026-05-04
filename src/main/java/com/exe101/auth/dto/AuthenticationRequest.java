@@ -11,11 +11,11 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class AuthenticationRequest {
-    @NotBlank(message = "Email is required")
-    @Email(message = "Must be a valid email address")
+    @NotBlank(message = "Email không được để trống")
+    @Email(message = "Email không đúng định dạng")
     private String email;
 
-    @NotBlank(message = "Password is required")
-    @Size(min = 6, max = 50, message = "Invalid password!")
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Size(min = 6, max = 50, message = "Mật khẩu phải có từ 6 đến 50 ký tự")
     private String password;
 }

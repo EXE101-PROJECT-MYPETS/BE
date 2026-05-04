@@ -21,6 +21,23 @@ public class CustomerController {
         return ResponseEntity.ok(customerService.getAllByShopId(shopId));
     }
 
+    @GetMapping("/verify-phone")
+    public ResponseEntity<CustomerDTO> verifyByPhone(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam String phone
+    ) {
+        return ResponseEntity.ok(customerService.verifyByPhone(shopId, phone));
+    }
+
+    @GetMapping("/suggest")
+    public ResponseEntity<List<CustomerDTO>> suggestByPhone(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam String phone,
+            @RequestParam(defaultValue = "10") int limit
+    ) {
+        return ResponseEntity.ok(customerService.suggestByPhone(shopId, phone, limit));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<CustomerDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(customerService.getById(id));

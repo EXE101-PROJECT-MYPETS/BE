@@ -32,7 +32,7 @@ public class ServicePackageService implements IService<ServicePackage, ServicePa
     public ServicePackageDTO getById(Long id) {
         return servicePackageRepository.findById(id)
                 .map(ServicePackageMapper::toDTO)
-                .orElseThrow(() -> new ServicePackageNotFound("ServicePackageNotFound", "Package not found"));
+                .orElseThrow(() -> new ServicePackageNotFound("ServicePackageNotFound", "Không tìm thấy gói dịch vụ"));
     }
 
     @Override
@@ -43,7 +43,7 @@ public class ServicePackageService implements IService<ServicePackage, ServicePa
     @Override
     public ServicePackageDTO update(Long id, ServicePackageDTO dto) {
         ServicePackage entity = servicePackageRepository.findById(id)
-                .orElseThrow(() -> new ServicePackageNotFound("ServicePackageNotFound", "Package not found"));
+                .orElseThrow(() -> new ServicePackageNotFound("ServicePackageNotFound", "Không tìm thấy gói dịch vụ"));
         ServicePackageMapper.updateEntity(entity, dto);
         return ServicePackageMapper.toDTO(servicePackageRepository.save(entity));
     }
@@ -51,7 +51,7 @@ public class ServicePackageService implements IService<ServicePackage, ServicePa
     @Override
     public void delete(Long id) {
         if (!servicePackageRepository.existsById(id)) {
-            throw new ServicePackageNotFound("ServicePackageNotFound", "Package not found");
+            throw new ServicePackageNotFound("ServicePackageNotFound", "Không tìm thấy gói dịch vụ");
         }
         servicePackageRepository.deleteById(id);
     }

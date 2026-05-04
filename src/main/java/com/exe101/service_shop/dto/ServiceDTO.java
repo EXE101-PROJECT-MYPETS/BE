@@ -20,16 +20,16 @@ public class ServiceDTO {
 
     private Long shopId;
 
-    @NotBlank(message = "name is required")
-    @Size(max = 255, message = "name max 255 chars")
+    @NotBlank(message = "Tên dịch vụ không được để trống")
+    @Size(max = 255, message = "Tên dịch vụ không được vượt quá 255 ký tự")
     private String name;
 
-    @NotNull(message = "durationMin is required for create")
-    @Min(value = 1, message = "durationMin must be > 0")
+    @NotNull(message = "Thời lượng dịch vụ không được để trống")
+    @Min(value = 1, message = "Thời lượng dịch vụ phải lớn hơn 0")
     private Integer durationMin;
 
-    @NotNull(message = "basePrice is required for create")
-    @Min(value = 0, message = "basePrice must be >= 0")
+    @NotNull(message = "Giá dịch vụ không được để trống")
+    @Min(value = 0, message = "Giá dịch vụ phải lớn hơn hoặc bằng 0")
     private Long basePrice;
 
     private Long categoryId;

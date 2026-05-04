@@ -32,7 +32,7 @@ public class PetService implements IService<Pet, PetDTO, Long> {
     public PetDTO getById(Long id) {
         return petRepository.findById(id)
                 .map(PetMapper::toDTO)
-                .orElseThrow(() -> new PetNotFound("PetNotFound", "Pet not found"));
+                .orElseThrow(() -> new PetNotFound("PetNotFound", "Không tìm thấy thú cưng"));
     }
 
     @Override
@@ -43,7 +43,7 @@ public class PetService implements IService<Pet, PetDTO, Long> {
     @Override
     public PetDTO update(Long id, PetDTO dto) {
         Pet entity = petRepository.findById(id)
-                .orElseThrow(() -> new PetNotFound("PetNotFound", "Pet not found"));
+                .orElseThrow(() -> new PetNotFound("PetNotFound", "Không tìm thấy thú cưng"));
         PetMapper.updateEntity(entity, dto);
         return PetMapper.toDTO(petRepository.save(entity));
     }
@@ -51,7 +51,7 @@ public class PetService implements IService<Pet, PetDTO, Long> {
     @Override
     public void delete(Long id) {
         if (!petRepository.existsById(id)) {
-            throw new PetNotFound("PetNotFound", "Pet not found");
+            throw new PetNotFound("PetNotFound", "Không tìm thấy thú cưng");
         }
         petRepository.deleteById(id);
     }

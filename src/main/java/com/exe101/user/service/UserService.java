@@ -30,7 +30,7 @@ public class UserService implements IService<User, UserDTO, Long> {
     public UserDTO getById(Long id) {
         return userRepository.findById(id)
                 .map(userMapper::toDTO)
-                .orElseThrow(() -> new UserNotFound("UserNotFound", "User Not Found!"));
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
     }
 
     @Override

@@ -16,12 +16,18 @@ import java.util.List;
 public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMemberId> {
     boolean existsByUserIdAndStatus(Long userId, MemberStatus status);
 
+    boolean existsByShopIdAndUserId(Long shopId, Long userId);
+
     boolean existsByShopIdAndUserIdAndRoleInAndStatus(
             Long shopId,
             Long userId,
             Collection<ShopRole> roles,
             MemberStatus status
     );
+
+    long countByShopIdAndRoleAndStatus(Long shopId, ShopRole role, MemberStatus status);
+
+    java.util.Optional<ShopMember> findByShopIdAndUserId(Long shopId, Long userId);
 
     @Query("""
             SELECT new com.exe101.shopMember.dto.ShopMemberDTO(
@@ -32,6 +38,7 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
                 member.createdAt,
                 user.fullName,
                 user.email,
+                user.phone,
                 user.avatarUrlPreview
             )
             FROM ShopMember member
@@ -45,6 +52,62 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
             @Param("shopId") Long shopId,
             @Param("role") ShopRole role,
             @Param("status") MemberStatus status
+    );
+
+    @Query("""
+            SELECT new com.exe101.shopMember.dto.ShopMemberDTO(
+                member.shopId,
+                member.userId,
+                member.role,
+                member.status,
+                member.createdAt,
+                user.fullName,
+                user.email,
+                user.phone,
+                user.avatarUrlPreview
+            )
+            FROM ShopMember member
+            JOIN member.user user
+            WHERE member.shopId = :shopId
+              AND member.role <> :excludedRole
+              AND (:role IS NULL OR member.role = :role)
+              AND (:status IS NULL OR member.status = :status)
+              AND (
+                  :keyword IS NULL
+                  OR LOWER(user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                  OR LOWER(COALESCE(user.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                  OR LOWER(COALESCE(user.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+              )
+            ORDER BY member.createdAt ASC, member.userId ASC
+            """)
+    List<ShopMemberDTO> findByShopIdForDisplay(
+            @Param("shopId") Long shopId,
+            @Param("excludedRole") ShopRole excludedRole,
+            @Param("role") ShopRole role,
+            @Param("status") MemberStatus status,
+            @Param("keyword") String keyword
+    );
+
+    @Query("""
+            SELECT new com.exe101.shopMember.dto.ShopMemberDTO(
+                member.shopId,
+                member.userId,
+                member.role,
+                member.status,
+                member.createdAt,
+                user.fullName,
+                user.email,
+                user.phone,
+                user.avatarUrlPreview
+            )
+            FROM ShopMember member
+            JOIN member.user user
+            WHERE member.shopId = :shopId
+              AND member.userId = :userId
+            """)
+    java.util.Optional<ShopMemberDTO> findDetailByShopIdAndUserId(
+            @Param("shopId") Long shopId,
+            @Param("userId") Long userId
     );
 
     @Query("""

@@ -72,7 +72,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
     public ServiceDTO getById(Long id) {
         return serviceRepository.findById(id)
                 .map(ServiceMapper::toDTO)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Service not found"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
     }
 
     @Override
@@ -85,7 +85,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
     @Override
     public ServiceDTO update(Long id, ServiceDTO dto) {
         com.exe101.service_shop.entity.Service entity = serviceRepository.findById(id)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Service not found"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), id);
         entity.setShopId(dto.getShopId());
         entity.setName(dto.getName());
@@ -99,7 +99,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
     @Override
     public void delete(Long id) {
         if (!serviceRepository.existsById(id)) {
-            throw new ServiceNotFound("ServiceNotFound", "Service not found");
+            throw new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ");
         }
         serviceRepository.deleteById(id);
     }
@@ -116,7 +116,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
         if (!allowed) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Only shop owner or manager can create service"
+                    "Chỉ chủ shop hoặc quản lý mới được tạo dịch vụ"
             );
         }
     }
@@ -126,7 +126,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Authenticated user is required"
+                    "Yêu cầu người dùng đã đăng nhập"
             );
         }
         return userPrincipal.getUser().getId();

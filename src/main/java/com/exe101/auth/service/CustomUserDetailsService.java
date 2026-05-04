@@ -26,14 +26,13 @@ public class CustomUserDetailsService implements UserDetailsService {
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new UsernameNotFoundException("User not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng"));
 
         UserCredential cred = credentialRepository.findById(user.getId())
-                .orElseThrow(() -> new UsernameNotFoundException("Credential not found"));
+                .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy thông tin đăng nhập"));
 
-        // Nếu bạn chỉ cho login password với LOCAL
         if (cred.getProvider() != CredentialProvider.LOCAL) {
-            throw new UsernameNotFoundException("Use " + cred.getProvider() + " to login");
+            throw new UsernameNotFoundException("Vui lòng đăng nhập bằng phương thức " + cred.getProvider());
         }
 
         return new UserPrincipal(user, cred);

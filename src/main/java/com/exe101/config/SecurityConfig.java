@@ -52,17 +52,16 @@ public class SecurityConfig {
         return email -> {
             User user = userRepository.findByEmail(email)
                     .orElseThrow(() ->
-                            new UsernameNotFoundException("User not found with email " + email)
+                            new UsernameNotFoundException("Không tìm thấy người dùng với email " + email)
                     );
 
             UserCredential cred = credentialRepository.findById(user.getId())
                     .orElseThrow(() ->
-                            new UsernameNotFoundException("Credential not found for user " + email)
+                            new UsernameNotFoundException("Không tìm thấy thông tin đăng nhập của người dùng " + email)
                     );
 
-            // Nếu chỉ cho login mật khẩu với LOCAL
             if (cred.getProvider() != CredentialProvider.LOCAL) {
-                throw new UsernameNotFoundException("Use " + cred.getProvider() + " to login");
+                throw new UsernameNotFoundException("Vui lòng đăng nhập bằng phương thức " + cred.getProvider());
             }
 
             return new UserPrincipal(user, cred);
@@ -95,7 +94,6 @@ public class SecurityConfig {
             JwtAuthenticationFilterController jwtFilter
     ) throws Exception {
 
-
         http
                 .cors(cors -> {
                 })
@@ -104,13 +102,10 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
                 .authorizeHttpRequests(auth -> auth
-                        //các đường dẫn sau được đi qua bước phân quyền nhưng vẫn phải đi qua jwtFilter
                         .requestMatchers("/api/auth/**", "/error", "/graphql", "/ws/**", "/ws-sockjs/**", "/chat/**", "/api/test/**")
                         .permitAll()
-                        // các đường dẫn khác phải đi qua được jwtFilter và setAuthentication được thì mới qua được day
                         .anyRequest().authenticated()
                 )
-                // UsernamePasswordAuthenticationFilter chỉ bắt các rq có /login các rq khác kh bắt và cho đi tiếp
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(ex -> ex
                         .accessDeniedHandler(accessDeniedHandler)
@@ -128,7 +123,7 @@ public class SecurityConfig {
                 "http://localhost:5173",
                 "https://*.vercel.app"
         ));
-        config.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+        config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);
 

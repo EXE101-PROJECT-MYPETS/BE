@@ -38,7 +38,7 @@ public class ServiceCategoryService {
     public ServiceCategoryDTO getById(Long shopId, Long id) {
         return serviceCategoryRepository.findByIdAndShopId(id, shopId)
                 .map(ServiceCategoryMapper::toDTO)
-                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Service category not found"));
+                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Không tìm thấy nhóm dịch vụ"));
     }
 
     public ServiceCategoryDTO create(Long shopId, ServiceCategoryDTO dto) {
@@ -54,7 +54,7 @@ public class ServiceCategoryService {
         assertCanManageCategory(shopId);
 
         ServiceCategory entity = serviceCategoryRepository.findByIdAndShopId(id, shopId)
-                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Service category not found"));
+                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Không tìm thấy nhóm dịch vụ"));
         assertCategoryNameNotDuplicated(shopId, dto.getName(), id);
         ServiceCategoryMapper.updateEntity(entity, dto);
         return ServiceCategoryMapper.toDTO(serviceCategoryRepository.save(entity));
@@ -64,7 +64,7 @@ public class ServiceCategoryService {
         assertCanManageCategory(shopId);
 
         ServiceCategory entity = serviceCategoryRepository.findByIdAndShopId(id, shopId)
-                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Service category not found"));
+                .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Không tìm thấy nhóm dịch vụ"));
         entity.setActive(false);
         serviceCategoryRepository.save(entity);
     }
@@ -81,7 +81,7 @@ public class ServiceCategoryService {
         if (!allowed) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Only shop owner or manager can manage service categories"
+                    "Chỉ chủ shop hoặc quản lý mới được quản lý nhóm dịch vụ"
             );
         }
     }
@@ -91,7 +91,7 @@ public class ServiceCategoryService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Authenticated user is required"
+                    "Yêu cầu người dùng đã đăng nhập"
             );
         }
         return userPrincipal.getUser().getId();

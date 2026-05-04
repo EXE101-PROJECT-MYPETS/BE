@@ -41,7 +41,7 @@ public class RefreshTokenService {
     public RefreshToken verify(RefreshToken rt) {
         if (!rt.getExpiryAt().isAfter(Instant.now())) {
             repo.deleteByToken(rt.getToken());
-            throw new IllegalStateException("Refresh token expired");
+            throw new IllegalStateException("Phiên đăng nhập đã hết hạn");
         }
         return rt;
     }
@@ -49,7 +49,7 @@ public class RefreshTokenService {
     @Transactional
     public RefreshToken rotate(String oldToken) {
         RefreshToken current = repo.findByToken(oldToken)
-                .orElseThrow(() -> new IllegalArgumentException("Invalid token"));
+                .orElseThrow(() -> new IllegalArgumentException("Refresh token không hợp lệ"));
 
         verify(current);
         repo.deleteByToken(current.getToken());

@@ -96,13 +96,13 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "ACCESS_TOKEN_EXPIRED"
+                    "Phiên đăng nhập đã hết hạn"
             );
         } catch (JwtException e) {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "INVALID_TOKEN"
+                    "Token không hợp lệ"
             );
         }
     }

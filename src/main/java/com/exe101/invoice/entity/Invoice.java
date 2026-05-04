@@ -24,7 +24,7 @@ public class Invoice {
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "customer_id")
     private Long customerId;
 
     @Column(name = "booking_id")
@@ -39,6 +39,10 @@ public class Invoice {
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private InvoiceStatus status = InvoiceStatus.DRAFT;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "payment_method", length = 30)
+    private InvoicePaymentMethod paymentMethod;
 
     @Column(name = "issued_at")
     private OffsetDateTime issuedAt;

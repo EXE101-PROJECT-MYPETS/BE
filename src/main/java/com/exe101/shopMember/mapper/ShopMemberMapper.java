@@ -17,6 +17,12 @@ public class ShopMemberMapper {
         dto.setRole(entity.getRole());
         dto.setStatus(entity.getStatus());
         dto.setCreatedAt(entity.getCreatedAt());
+        if (entity.getUser() != null) {
+            dto.setUserFullName(entity.getUser().getFullName());
+            dto.setUserEmail(entity.getUser().getEmail());
+            dto.setUserPhone(entity.getUser().getPhone());
+            dto.setAvatarUrlPreview(entity.getUser().getAvatarUrlPreview());
+        }
         return dto;
     }
 

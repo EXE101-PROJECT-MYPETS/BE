@@ -22,5 +22,6 @@ public class ShopMemberDTO {
     private OffsetDateTime createdAt;
     private String userFullName;
     private String userEmail;
+    private String userPhone;
     private String avatarUrlPreview;
 }

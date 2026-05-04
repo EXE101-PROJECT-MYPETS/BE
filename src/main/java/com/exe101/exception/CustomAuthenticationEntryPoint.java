@@ -1,8 +1,7 @@
 package com.exe101.exception;
 
-
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.exe101.exception.payload.ErrorPayload;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.http.HttpStatus;
@@ -31,7 +30,7 @@ public class CustomAuthenticationEntryPoint implements AuthenticationEntryPoint 
 
         ErrorPayload payload = new ErrorPayload(
                 "JWT_EXPIRED",
-                "Phiên đăng nhập đã hết hạn"
+                "Phiên đăng nhập đã hết hạn hoặc không hợp lệ"
         );
 
         response.setStatus(HttpStatus.UNAUTHORIZED.value());

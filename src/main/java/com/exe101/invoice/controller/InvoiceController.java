@@ -21,9 +21,28 @@ public class InvoiceController {
         return ResponseEntity.ok(invoiceService.getAllByShopId(shopId));
     }
 
+    @GetMapping("/by-order/{orderId}")
+    public ResponseEntity<InvoiceDTO> getByOrderId(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long orderId
+    ) {
+        return ResponseEntity.ok(invoiceService.getByOrderId(shopId, orderId));
+    }
+
+    @GetMapping("/by-booking/{bookingId}")
+    public ResponseEntity<InvoiceDTO> getByBookingId(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long bookingId
+    ) {
+        return ResponseEntity.ok(invoiceService.getByBookingId(shopId, bookingId));
+    }
+
     @GetMapping("/{id}")
-    public ResponseEntity<InvoiceDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(invoiceService.getById(id));
+    public ResponseEntity<InvoiceDTO> getById(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(invoiceService.getById(shopId, id));
     }
 
     @PostMapping

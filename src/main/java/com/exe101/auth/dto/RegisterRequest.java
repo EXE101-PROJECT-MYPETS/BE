@@ -9,18 +9,18 @@ import org.springframework.web.multipart.MultipartFile;
 @Data
 public class RegisterRequest {
 
-    @Email
-    @NotBlank
+    @Email(message = "Email không đúng định dạng")
+    @NotBlank(message = "Email không được để trống")
     private String email;
 
-    @NotBlank
-    @Size(min = 6, max = 32)
+    @NotBlank(message = "Mật khẩu không được để trống")
+    @Size(min = 6, max = 32, message = "Mật khẩu phải có từ 6 đến 32 ký tự")
     private String password;
 
-    @NotBlank
+    @NotBlank(message = "Họ và tên không được để trống")
     private String fullName;
 
-    @NotBlank
+    @NotBlank(message = "Số điện thoại không được để trống")
     private String phone;
 
     private String address;

@@ -1,8 +1,8 @@
 package com.exe101.auth.service;
 
+import com.exe101.auth.dto.AuthenticatedShopDTO;
 import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
-import com.exe101.auth.dto.AuthenticatedShopDTO;
 import com.exe101.auth.dto.RegisterRequest;
 import com.exe101.auth.exception.AuthAccessDeniedException;
 import com.exe101.auth.exception.LoginException;
@@ -176,7 +176,7 @@ public class AuthenticationService {
                 && !shopMemberRepository.existsByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)) {
             throw new AuthAccessDeniedException(
                     "ShopMembershipInactive",
-                    "Tai khoan shop nay chua co lien ket shop dang hoat dong"
+                    "Tài khoản shop này chưa có liên kết shop đang hoạt động"
             );
         }
     }
@@ -187,11 +187,11 @@ public class AuthenticationService {
 
         User user = userRepository
                 .findById(rotated.getUserId())
-                .orElseThrow(() -> new UserNotFound("UserNotFound", "User not found"));
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
 
         var cred = credentialRepository
                 .findById(user.getId())
-                .orElseThrow(() -> new UserNotFound("UserNotFound", "User not found"));
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
 
         var principal = new UserPrincipal(user, cred);
 

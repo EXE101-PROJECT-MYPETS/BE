@@ -9,7 +9,12 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
+import java.time.OffsetDateTime;
+import java.util.Optional;
+
 public interface IBookingRepository extends JpaRepository<Booking, Long> {
+
+    Optional<Booking> findByIdAndShopId(Long id, Long shopId);
 
     @Query(
             value = """
@@ -21,6 +26,10 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                       AND (:customerName IS NULL OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%')))
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)
+                      AND (:createdFrom IS NULL OR b.createdAt >= :createdFrom)
+                      AND (:createdTo IS NULL OR b.createdAt < :createdTo)
+                      AND (:appointmentFrom IS NULL OR b.startAt >= :appointmentFrom)
+                      AND (:appointmentTo IS NULL OR b.startAt < :appointmentTo)
                     ORDER BY
                       CASE b.status
                         WHEN com.exe101.booking.entity.BookingStatus.DRAFT THEN 1
@@ -56,6 +65,10 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                       AND (:customerName IS NULL OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%')))
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)
+                      AND (:createdFrom IS NULL OR b.createdAt >= :createdFrom)
+                      AND (:createdTo IS NULL OR b.createdAt < :createdTo)
+                      AND (:appointmentFrom IS NULL OR b.startAt >= :appointmentFrom)
+                      AND (:appointmentTo IS NULL OR b.startAt < :appointmentTo)
                     """
     )
     Page<Booking> findForScroll(
@@ -64,6 +77,10 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
             @Param("customerName") String customerName,
             @Param("status") BookingStatus status,
             @Param("source") BookingSource source,
+            @Param("createdFrom") OffsetDateTime createdFrom,
+            @Param("createdTo") OffsetDateTime createdTo,
+            @Param("appointmentFrom") OffsetDateTime appointmentFrom,
+            @Param("appointmentTo") OffsetDateTime appointmentTo,
             Pageable pageable
     );
 }

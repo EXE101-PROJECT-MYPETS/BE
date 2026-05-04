@@ -15,27 +15,27 @@ public class ShopDTO {
 
     private Long id;
 
-    @NotBlank(message = "Shop name is required")
-    @Size(max = 255)
+    @NotBlank(message = "Tên shop không được để trống")
+    @Size(max = 255, message = "Tên shop không được vượt quá 255 ký tự")
     private String name;
 
-    @Size(max = 500)
+    @Size(max = 500, message = "Địa chỉ shop không được vượt quá 500 ký tự")
     private String addressText;
 
-    @NotNull
-    @DecimalMin(value = "-90.0")
-    @DecimalMax(value = "90.0")
+    @NotNull(message = "Vĩ độ không được để trống")
+    @DecimalMin(value = "-90.0", message = "Vĩ độ phải lớn hơn hoặc bằng -90")
+    @DecimalMax(value = "90.0", message = "Vĩ độ phải nhỏ hơn hoặc bằng 90")
     private Double lat;
 
-    @NotNull
-    @DecimalMin(value = "-180.0")
-    @DecimalMax(value = "180.0")
+    @NotNull(message = "Kinh độ không được để trống")
+    @DecimalMin(value = "-180.0", message = "Kinh độ phải lớn hơn hoặc bằng -180")
+    @DecimalMax(value = "180.0", message = "Kinh độ phải nhỏ hơn hoặc bằng 180")
     private Double lng;
 
-    @NotNull
+    @NotNull(message = "Nguồn vị trí không được để trống")
     private LocationSource locationSource;
 
-    @PositiveOrZero
+    @PositiveOrZero(message = "Độ chính xác vị trí phải lớn hơn hoặc bằng 0")
     private Integer locationAccuracyM;
 
     private ShopStatus status;

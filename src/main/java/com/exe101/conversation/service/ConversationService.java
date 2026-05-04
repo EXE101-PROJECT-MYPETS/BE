@@ -32,7 +32,7 @@ public class ConversationService implements IService<Conversation, ConversationD
     public ConversationDTO getById(Long id) {
         return conversationRepository.findById(id)
                 .map(ConversationMapper::toDTO)
-                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Conversation not found"));
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
     }
 
     @Override
@@ -43,7 +43,7 @@ public class ConversationService implements IService<Conversation, ConversationD
     @Override
     public ConversationDTO update(Long id, ConversationDTO dto) {
         Conversation entity = conversationRepository.findById(id)
-                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Conversation not found"));
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
         entity.setShopId(dto.getShopId());
         entity.setCustomerId(dto.getCustomerId());
         return ConversationMapper.toDTO(conversationRepository.save(entity));
@@ -52,7 +52,7 @@ public class ConversationService implements IService<Conversation, ConversationD
     @Override
     public void delete(Long id) {
         if (!conversationRepository.existsById(id)) {
-            throw new ConversationNotFound("ConversationNotFound", "Conversation not found");
+            throw new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện");
         }
         conversationRepository.deleteById(id);
     }

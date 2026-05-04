@@ -20,15 +20,15 @@ public class ServiceCategoryDTO {
 
     private Long shopId;
 
-    @NotBlank(message = "name is required")
-    @Size(max = 100, message = "name max 100 chars")
+    @NotBlank(message = "Tên nhóm dịch vụ không được để trống")
+    @Size(max = 100, message = "Tên nhóm dịch vụ không được vượt quá 100 ký tự")
     private String name;
 
     private String description;
 
     private Boolean active;
 
-    @Min(value = 0, message = "sortOrder must be >= 0")
+    @Min(value = 0, message = "Thứ tự sắp xếp phải lớn hơn hoặc bằng 0")
     private Integer sortOrder;
 
     private OffsetDateTime createdAt;

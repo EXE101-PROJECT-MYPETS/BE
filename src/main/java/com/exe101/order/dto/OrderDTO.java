@@ -19,6 +19,7 @@ public class OrderDTO {
     private String orderCode;
     private Long shopId;
     private Long customerId;
+    private Long customerAddressId;
     private OrderStatus status;
     private OrderSource source;
     private Long subtotalAmount;
@@ -28,6 +29,11 @@ public class OrderDTO {
     private String receiverName;
     private String receiverPhone;
     private String shippingAddress;
+    private String shippingProvince;
+    private String shippingDistrict;
+    private String shippingWard;
+    private String shippingStreet;
+    private String shippingHamlet;
     private String note;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;

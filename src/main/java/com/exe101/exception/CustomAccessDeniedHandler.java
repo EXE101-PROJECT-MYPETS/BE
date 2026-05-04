@@ -31,7 +31,7 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
 
         ErrorPayload payload = new ErrorPayload(
                 "FORBIDDEN",
-                "You do not have permission to access this resource"
+                "Bạn không có quyền truy cập tài nguyên này"
         );
 
         response.setStatus(HttpStatus.FORBIDDEN.value());

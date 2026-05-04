@@ -26,7 +26,7 @@ public class VaccineService implements IService<Vaccine, VaccineDTO, Long> {
     public VaccineDTO getById(Long id) {
         return vaccineRepository.findById(id)
                 .map(VaccineMapper::toDTO)
-                .orElseThrow(() -> new VaccineNotFound("VaccineNotFound", "Vaccine not found"));
+                .orElseThrow(() -> new VaccineNotFound("VaccineNotFound", "Không tìm thấy vắc-xin"));
     }
 
     @Override
@@ -37,7 +37,7 @@ public class VaccineService implements IService<Vaccine, VaccineDTO, Long> {
     @Override
     public VaccineDTO update(Long id, VaccineDTO dto) {
         Vaccine entity = vaccineRepository.findById(id)
-                .orElseThrow(() -> new VaccineNotFound("VaccineNotFound", "Vaccine not found"));
+                .orElseThrow(() -> new VaccineNotFound("VaccineNotFound", "Không tìm thấy vắc-xin"));
         VaccineMapper.updateEntity(entity, dto);
         return VaccineMapper.toDTO(vaccineRepository.save(entity));
     }
@@ -45,7 +45,7 @@ public class VaccineService implements IService<Vaccine, VaccineDTO, Long> {
     @Override
     public void delete(Long id) {
         if (!vaccineRepository.existsById(id)) {
-            throw new VaccineNotFound("VaccineNotFound", "Vaccine not found");
+            throw new VaccineNotFound("VaccineNotFound", "Không tìm thấy vắc-xin");
         }
         vaccineRepository.deleteById(id);
     }

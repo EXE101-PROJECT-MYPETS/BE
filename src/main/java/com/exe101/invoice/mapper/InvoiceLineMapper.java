@@ -15,6 +15,7 @@ public class InvoiceLineMapper {
                 entity.getInvoiceId(),
                 entity.getLineType(),
                 entity.getRefId(),
+                entity.getItemName(),
                 entity.getQty(),
                 entity.getUnitPrice(),
                 entity.getAmount()
@@ -28,6 +29,7 @@ public class InvoiceLineMapper {
         entity.setInvoiceId(dto.getInvoiceId());
         entity.setLineType(dto.getLineType());
         entity.setRefId(dto.getRefId());
+        entity.setItemName(dto.getItemName());
         entity.setQty(dto.getQty() != null ? dto.getQty() : 1);
         entity.setUnitPrice(dto.getUnitPrice() != null ? dto.getUnitPrice() : 0L);
         entity.setAmount(dto.getAmount() != null ? dto.getAmount() : 0L);

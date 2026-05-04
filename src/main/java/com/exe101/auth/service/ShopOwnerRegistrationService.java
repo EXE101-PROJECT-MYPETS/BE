@@ -75,10 +75,10 @@ public class ShopOwnerRegistrationService {
 
     private void validateUniqueUser(String email, String phone) {
         if (userRepository.existsByEmail(email)) {
-            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại!");
+            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại");
         }
         if (userRepository.existsByPhone(phone)) {
-            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại!");
+            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại");
         }
     }
 

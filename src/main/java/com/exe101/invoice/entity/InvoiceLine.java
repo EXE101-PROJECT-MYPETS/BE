@@ -28,6 +28,9 @@ public class InvoiceLine {
     @Column(name = "ref_id")
     private Long refId;
 
+    @Column(name = "item_name")
+    private String itemName;
+
     @Column(nullable = false)
     private Integer qty = 1;
 

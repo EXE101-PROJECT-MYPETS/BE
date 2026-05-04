@@ -1,5 +1,7 @@
 package com.exe101.booking.controller;
 
+import com.exe101.booking.dto.BookingCheckoutRequest;
+import com.exe101.booking.dto.BookingCheckoutResponse;
 import com.exe101.booking.dto.BookingDTO;
 import com.exe101.booking.dto.BookingListItemDTO;
 import com.exe101.booking.dto.BookingStaffAssignmentDTO;
@@ -8,10 +10,14 @@ import com.exe101.booking.entity.BookingSource;
 import com.exe101.booking.entity.BookingStatus;
 import com.exe101.booking.service.BookingService;
 import com.exe101.common.ScrollResponse;
+import com.exe101.invoice.dto.InvoiceDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+
+import java.time.LocalDate;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -27,6 +33,12 @@ public class BookingController {
             @RequestParam(required = false) String customerName,
             @RequestParam(required = false) BookingStatus status,
             @RequestParam(required = false) BookingSource source,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate createDate,
+            @RequestParam(required = false)
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate appointmentDate,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "10") int size
     ) {
@@ -36,18 +48,28 @@ public class BookingController {
                 customerName,
                 status,
                 source,
+                createDate,
+                appointmentDate,
                 cursor,
                 size
         ));
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<BookingDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<BookingListItemDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.getById(id));
     }
 
+    @GetMapping("/{id}/invoice")
+    public ResponseEntity<InvoiceDTO> getInvoice(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(bookingService.getInvoice(shopId, id));
+    }
+
     @PostMapping
-    public ResponseEntity<BookingDTO> create(
+    public ResponseEntity<BookingListItemDTO> create(
             @RequestHeader("X-Shop-Id") Long shopId,
             @Valid @RequestBody BookingDTO dto
     ) {
@@ -55,8 +77,17 @@ public class BookingController {
         return ResponseEntity.ok(bookingService.create(dto));
     }
 
+    @PostMapping("/{id}/checkout")
+    public ResponseEntity<BookingCheckoutResponse> checkout(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody BookingCheckoutRequest request
+    ) {
+        return ResponseEntity.ok(bookingService.checkout(id, shopId, request));
+    }
+
     @PutMapping("/{id}")
-    public ResponseEntity<BookingDTO> update(
+    public ResponseEntity<BookingListItemDTO> update(
             @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
             @Valid @RequestBody BookingDTO dto
@@ -66,7 +97,7 @@ public class BookingController {
     }
 
     @PutMapping("/{id}/status")
-    public ResponseEntity<BookingDTO> updateStatus(
+    public ResponseEntity<BookingListItemDTO> updateStatus(
             @PathVariable Long id,
             @RequestParam(required = false) BookingStatus status,
             @RequestBody(required = false) BookingStatusUpdateDTO dto
@@ -76,7 +107,7 @@ public class BookingController {
     }
 
     @PutMapping("/{id}/staff")
-    public ResponseEntity<BookingDTO> updateAssignedStaffs(
+    public ResponseEntity<BookingListItemDTO> updateAssignedStaffs(
             @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
             @RequestBody BookingStaffAssignmentDTO dto
