@@ -10,24 +10,41 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
-import java.util.Collection;
 import java.util.List;
 
 public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMemberId> {
     boolean existsByUserIdAndStatus(Long userId, MemberStatus status);
 
+    boolean existsByShopIdAndStatus(Long shopId, MemberStatus status);
+
     boolean existsByShopIdAndUserId(Long shopId, Long userId);
 
-    boolean existsByShopIdAndUserIdAndRoleInAndStatus(
-            Long shopId,
-            Long userId,
-            Collection<ShopRole> roles,
-            MemberStatus status
-    );
-
-    long countByShopIdAndRoleAndStatus(Long shopId, ShopRole role, MemberStatus status);
+    boolean existsByShopIdAndUserIdAndStatus(Long shopId, Long userId, MemberStatus status);
 
     java.util.Optional<ShopMember> findByShopIdAndUserId(Long shopId, Long userId);
+
+    @Query("""
+            SELECT new com.exe101.shopMember.dto.ShopMemberDTO(
+                member.shopId,
+                member.userId,
+                member.role,
+                member.status,
+                member.createdAt,
+                user.fullName,
+                user.email,
+                user.phone,
+                user.avatarUrlPreview
+            )
+            FROM ShopMember member
+            JOIN member.user user
+            WHERE member.shopId = :shopId
+              AND member.status = :status
+            ORDER BY user.fullName ASC, member.userId ASC
+            """)
+    List<ShopMemberDTO> findByShopIdAndStatusForDisplay(
+            @Param("shopId") Long shopId,
+            @Param("status") MemberStatus status
+    );
 
     @Query("""
             SELECT new com.exe101.shopMember.dto.ShopMemberDTO(
@@ -69,7 +86,6 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
             FROM ShopMember member
             JOIN member.user user
             WHERE member.shopId = :shopId
-              AND member.role <> :excludedRole
               AND (:role IS NULL OR member.role = :role)
               AND (:status IS NULL OR member.status = :status)
               AND (
@@ -82,7 +98,6 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
             """)
     List<ShopMemberDTO> findByShopIdForDisplay(
             @Param("shopId") Long shopId,
-            @Param("excludedRole") ShopRole excludedRole,
             @Param("role") ShopRole role,
             @Param("status") MemberStatus status,
             @Param("keyword") String keyword

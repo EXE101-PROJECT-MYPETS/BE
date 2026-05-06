@@ -26,7 +26,6 @@ import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.exception.OrderNotFound;
 import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -45,12 +44,6 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class ManualPaymentService {
-
-    private static final List<ShopRole> CONFIRM_PAYMENT_ROLES = List.of(
-            ShopRole.OWNER,
-            ShopRole.MANAGER,
-            ShopRole.STAFF
-    );
 
     private final IInvoiceRepository invoiceRepository;
     private final IBookingRepository bookingRepository;
@@ -378,10 +371,9 @@ public class ManualPaymentService {
 
     private void assertCanConfirmPayment(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                CONFIRM_PAYMENT_ROLES,
                 MemberStatus.ACTIVE
         );
 

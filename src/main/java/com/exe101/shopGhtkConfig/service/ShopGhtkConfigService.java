@@ -1,7 +1,6 @@
 package com.exe101.shopGhtkConfig.service;
 
 import com.exe101.auth.model.UserPrincipal;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopGhtkConfig.dto.ShopGhtkConfigDTO;
 import com.exe101.shopGhtkConfig.dto.ShopGhtkConfigTestResponse;
 import com.exe101.shopGhtkConfig.entity.ShopGhtkConfig;
@@ -18,14 +17,9 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-
 @Service
 @RequiredArgsConstructor
 public class ShopGhtkConfigService {
-
-    private static final List<ShopRole> READ_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER, ShopRole.STAFF);
-    private static final List<ShopRole> MANAGE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
 
     private final IShopGhtkConfigRepository shopGhtkConfigRepository;
     private final IShopMemberRepository shopMemberRepository;
@@ -119,10 +113,9 @@ public class ShopGhtkConfigService {
 
     private void assertActiveShopMember(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                READ_ROLES,
                 MemberStatus.ACTIVE
         );
 
@@ -136,10 +129,9 @@ public class ShopGhtkConfigService {
 
     private void assertCanManageGhtkConfig(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                MANAGE_ROLES,
                 MemberStatus.ACTIVE
         );
 

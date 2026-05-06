@@ -14,7 +14,6 @@ public class MessageMapper {
                 entity.getConversationId(),
                 entity.getShopId(),
                 entity.getSenderType(),
-                entity.getSenderCustomerId(),
                 entity.getSenderUserId(),
                 entity.getBody(),
                 entity.getCreatedAt()
@@ -27,7 +26,6 @@ public class MessageMapper {
         entity.setConversationId(dto.getConversationId());
         entity.setShopId(dto.getShopId());
         entity.setSenderType(dto.getSenderType());
-        entity.setSenderCustomerId(dto.getSenderCustomerId());
         entity.setSenderUserId(dto.getSenderUserId());
         entity.setBody(dto.getBody());
         return entity;

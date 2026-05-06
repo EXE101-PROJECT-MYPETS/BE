@@ -1,7 +1,7 @@
 package com.exe101.conversation.entity;
 
-import com.exe101.customer.entity.Customer;
 import com.exe101.shop.entity.Shop;
+import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 @Table(
         name = "conversations",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_conversations_shop_customer", columnNames = {"shop_id", "customer_id"})
+                @UniqueConstraint(name = "uq_conversations_shop_user", columnNames = {"shop_id", "user_id"})
         }
 )
 public class Conversation {
@@ -27,11 +27,20 @@ public class Conversation {
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
 
-    @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
+
+    @Column(name = "shop_last_read_message_id")
+    private Long shopLastReadMessageId;
+
+    @Column(name = "user_last_read_message_id")
+    private Long userLastReadMessageId;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;
+
+    @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
+    private OffsetDateTime updatedAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", insertable = false, updatable = false)
@@ -39,10 +48,7 @@ public class Conversation {
     private Shop shop;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumns({
-            @JoinColumn(name = "shop_id", referencedColumnName = "shop_id", insertable = false, updatable = false),
-            @JoinColumn(name = "customer_id", referencedColumnName = "id", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     @JsonIgnore
-    private Customer customer;
+    private User user;
 }

@@ -37,8 +37,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ShopMemberService {
 
-    private static final List<ShopRole> MEMBER_MANAGE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
-
     private final IShopMemberRepository shopMemberRepository;
     private final IUserRepository userRepository;
     private final IUserCredentialRepository credentialRepository;
@@ -46,22 +44,17 @@ public class ShopMemberService {
 
     public List<ShopMemberDTO> getActiveStaffByShop(Long shopId) {
         assertCanViewMembers(shopId);
-        return shopMemberRepository.findByShopIdAndRoleAndStatusForDisplay(
+        return shopMemberRepository.findByShopIdAndStatusForDisplay(
                 shopId,
-                ShopRole.STAFF,
                 MemberStatus.ACTIVE
         );
     }
 
     public List<ShopMemberDTO> getAllByShop(Long shopId, ShopRole role, MemberStatus status, String keyword) {
         assertCanViewMembers(shopId);
-        if (role == ShopRole.OWNER) {
-            return List.of();
-        }
         String normalizedKeyword = StringUtils.hasText(keyword) ? keyword.trim() : null;
         return shopMemberRepository.findByShopIdForDisplay(
                 shopId,
-                ShopRole.OWNER,
                 role,
                 status,
                 normalizedKeyword
@@ -71,22 +64,33 @@ public class ShopMemberService {
     public ShopMemberDTO getByShopAndUserId(Long shopId, Long userId) {
         assertCanViewMembers(shopId);
         return shopMemberRepository.findDetailByShopIdAndUserId(shopId, userId)
-                .orElseThrow(() -> new ShopMemberNotFound("ShopMemberNotFound", "Không tìm thấy thành viên trong shop"));
+                .orElseThrow(() -> new ShopMemberNotFound(
+                        "ShopMemberNotFound",
+                        "Khong tim thay tai khoan trong shop"
+                ));
     }
 
     @Transactional
     public ShopMemberDTO create(Long shopId, ShopMemberCreateRequest request) {
-        ShopMember actorMembership = assertCanManageMembers(shopId);
-        assertCanAssignRole(actorMembership.getRole(), request.getRole());
+        assertCanManageMembers(shopId);
+
+        MemberStatus targetStatus = request.getStatus() != null ? request.getStatus() : MemberStatus.ACTIVE;
+        if (targetStatus == MemberStatus.ACTIVE
+                && shopMemberRepository.existsByShopIdAndStatus(shopId, MemberStatus.ACTIVE)) {
+            throw new ShopMemberValidationException(
+                    "ShopSingleActiveAccount",
+                    "Shop chi duoc co mot tai khoan dang hoat dong"
+            );
+        }
+
         validateUniqueUser(request.getEmail(), request.getPhone());
 
         User user = createShopUser(request);
         createCredential(user, request.getPassword());
 
-        MemberStatus targetStatus = request.getStatus() != null ? request.getStatus() : MemberStatus.ACTIVE;
         ShopMember member = new ShopMember();
         member.setId(new ShopMemberId(shopId, user.getId()));
-        member.setRole(request.getRole());
+        member.setRole(ShopRole.OWNER);
         member.setStatus(targetStatus);
 
         shopMemberRepository.save(member);
@@ -98,7 +102,7 @@ public class ShopMemberService {
         if (request.getRole() == null && request.getStatus() == null) {
             throw new ShopMemberValidationException(
                     "ShopMemberUpdateEmpty",
-                    "Cần cung cấp ít nhất vai trò hoặc trạng thái để cập nhật"
+                    "Can cung cap trang thai de cap nhat tai khoan shop"
             );
         }
 
@@ -109,18 +113,13 @@ public class ShopMemberService {
         if (currentUserId.equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfUpdateNotAllowed",
-                    "Bạn không thể tự thay đổi vai trò hoặc trạng thái của chính mình"
+                    "Khong the tu thay doi trang thai cua chinh minh"
             );
         }
 
-        ShopRole nextRole = request.getRole() != null ? request.getRole() : member.getRole();
-        MemberStatus nextStatus = request.getStatus() != null ? request.getStatus() : member.getStatus();
-
-        assertCanModifyTarget(actorMembership.getRole(), member, nextRole);
-        assertOwnerStillExistsAfterChange(shopId, member, nextRole, nextStatus);
-
-        member.setRole(nextRole);
-        member.setStatus(nextStatus);
+        if (request.getStatus() != null) {
+            member.setStatus(request.getStatus());
+        }
         shopMemberRepository.save(member);
         return getByShopAndUserId(shopId, userId);
     }
@@ -128,21 +127,19 @@ public class ShopMemberService {
     @Transactional
     public void resetPassword(Long shopId, Long userId, ShopMemberResetPasswordRequest request) {
         ShopMember actorMembership = assertCanManageMembers(shopId);
-        ShopMember member = getMemberEntity(shopId, userId);
+        getMemberEntity(shopId, userId);
 
         if (actorMembership.getUserId().equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfResetPasswordNotAllowed",
-                    "Bạn không thể dùng API này để tự đặt lại mật khẩu của chính mình"
+                    "Khong the dung API nay de tu dat lai mat khau cua chinh minh"
             );
         }
-
-        assertCanModifyTarget(actorMembership.getRole(), member, member.getRole());
 
         UserCredential credential = credentialRepository.findById(userId)
                 .orElseThrow(() -> new ShopMemberNotFound(
                         "ShopMemberCredentialNotFound",
-                        "Không tìm thấy thông tin đăng nhập của thành viên"
+                        "Khong tim thay thong tin dang nhap cua tai khoan"
                 ));
 
         credential.setProvider(CredentialProvider.LOCAL);
@@ -159,12 +156,9 @@ public class ShopMemberService {
         if (actorMembership.getUserId().equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfDeleteNotAllowed",
-                    "Bạn không thể tự xóa chính mình khỏi shop"
+                    "Khong the tu xoa chinh minh khoi shop"
             );
         }
-
-        assertCanModifyTarget(actorMembership.getRole(), member, member.getRole());
-        assertOwnerStillExistsAfterChange(shopId, member, member.getRole(), MemberStatus.REMOVED);
 
         member.setStatus(MemberStatus.REMOVED);
         shopMemberRepository.save(member);
@@ -172,10 +166,10 @@ public class ShopMemberService {
 
     private void validateUniqueUser(String email, String phone) {
         if (userRepository.existsByEmail(normalizeRequiredValue(email))) {
-            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại");
+            throw new UserDuplicate("EmailUserDuplicate", "Email da ton tai");
         }
         if (userRepository.existsByPhone(normalizeRequiredValue(phone))) {
-            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại");
+            throw new UserDuplicate("PhoneUserDuplicate", "So dien thoai da ton tai");
         }
     }
 
@@ -215,17 +209,17 @@ public class ShopMemberService {
         if (membership.getStatus() != MemberStatus.ACTIVE) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Bạn không có quyền xem danh sách thành viên của shop này"
+                    "Tai khoan shop khong hoat dong"
             );
         }
     }
 
     private ShopMember assertCanManageMembers(Long shopId) {
         ShopMember membership = getCurrentMembership(shopId);
-        if (membership.getStatus() != MemberStatus.ACTIVE || !MEMBER_MANAGE_ROLES.contains(membership.getRole())) {
+        if (membership.getStatus() != MemberStatus.ACTIVE) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Chỉ chủ shop hoặc quản lý mới được quản lý thành viên"
+                    "Tai khoan shop khong hoat dong"
             );
         }
         return membership;
@@ -236,7 +230,7 @@ public class ShopMemberService {
         return shopMemberRepository.findByShopIdAndUserId(shopId, currentUserId)
                 .orElseThrow(() -> new ShopMemberAccessDenied(
                         "ShopMemberAccessDenied",
-                        "Bạn không thuộc shop này"
+                        "Tai khoan khong thuoc shop nay"
                 ));
     }
 
@@ -245,7 +239,7 @@ public class ShopMemberService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Yêu cầu người dùng đã đăng nhập"
+                    "Yeu cau nguoi dung da dang nhap"
             );
         }
         return userPrincipal.getUser().getId();
@@ -253,48 +247,10 @@ public class ShopMemberService {
 
     private ShopMember getMemberEntity(Long shopId, Long userId) {
         return shopMemberRepository.findByShopIdAndUserId(shopId, userId)
-                .orElseThrow(() -> new ShopMemberNotFound("ShopMemberNotFound", "Không tìm thấy thành viên trong shop"));
-    }
-
-    private void assertCanAssignRole(ShopRole actorRole, ShopRole targetRole) {
-        if (actorRole == ShopRole.MANAGER && targetRole == ShopRole.OWNER) {
-            throw new ShopMemberAccessDenied(
-                    "ShopMemberAssignOwnerDenied",
-                    "Quản lý không thể thêm hoặc chuyển thành chủ shop"
-            );
-        }
-    }
-
-    private void assertCanModifyTarget(ShopRole actorRole, ShopMember targetMember, ShopRole nextRole) {
-        if (actorRole == ShopRole.MANAGER && (targetMember.getRole() == ShopRole.OWNER || nextRole == ShopRole.OWNER)) {
-            throw new ShopMemberAccessDenied(
-                    "ShopMemberModifyOwnerDenied",
-                    "Quản lý không thể chỉnh sửa thành viên có vai trò chủ shop"
-            );
-        }
-    }
-
-    private void assertOwnerStillExistsAfterChange(
-            Long shopId,
-            ShopMember targetMember,
-            ShopRole nextRole,
-            MemberStatus nextStatus
-    ) {
-        boolean removingActiveOwner = targetMember.getRole() == ShopRole.OWNER
-                && targetMember.getStatus() == MemberStatus.ACTIVE
-                && (nextRole != ShopRole.OWNER || nextStatus != MemberStatus.ACTIVE);
-
-        if (!removingActiveOwner) {
-            return;
-        }
-
-        long activeOwnerCount = shopMemberRepository.countByShopIdAndRoleAndStatus(shopId, ShopRole.OWNER, MemberStatus.ACTIVE);
-        if (activeOwnerCount <= 1) {
-            throw new ShopMemberValidationException(
-                    "ShopMemberLastOwnerInvalid",
-                    "Shop phải luôn có ít nhất một chủ shop đang hoạt động"
-            );
-        }
+                .orElseThrow(() -> new ShopMemberNotFound(
+                        "ShopMemberNotFound",
+                        "Khong tim thay tai khoan trong shop"
+                ));
     }
 
     private String normalizeRequiredValue(String value) {

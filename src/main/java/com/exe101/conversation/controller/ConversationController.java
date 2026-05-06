@@ -1,7 +1,10 @@
 package com.exe101.conversation.controller;
 
 import com.exe101.conversation.dto.ConversationDTO;
+import com.exe101.conversation.dto.MessageCreateRequest;
+import com.exe101.conversation.dto.MessageDTO;
 import com.exe101.conversation.service.ConversationService;
+import com.exe101.conversation.service.ConversationSocketPublisher;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +18,7 @@ import java.util.List;
 public class ConversationController {
 
     private final ConversationService conversationService;
+    private final ConversationSocketPublisher socketPublisher;
 
     @GetMapping
     public ResponseEntity<List<ConversationDTO>> getAll(@RequestHeader("X-Shop-Id") Long shopId) {
@@ -22,8 +26,30 @@ public class ConversationController {
     }
 
     @GetMapping("/{id}")
-    public ResponseEntity<ConversationDTO> getById(@PathVariable Long id) {
-        return ResponseEntity.ok(conversationService.getById(id));
+    public ResponseEntity<ConversationDTO> getById(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(conversationService.getById(shopId, id));
+    }
+
+    @GetMapping("/{id}/messages")
+    public ResponseEntity<List<MessageDTO>> getMessages(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(conversationService.getMessages(shopId, id));
+    }
+
+    @PostMapping("/{id}/messages")
+    public ResponseEntity<MessageDTO> sendMessage(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @Valid @RequestBody MessageCreateRequest request
+    ) {
+        MessageDTO savedMessage = conversationService.sendMessage(shopId, id, request);
+        socketPublisher.publishMessage(savedMessage);
+        return ResponseEntity.ok(savedMessage);
     }
 
     @PostMapping
@@ -46,8 +72,11 @@ public class ConversationController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        conversationService.delete(id);
+    public ResponseEntity<Void> delete(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        conversationService.delete(shopId, id);
         return ResponseEntity.noContent().build();
     }
 }

@@ -15,7 +15,6 @@ import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopGhtkConfig.entity.ShopGhtkConfig;
 import com.exe101.shopGhtkConfig.exception.ShopGhtkConfigNotFound;
 import com.exe101.shopGhtkConfig.repository.IShopGhtkConfigRepository;
@@ -52,7 +51,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class GhtkOrderService {
 
-    private static final List<ShopRole> SUBMIT_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER, ShopRole.STAFF);
     private static final int MAX_GHTK_NOTE_LENGTH = 120;
     private static final List<String> GHTK_PICK_OPTIONS = List.of("cod", "post");
     private static final List<String> GHTK_TRANSPORTS = List.of("road", "fly");
@@ -498,10 +496,9 @@ public class GhtkOrderService {
 
     private void assertCanSubmitOrder(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                SUBMIT_ROLES,
                 MemberStatus.ACTIVE
         );
 

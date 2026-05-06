@@ -1,7 +1,6 @@
 package com.exe101.shopPaymentConfig.service;
 
 import com.exe101.auth.model.UserPrincipal;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.shopPaymentConfig.dto.ShopPaymentConfigDTO;
@@ -22,9 +21,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ShopPaymentConfigService {
-
-    private static final List<ShopRole> READ_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER, ShopRole.STAFF);
-    private static final List<ShopRole> MANAGE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
 
     private final IShopPaymentConfigRepository shopPaymentConfigRepository;
     private final IShopMemberRepository shopMemberRepository;
@@ -134,10 +130,9 @@ public class ShopPaymentConfigService {
 
     private void assertActiveShopMember(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                READ_ROLES,
                 MemberStatus.ACTIVE
         );
 
@@ -151,10 +146,9 @@ public class ShopPaymentConfigService {
 
     private void assertCanManagePaymentConfig(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                MANAGE_ROLES,
                 MemberStatus.ACTIVE
         );
 

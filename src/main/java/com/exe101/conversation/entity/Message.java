@@ -1,6 +1,5 @@
 package com.exe101.conversation.entity;
 
-import com.exe101.customer.entity.Customer;
 import com.exe101.shop.entity.Shop;
 import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -30,9 +29,6 @@ public class Message {
     @Column(name = "sender_type", nullable = false)
     private MessageSenderType senderType;
 
-    @Column(name = "sender_customer_id")
-    private Long senderCustomerId;
-
     @Column(name = "sender_user_id")
     private Long senderUserId;
 
@@ -51,11 +47,6 @@ public class Message {
     @JoinColumn(name = "shop_id", insertable = false, updatable = false)
     @JsonIgnore
     private Shop shop;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sender_customer_id", insertable = false, updatable = false)
-    @JsonIgnore
-    private Customer senderCustomer;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "sender_user_id", insertable = false, updatable = false)

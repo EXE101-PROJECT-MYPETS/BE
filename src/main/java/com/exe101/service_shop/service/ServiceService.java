@@ -9,7 +9,6 @@ import com.exe101.service_shop.exception.ServiceDuplicate;
 import com.exe101.service_shop.exception.ServiceNotFound;
 import com.exe101.service_shop.mapper.ServiceMapper;
 import com.exe101.service_shop.repository.IServiceRepository;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -24,7 +23,6 @@ import java.util.List;
 @RequiredArgsConstructor
 public class ServiceService implements IService<com.exe101.service_shop.entity.Service, ServiceDTO, Long> {
 
-    private static final List<ShopRole> SERVICE_CREATE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
     private static final int MAX_SCROLL_SIZE = 50;
 
     private final IServiceRepository serviceRepository;
@@ -106,10 +104,9 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
 
     private void assertCanCreateService(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                SERVICE_CREATE_ROLES,
                 MemberStatus.ACTIVE
         );
 

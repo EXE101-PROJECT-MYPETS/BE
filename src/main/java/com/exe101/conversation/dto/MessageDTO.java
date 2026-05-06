@@ -17,7 +17,6 @@ public class MessageDTO {
     private Long conversationId;
     private Long shopId;
     private MessageSenderType senderType;
-    private Long senderCustomerId;
     private Long senderUserId;
     private String body;
     private OffsetDateTime createdAt;

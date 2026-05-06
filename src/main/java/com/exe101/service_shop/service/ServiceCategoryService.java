@@ -8,7 +8,6 @@ import com.exe101.service_shop.exception.ServiceCategoryDuplicate;
 import com.exe101.service_shop.exception.ServiceCategoryNotFound;
 import com.exe101.service_shop.mapper.ServiceCategoryMapper;
 import com.exe101.service_shop.repository.IServiceCategoryRepository;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +20,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ServiceCategoryService {
-
-    private static final List<ShopRole> CATEGORY_MANAGE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
 
     private final IServiceCategoryRepository serviceCategoryRepository;
     private final IShopMemberRepository shopMemberRepository;
@@ -71,10 +68,9 @@ public class ServiceCategoryService {
 
     private void assertCanManageCategory(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                CATEGORY_MANAGE_ROLES,
                 MemberStatus.ACTIVE
         );
 

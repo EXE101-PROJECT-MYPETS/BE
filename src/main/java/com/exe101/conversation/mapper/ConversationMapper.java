@@ -12,8 +12,20 @@ public class ConversationMapper {
         return new ConversationDTO(
                 entity.getId(),
                 entity.getShopId(),
-                entity.getCustomerId(),
-                entity.getCreatedAt()
+                entity.getUserId(),
+                entity.getUser() != null ? entity.getUser().getFullName() : null,
+                entity.getUser() != null ? entity.getUser().getPhone() : null,
+                entity.getUser() != null ? entity.getUser().getEmail() : null,
+                entity.getUser() != null ? entity.getUser().getAvatarUrlPreview() : null,
+                null,
+                null,
+                null,
+                null,
+                0L,
+                entity.getShopLastReadMessageId(),
+                entity.getUserLastReadMessageId(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
         );
     }
 
@@ -21,7 +33,9 @@ public class ConversationMapper {
         if (dto == null) return null;
         Conversation entity = new Conversation();
         entity.setShopId(dto.getShopId());
-        entity.setCustomerId(dto.getCustomerId());
+        entity.setUserId(dto.getUserId());
+        entity.setShopLastReadMessageId(dto.getShopLastReadMessageId());
+        entity.setUserLastReadMessageId(dto.getUserLastReadMessageId());
         return entity;
     }
 }

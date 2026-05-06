@@ -33,8 +33,6 @@ import com.exe101.invoice.service.InvoiceService;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
 import com.exe101.service_shop.repository.IServiceRepository;
-import com.exe101.shop.entity.ShopRole;
-import com.exe101.shopMember.dto.ShopMemberDTO;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -50,7 +48,6 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -699,16 +696,12 @@ public class BookingService {
             return;
         }
 
-        Set<Long> activeStaffIds = shopMemberRepository.findByShopIdAndRoleAndStatusForDisplay(
-                        shopId,
-                        ShopRole.STAFF,
-                        MemberStatus.ACTIVE
-                ).stream()
-                .map(ShopMemberDTO::getUserId)
-                .collect(Collectors.toSet());
-
         List<Long> invalidStaffIds = staffUserIds.stream()
-                .filter(userId -> !activeStaffIds.contains(userId))
+                .filter(userId -> !shopMemberRepository.existsByShopIdAndUserIdAndStatus(
+                        shopId,
+                        userId,
+                        MemberStatus.ACTIVE
+                ))
                 .toList();
 
         if (!invalidStaffIds.isEmpty()) {

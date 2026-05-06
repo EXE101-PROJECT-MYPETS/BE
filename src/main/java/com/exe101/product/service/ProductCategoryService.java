@@ -8,7 +8,6 @@ import com.exe101.product.exception.ProductCategoryDuplicate;
 import com.exe101.product.exception.ProductCategoryNotFound;
 import com.exe101.product.mapper.ProductCategoryMapper;
 import com.exe101.product.repository.IProductCategoryRepository;
-import com.exe101.shop.entity.ShopRole;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -21,8 +20,6 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class ProductCategoryService {
-
-    private static final List<ShopRole> CATEGORY_MANAGE_ROLES = List.of(ShopRole.OWNER, ShopRole.MANAGER);
 
     private final IProductCategoryRepository productCategoryRepository;
     private final IShopMemberRepository shopMemberRepository;
@@ -71,17 +68,16 @@ public class ProductCategoryService {
 
     private void assertCanManageCategory(Long shopId) {
         Long userId = getCurrentUserId();
-        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndRoleInAndStatus(
+        boolean allowed = shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
                 userId,
-                CATEGORY_MANAGE_ROLES,
                 MemberStatus.ACTIVE
         );
 
         if (!allowed) {
             throw new ProductAccessDenied(
                     "ProductAccessDenied",
-                    "Only shop owner or manager can manage product categories"
+                    "Active shop account is required to manage product categories"
             );
         }
     }
