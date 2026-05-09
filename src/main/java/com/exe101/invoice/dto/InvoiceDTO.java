@@ -17,6 +17,7 @@ import java.util.List;
 public class InvoiceDTO {
     private Long id;
     private Long shopId;
+    private Long userId;
     private Long customerId;
     private Long bookingId;
     private Long orderId;

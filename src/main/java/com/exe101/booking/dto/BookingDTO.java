@@ -17,6 +17,7 @@ import java.util.List;
 public class BookingDTO {
     private Long id;
     private Long shopId;
+    private Long userId;
     private Long customerId;
     private OffsetDateTime startAt;
     private OffsetDateTime endAt;

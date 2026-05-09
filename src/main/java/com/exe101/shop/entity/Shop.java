@@ -22,6 +22,9 @@ public class Shop {
     @Column(name = "address_text")
     private String addressText;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(nullable = false)
     private Double lat;
 

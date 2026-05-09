@@ -103,7 +103,16 @@ public class SecurityConfig {
                 )
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                        .requestMatchers("/api/auth/**", "/error", "/graphql", "/ws/**", "/ws-sockjs/**", "/chat/**", "/api/test/**")
+                        .requestMatchers(
+                                "/api/auth/**",
+                                "/api/public/**",
+                                "/error",
+                                "/graphql",
+                                "/ws/**",
+                                "/ws-sockjs/**",
+                                "/chat/**",
+                                "/api/test/**"
+                        )
                         .permitAll()
                         .anyRequest().authenticated()
                 )
@@ -121,6 +130,8 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
 
         config.setAllowedOriginPatterns(List.of(
+                "http://localhost:*",
+                "http://localhost:3000",
                 "http://localhost:5173",
                 "https://exe-fe-gold.vercel.app",
                 "https://*.vercel.app"

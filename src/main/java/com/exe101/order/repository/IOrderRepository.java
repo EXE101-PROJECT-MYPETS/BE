@@ -34,6 +34,7 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
             SELECT o
             FROM CustomerOrder o
             WHERE (:shopId IS NULL OR o.shopId = :shopId)
+              AND (:userId IS NULL OR o.userId = :userId)
               AND (:customerId IS NULL OR o.customerId = :customerId)
               AND (:status IS NULL OR o.status = :status)
               AND (:source IS NULL OR o.source = :source)
@@ -88,6 +89,7 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
             """)
     List<CustomerOrder> findForScroll(
             @Param("shopId") Long shopId,
+            @Param("userId") Long userId,
             @Param("customerId") Long customerId,
             @Param("status") OrderStatus status,
             @Param("source") OrderSource source,

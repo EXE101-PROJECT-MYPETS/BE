@@ -22,6 +22,9 @@ public class ShopDTO {
     @Size(max = 500, message = "Địa chỉ shop không được vượt quá 500 ký tự")
     private String addressText;
 
+    @Size(max = 1000, message = "Ảnh đại diện shop không được vượt quá 1000 ký tự")
+    private String imageUrl;
+
     @NotNull(message = "Vĩ độ không được để trống")
     @DecimalMin(value = "-90.0", message = "Vĩ độ phải lớn hơn hoặc bằng -90")
     @DecimalMax(value = "90.0", message = "Vĩ độ phải nhỏ hơn hoặc bằng 90")

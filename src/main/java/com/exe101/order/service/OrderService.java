@@ -3,11 +3,12 @@ package com.exe101.order.service;
 import com.exe101.common.IService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.customer.entity.Customer;
-import com.exe101.customer.mapper.CustomerMapper;
 import com.exe101.customer.repository.ICustomerRepository;
 import com.exe101.customerAddress.entity.CustomerAddress;
-import com.exe101.customerAddress.mapper.CustomerAddressMapper;
 import com.exe101.customerAddress.repository.ICustomerAddressRepository;
+import com.exe101.notification.dto.NotificationTargetType;
+import com.exe101.notification.dto.NotificationType;
+import com.exe101.notification.service.NotificationService;
 import com.exe101.order.dto.OrderDTO;
 import com.exe101.order.dto.OrderItemDTO;
 import com.exe101.order.dto.OrderListItemDTO;
@@ -22,6 +23,11 @@ import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
+import com.exe101.user.entity.User;
+import com.exe101.user.entity.UserStatus;
+import com.exe101.user.repository.IUserRepository;
+import com.exe101.userAddress.entity.UserAddress;
+import com.exe101.userAddress.repository.IUserAddressRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -31,6 +37,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -49,6 +56,9 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     private final ICustomerRepository customerRepository;
     private final IProductRepository productRepository;
     private final ICustomerAddressRepository customerAddressRepository;
+    private final NotificationService notificationService;
+    private final IUserRepository userRepository;
+    private final IUserAddressRepository userAddressRepository;
 
     @Override
     public List<OrderDTO> getAll() {
@@ -57,6 +67,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
 
     public ScrollResponse<OrderListItemDTO> getAllForScroll(
             Long shopId,
+            Long userId,
             Long customerId,
             OrderStatus status,
             OrderSource source,
@@ -72,6 +83,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
 
         List<CustomerOrder> orders = orderRepository.findForScroll(
                 shopId,
+                userId,
                 customerId,
                 status,
                 source,
@@ -120,8 +132,11 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     @Override
     @Transactional
     public OrderDTO create(OrderDTO dto) {
+        validateOnlineRequestDoesNotUseCustomerAddress(dto, dto.getSource());
         CustomerOrder entity = OrderMapper.toEntity(dto);
+        normalizeUserAndCustomer(entity);
         applyCustomerAddressSnapshotIfPresent(entity);
+        validateOnlineShippingInfo(entity);
         List<OrderItem> items = buildItems(dto.getItems(), entity.getShopId(), null);
         applyTotals(entity, items, dto);
 
@@ -136,7 +151,9 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
         orderItemRepository.saveAll(items);
 
-        return getById(saved.getId());
+        OrderDTO result = getById(saved.getId());
+        publishOrderCreatedNotification(saved);
+        return result;
     }
 
     @Override
@@ -145,10 +162,21 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         CustomerOrder entity = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
 
+        validateOnlineRequestDoesNotUseCustomerAddress(
+                dto,
+                dto.getSource() != null ? dto.getSource() : entity.getSource()
+        );
         OrderMapper.updateEntity(entity, dto);
-        if (dto.getCustomerAddressId() != null || dto.getCustomerId() != null) {
+        if (dto.getUserId() != null || dto.getCustomerId() != null) {
+            normalizeUserAndCustomer(entity);
+        }
+        if (dto.getCustomerAddressId() != null
+                || dto.getUserAddressId() != null
+                || dto.getCustomerId() != null
+                || dto.getUserId() != null) {
             applyCustomerAddressSnapshotIfPresent(entity);
         }
+        validateOnlineShippingInfo(entity);
         if (dto.getItems() != null) {
             orderItemRepository.deleteByOrderId(id);
             List<OrderItem> replacementItems = buildItems(dto.getItems(), entity.getShopId(), id);
@@ -197,23 +225,14 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
 
         List<Long> orderIds = orders.stream().map(CustomerOrder::getId).toList();
-        List<Long> customerIds = orders.stream()
-                .map(CustomerOrder::getCustomerId)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        List<Long> customerAddressIds = orders.stream()
-                .map(CustomerOrder::getCustomerAddressId)
+        List<Long> userIds = orders.stream()
+                .map(CustomerOrder::getUserId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
 
-        Map<Long, Customer> customersById = customerRepository.findAllById(customerIds).stream()
-                .collect(Collectors.toMap(Customer::getId, Function.identity()));
-        Map<Long, CustomerAddress> customerAddressesById = customerAddressRepository
-                .findAllById(customerAddressIds)
-                .stream()
-                .collect(Collectors.toMap(CustomerAddress::getId, Function.identity()));
+        Map<Long, User> usersById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<Long, List<OrderItem>> itemsByOrderId = orderItemRepository.findByOrderIdIn(orderIds).stream()
                 .collect(Collectors.groupingBy(OrderItem::getOrderId));
         Map<Long, Product> productsById = loadProductsById(
@@ -223,12 +242,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         return orders.stream()
                 .map(order -> OrderMapper.toListItemDTO(
                         order,
-                        customersById.containsKey(order.getCustomerId())
-                                ? CustomerMapper.toDTO(customersById.get(order.getCustomerId()))
-                                : null,
-                        customerAddressesById.containsKey(order.getCustomerAddressId())
-                                ? CustomerAddressMapper.toDTO(customerAddressesById.get(order.getCustomerAddressId()))
-                                : null,
+                        usersById.get(order.getUserId()),
                         toItemDTOs(itemsByOrderId.getOrDefault(order.getId(), Collections.emptyList()), productsById),
                         toStatusLabel(order.getStatus())
                 ))
@@ -342,12 +356,161 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         return id != null ? "ORD-" + String.format("%03d", id) : null;
     }
 
-    private void applyCustomerAddressSnapshotIfPresent(CustomerOrder order) {
-        CustomerAddress address = resolveCustomerAddress(order, false);
-        if (address == null) {
+    private void normalizeUserAndCustomer(CustomerOrder order) {
+        Customer customer = null;
+        if (order.getCustomerId() != null) {
+            customer = customerRepository.findByShopIdAndId(order.getShopId(), order.getCustomerId())
+                    .orElseThrow(() -> new OrderValidationException(
+                            "OrderCustomerNotFound",
+                            "Không tìm thấy khách hàng của shop"
+                    ));
+            if (order.getUserId() == null) {
+                order.setUserId(customer.getUserId());
+            } else if (customer.getUserId() != null && !Objects.equals(order.getUserId(), customer.getUserId())) {
+                throw new OrderValidationException(
+                        "OrderUserCustomerMismatch",
+                        "userId không khớp với customerId của shop"
+                );
+            }
+        }
+
+        if (order.getUserId() != null) {
+            assertActiveUser(order.getUserId());
+            if (order.getCustomerId() == null) {
+                customerRepository.findFirstByShopIdAndUserIdOrderByIdDesc(order.getShopId(), order.getUserId())
+                        .ifPresent(linkedCustomer -> order.setCustomerId(linkedCustomer.getId()));
+            }
             return;
         }
-        copyCustomerAddressToOrder(order, address);
+
+        if (order.getSource() == OrderSource.ONLINE) {
+            throw new OrderValidationException(
+                    "OrderUserRequired",
+                    "Đơn online cần có userId"
+            );
+        }
+    }
+
+    private void validateOnlineRequestDoesNotUseCustomerAddress(OrderDTO dto, OrderSource targetSource) {
+        OrderSource normalizedSource = targetSource != null ? targetSource : OrderSource.ONLINE;
+        if (normalizedSource != OrderSource.ONLINE) {
+            return;
+        }
+        if (dto.getCustomerId() != null || dto.getCustomerAddressId() != null) {
+            throw new OrderValidationException(
+                    "OrderOnlineCustomerFieldNotAllowed",
+                    "Đơn online dùng userId/userAddressId, không dùng customerId/customerAddressId"
+            );
+        }
+    }
+
+    private void assertActiveUser(Long userId) {
+        if (!userRepository.existsByIdAndStatus(userId, UserStatus.ACTIVE)) {
+            throw new OrderValidationException(
+                    "OrderUserNotFound",
+                    "Không tìm thấy người dùng đang hoạt động"
+            );
+        }
+    }
+
+    private void publishOrderCreatedNotification(CustomerOrder order) {
+        if (order.getSource() != OrderSource.ONLINE) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(order.getShopId(), order.getCustomerId());
+        User user = resolveNotificationUser(order.getUserId());
+        String displayName = user != null ? user.getFullName() : customer != null ? customer.getFullName() : null;
+
+        notificationService.publishToShop(
+                order.getShopId(),
+                NotificationType.ORDER_CREATED,
+                NotificationTargetType.ORDER,
+                order.getId(),
+                order.getUserId(),
+                "Đơn hàng online mới",
+                displayName != null && !displayName.isBlank()
+                        ? "Có đơn hàng online mới từ " + displayName
+                        : "Có đơn hàng online mới",
+                buildOrderNotificationMetadata(order, user, customer)
+        );
+    }
+
+    private Map<String, Object> buildOrderNotificationMetadata(CustomerOrder order, User user, Customer customer) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("orderId", order.getId());
+        metadata.put("orderCode", order.getOrderCode());
+        metadata.put("userId", order.getUserId());
+        metadata.put("userFullName", user != null ? user.getFullName() : null);
+        metadata.put("customerId", order.getCustomerId());
+        metadata.put("customerName", customer != null ? customer.getFullName() : null);
+        metadata.put("source", order.getSource());
+        metadata.put("totalAmount", order.getTotalAmount());
+        metadata.put("senderUserId", order.getUserId());
+        metadata.put("senderAvatarUrl", user != null ? user.getAvatarUrlPreview() : null);
+        return metadata;
+    }
+
+    private Customer resolveNotificationCustomer(Long shopId, Long customerId) {
+        if (shopId == null || customerId == null) {
+            return null;
+        }
+        return customerRepository.findByShopIdAndId(shopId, customerId).orElse(null);
+    }
+
+    private User resolveNotificationUser(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId).orElse(null);
+    }
+
+    private void applyCustomerAddressSnapshotIfPresent(CustomerOrder order) {
+        UserAddress userAddress = resolveUserAddress(order, false);
+        if (userAddress != null) {
+            copyUserAddressToOrder(order, userAddress);
+            return;
+        }
+
+        CustomerAddress customerAddress = resolveCustomerAddress(order, false);
+        if (customerAddress == null) {
+            return;
+        }
+        copyCustomerAddressToOrder(order, customerAddress);
+    }
+
+    private UserAddress resolveUserAddress(CustomerOrder order, boolean required) {
+        if (order.getUserAddressId() != null) {
+            if (order.getUserId() == null) {
+                throw new OrderValidationException(
+                        "OrderUserRequired",
+                        "Đơn online cần có userId để dùng userAddressId"
+                );
+            }
+            return userAddressRepository.findByIdAndUserId(order.getUserAddressId(), order.getUserId())
+                    .orElseThrow(() -> new OrderValidationException(
+                            "OrderUserAddressNotFound",
+                            "Không tìm thấy địa chỉ của người dùng"
+                    ));
+        }
+
+        if (order.getSource() == OrderSource.ONLINE && order.getUserId() != null) {
+            UserAddress defaultAddress = userAddressRepository
+                    .findFirstByUserIdOrderByDefaultAddressDescIdDesc(order.getUserId())
+                    .orElse(null);
+            if (defaultAddress != null) {
+                order.setUserAddressId(defaultAddress.getId());
+                return defaultAddress;
+            }
+        }
+
+        if (required) {
+            throw new OrderValidationException(
+                    "OrderUserAddressRequired",
+                    "Đơn online cần có địa chỉ giao hàng của người dùng"
+            );
+        }
+        return null;
     }
 
     private CustomerAddress resolveCustomerAddress(CustomerOrder order, boolean required) {
@@ -411,6 +574,35 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         order.setShippingWard(address.getWard());
         order.setShippingStreet(null);
         order.setShippingHamlet(address.getHamlet());
+    }
+
+    private void copyUserAddressToOrder(CustomerOrder order, UserAddress address) {
+        order.setUserAddressId(address.getId());
+        order.setReceiverName(address.getName());
+        order.setReceiverPhone(address.getTel());
+        order.setShippingAddress(address.getAddress());
+        order.setShippingProvince(address.getProvince());
+        order.setShippingDistrict(address.getDistrict());
+        order.setShippingWard(address.getWard());
+        order.setShippingStreet(null);
+        order.setShippingHamlet(address.getHamlet());
+    }
+
+    private void validateOnlineShippingInfo(CustomerOrder order) {
+        if (order.getSource() != OrderSource.ONLINE) {
+            return;
+        }
+        if (isBlank(order.getReceiverName())
+                || isBlank(order.getReceiverPhone())
+                || isBlank(order.getShippingAddress())
+                || isBlank(order.getShippingProvince())
+                || isBlank(order.getShippingDistrict())
+                || isBlank(order.getShippingWard())) {
+            throw new OrderValidationException(
+                    "OrderShippingInfoRequired",
+                    "Đơn online cần có userAddressId hoặc đủ thông tin giao hàng"
+            );
+        }
     }
 
     private String toStatusLabel(OrderStatus status) {

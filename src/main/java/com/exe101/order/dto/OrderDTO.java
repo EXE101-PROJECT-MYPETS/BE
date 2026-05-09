@@ -18,8 +18,10 @@ public class OrderDTO {
     private Long id;
     private String orderCode;
     private Long shopId;
+    private Long userId;
     private Long customerId;
     private Long customerAddressId;
+    private Long userAddressId;
     private OrderStatus status;
     private OrderSource source;
     private Long subtotalAmount;

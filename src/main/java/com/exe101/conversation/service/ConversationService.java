@@ -1,9 +1,11 @@
 package com.exe101.conversation.service;
 
 import com.exe101.common.IService;
+import com.exe101.common.ScrollResponse;
 import com.exe101.conversation.dto.ConversationDTO;
 import com.exe101.conversation.dto.MessageCreateRequest;
 import com.exe101.conversation.dto.MessageDTO;
+import com.exe101.conversation.dto.ReadReceiptDTO;
 import com.exe101.conversation.entity.Conversation;
 import com.exe101.conversation.entity.Message;
 import com.exe101.conversation.entity.MessageSenderType;
@@ -20,14 +22,19 @@ import com.exe101.user.entity.UserStatus;
 import com.exe101.user.exception.UserNotFound;
 import com.exe101.user.repository.IUserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.stereotype.Service;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 @Service
 @RequiredArgsConstructor
 public class ConversationService implements IService<Conversation, ConversationDTO, Long> {
+
+    private static final int MAX_MESSAGE_SCROLL_SIZE = 50;
 
     private final IConversationRepository conversationRepository;
     private final IMessageRepository messageRepository;
@@ -50,21 +57,40 @@ public class ConversationService implements IService<Conversation, ConversationD
     public ConversationDTO getById(Long id) {
         return conversationRepository.findById(id)
                 .map(ConversationMapper::toDTO)
-                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Khong tim thay cuoc tro chuyen"));
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
     }
 
     @Transactional(readOnly = true)
     public ConversationDTO getById(Long shopId, Long id) {
         return conversationRepository.findSummaryByIdAndShopId(id, shopId)
-                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Khong tim thay cuoc tro chuyen"));
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
     }
 
     @Transactional(readOnly = true)
-    public List<MessageDTO> getMessages(Long shopId, Long conversationId) {
+    public ScrollResponse<MessageDTO> getMessages(Long shopId, Long conversationId, Long cursor, int size) {
         Conversation conversation = findByIdAndShopId(conversationId, shopId);
-        return messageRepository.findByConversationIdOrderByIdAsc(conversation.getId()).stream()
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_MESSAGE_SCROLL_SIZE);
+        Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
+
+        List<Message> messages = messageRepository.findLatestForScroll(
+                conversation.getId(),
+                normalizedCursor,
+                PageRequest.of(0, normalizedSize + 1)
+        );
+
+        boolean hasNext = messages.size() > normalizedSize;
+        List<Message> content = new ArrayList<>(messages.stream()
+                .limit(normalizedSize)
+                .toList());
+        Collections.reverse(content);
+
+        Long nextCursor = hasNext && !content.isEmpty()
+                ? content.get(0).getId()
+                : null;
+
+        return ScrollResponse.of(content.stream()
                 .map(MessageMapper::toDTO)
-                .toList();
+                .toList(), normalizedSize, nextCursor, hasNext);
     }
 
     @Transactional
@@ -78,6 +104,38 @@ public class ConversationService implements IService<Conversation, ConversationD
         Conversation conversation = conversationRepository.findById(conversationId)
                 .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
         return saveMessage(conversation, request);
+    }
+
+    @Transactional
+    public ReadReceiptDTO markUserRead(Long conversationId, Long readerUserId, Long lastReadMessageId) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
+        if (!conversation.getUserId().equals(readerUserId)) {
+            throw new ConversationValidationException(
+                    "ConversationReaderInvalid",
+                    "Người dùng không thuộc cuộc trò chuyện này"
+            );
+        }
+        validateReadMessage(conversation.getId(), lastReadMessageId);
+        if (conversation.getUserLastReadMessageId() == null
+                || lastReadMessageId > conversation.getUserLastReadMessageId()) {
+            conversation.setUserLastReadMessageId(lastReadMessageId);
+            conversationRepository.save(conversation);
+        }
+        return toReadReceiptDTO(conversation, MessageSenderType.USER, readerUserId, conversation.getUserLastReadMessageId());
+    }
+
+    @Transactional
+    public ReadReceiptDTO markShopRead(Long shopId, Long conversationId, Long readerUserId, Long lastReadMessageId) {
+        Conversation conversation = findByIdAndShopId(conversationId, shopId);
+        validateShopReaderUserId(shopId, readerUserId);
+        validateReadMessage(conversation.getId(), lastReadMessageId);
+        if (conversation.getShopLastReadMessageId() == null
+                || lastReadMessageId > conversation.getShopLastReadMessageId()) {
+            conversation.setShopLastReadMessageId(lastReadMessageId);
+            conversationRepository.save(conversation);
+        }
+        return toReadReceiptDTO(conversation, MessageSenderType.SHOP, readerUserId, conversation.getShopLastReadMessageId());
     }
 
     @Override
@@ -139,7 +197,7 @@ public class ConversationService implements IService<Conversation, ConversationD
         if (request.getSenderUserId() != null && !request.getSenderUserId().equals(conversation.getUserId())) {
             throw new ConversationValidationException(
                     "MessageSenderInvalid",
-                    "User gui tin khong thuoc cuoc tro chuyen nay"
+                    "Người dùng gửi tin không thuộc cuộc trò chuyện này"
             );
         }
 
@@ -177,17 +235,53 @@ public class ConversationService implements IService<Conversation, ConversationD
         return MessageMapper.toDTO(messageRepository.save(message));
     }
 
+    private void validateReadMessage(Long conversationId, Long lastReadMessageId) {
+        if (!messageRepository.existsByIdAndConversationId(lastReadMessageId, conversationId)) {
+            throw new ConversationValidationException(
+                    "ReadMessageInvalid",
+                    "Tin nhắn đã đọc không thuộc cuộc trò chuyện này"
+            );
+        }
+    }
+
+    private void validateShopReaderUserId(Long shopId, Long readerUserId) {
+        if (readerUserId == null
+                || !shopMemberRepository.existsByShopIdAndUserIdAndStatus(shopId, readerUserId, MemberStatus.ACTIVE)) {
+            throw new ConversationValidationException(
+                    "ConversationReaderInvalid",
+                    "Tài khoản đọc tin không phải tài khoản đang hoạt động của shop"
+            );
+        }
+    }
+
+    private ReadReceiptDTO toReadReceiptDTO(
+            Conversation conversation,
+            MessageSenderType readerType,
+            Long readerUserId,
+            Long lastReadMessageId
+    ) {
+        return new ReadReceiptDTO(
+                conversation.getId(),
+                conversation.getShopId(),
+                readerType,
+                readerUserId,
+                lastReadMessageId,
+                conversation.getShopLastReadMessageId(),
+                conversation.getUserLastReadMessageId()
+        );
+    }
+
     private void validateUserTarget(Long userId) {
         if (userId == null) {
             throw new ConversationValidationException(
                     "ConversationUserRequired",
-                    "Cuoc tro chuyen can co userId"
+                    "Cuộc trò chuyện cần có userId"
             );
         }
         if (!userRepository.existsByIdAndStatus(userId, UserStatus.ACTIVE)) {
             throw new UserNotFound(
                     "UserNotFound",
-                    "Khong tim thay user active de tao cuoc tro chuyen"
+                    "Không tìm thấy người dùng đang hoạt động để tạo cuộc trò chuyện"
             );
         }
     }
@@ -197,7 +291,7 @@ public class ConversationService implements IService<Conversation, ConversationD
             if (conversationRepository.existsByShopIdAndUserId(shopId, userId)) {
                 throw new ConversationValidationException(
                         "ConversationDuplicate",
-                        "Shop da co cuoc tro chuyen voi user nay"
+                        "Shop đã có cuộc trò chuyện với người dùng này"
                 );
             }
             return;
@@ -208,7 +302,7 @@ public class ConversationService implements IService<Conversation, ConversationD
                 .ifPresent(conversation -> {
                     throw new ConversationValidationException(
                             "ConversationDuplicate",
-                            "Shop da co cuoc tro chuyen voi user nay"
+                            "Shop đã có cuộc trò chuyện với người dùng này"
                     );
                 });
     }
@@ -218,7 +312,7 @@ public class ConversationService implements IService<Conversation, ConversationD
             if (!shopMemberRepository.existsByShopIdAndUserIdAndStatus(shopId, requestedUserId, MemberStatus.ACTIVE)) {
                 throw new ConversationValidationException(
                         "MessageSenderInvalid",
-                        "Account gửi tin không phải account active của shop"
+                        "Tài khoản gửi tin không phải tài khoản đang hoạt động của shop"
                 );
             }
             return requestedUserId;
@@ -228,7 +322,7 @@ public class ConversationService implements IService<Conversation, ConversationD
         if (activeAccounts.isEmpty()) {
             throw new ConversationValidationException(
                     "ShopAccountNotFound",
-                    "Shop chưa có account active để gửi tin nhắn"
+                    "Shop chưa có tài khoản đang hoạt động để gửi tin nhắn"
             );
         }
         return activeAccounts.get(0).getUserId();

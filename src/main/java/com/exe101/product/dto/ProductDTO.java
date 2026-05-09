@@ -20,6 +20,10 @@ public class ProductDTO {
     private Long shopId;
     private Long categoryId;
     private String categoryName;
+    private Double rating;
+    private Long reviewCount;
+    private Double reviewAvg;
+    private Long totalReviews;
 
     @NotBlank(message = "SKU không được để trống")
     @Size(max = 64, message = "SKU không được vượt quá 64 ký tự")

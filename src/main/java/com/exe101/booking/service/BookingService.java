@@ -30,11 +30,17 @@ import com.exe101.invoice.entity.Invoice;
 import com.exe101.invoice.entity.InvoiceStatus;
 import com.exe101.invoice.repository.IInvoiceRepository;
 import com.exe101.invoice.service.InvoiceService;
+import com.exe101.notification.dto.NotificationTargetType;
+import com.exe101.notification.dto.NotificationType;
+import com.exe101.notification.service.NotificationService;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
 import com.exe101.service_shop.repository.IServiceRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
+import com.exe101.user.entity.User;
+import com.exe101.user.entity.UserStatus;
+import com.exe101.user.repository.IUserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -45,6 +51,7 @@ import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -68,6 +75,8 @@ public class BookingService {
     private final IProductRepository productRepository;
     private final IServiceRepository serviceRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final NotificationService notificationService;
+    private final IUserRepository userRepository;
 
     public List<BookingListItemDTO> getAll() {
         return toListItemDTOs(bookingRepository.findAll());
@@ -75,6 +84,7 @@ public class BookingService {
 
     public ScrollResponse<BookingListItemDTO> getAllForScroll(
             Long shopId,
+            Long userId,
             Long customerId,
             String customerName,
             BookingStatus status,
@@ -94,6 +104,7 @@ public class BookingService {
 
         Page<Booking> bookingPage = bookingRepository.findForScroll(
                 shopId,
+                userId,
                 customerId,
                 normalizedCustomerName,
                 status,
@@ -141,14 +152,14 @@ public class BookingService {
         }
 
         List<Long> bookingIds = bookings.stream().map(Booking::getId).toList();
-        List<Long> customerIds = bookings.stream()
-                .map(Booking::getCustomerId)
+        List<Long> userIds = bookings.stream()
+                .map(Booking::getUserId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
 
-        Map<Long, Customer> customersById = customerRepository.findAllById(customerIds).stream()
-                .collect(Collectors.toMap(Customer::getId, Function.identity()));
+        Map<Long, User> usersById = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<Long, List<BookingItem>> itemsByBookingId = bookingItemRepository.findByBookingIdIn(bookingIds).stream()
                 .collect(Collectors.groupingBy(BookingItem::getBookingId));
         Map<Long, Invoice> invoicesByBookingId = invoiceRepository.findByBookingIdIn(bookingIds).stream()
@@ -166,7 +177,7 @@ public class BookingService {
         return bookings.stream()
                 .map(booking -> toListItemDTO(
                         booking,
-                        customersById.get(booking.getCustomerId()),
+                        usersById.get(booking.getUserId()),
                         assignedStaffsByBookingId.getOrDefault(booking.getId(), List.of()),
                         itemsByBookingId.getOrDefault(booking.getId(), Collections.emptyList()),
                         invoicesByBookingId.get(booking.getId()),
@@ -207,7 +218,7 @@ public class BookingService {
 
     private BookingListItemDTO toListItemDTO(
             Booking booking,
-            Customer customer,
+            User user,
             List<BookingStaffDTO> assignedStaffs,
             List<BookingItem> items,
             Invoice invoice,
@@ -227,9 +238,11 @@ public class BookingService {
         dto.setId(booking.getId());
         dto.setBookingCode(formatBookingCode(booking.getId()));
         dto.setShopId(booking.getShopId());
-        dto.setCustomerId(booking.getCustomerId());
-        dto.setCustomerName(customer != null ? customer.getFullName() : null);
-        dto.setCustomerPhone(customer != null ? customer.getPhone() : null);
+        dto.setUserId(booking.getUserId());
+        dto.setUserFullName(user != null ? user.getFullName() : null);
+        dto.setUserPhone(user != null ? user.getPhone() : null);
+        dto.setUserEmail(user != null ? user.getEmail() : null);
+        dto.setUserAvatarUrlPreview(user != null ? user.getAvatarUrlPreview() : null);
         dto.setStartAt(booking.getStartAt());
         dto.setEndAt(booking.getEndAt());
         dto.setItems(lineItems);
@@ -286,6 +299,110 @@ public class BookingService {
         return id != null ? "BKG-" + String.format("%03d", id) : null;
     }
 
+    private void normalizeUserAndCustomer(Booking booking) {
+        Customer customer = null;
+        if (booking.getCustomerId() != null) {
+            customer = customerRepository.findByShopIdAndId(booking.getShopId(), booking.getCustomerId())
+                    .orElseThrow(() -> new BookingValidationException(
+                            "BookingCustomerNotFound",
+                            "Không tìm thấy khách hàng của shop"
+                    ));
+            if (booking.getUserId() == null) {
+                booking.setUserId(customer.getUserId());
+            } else if (customer.getUserId() != null && !Objects.equals(booking.getUserId(), customer.getUserId())) {
+                throw new BookingValidationException(
+                        "BookingUserCustomerMismatch",
+                        "userId không khớp với customerId của shop"
+                );
+            }
+        }
+
+        if (booking.getUserId() != null) {
+            assertActiveUser(booking.getUserId());
+            if (booking.getCustomerId() == null) {
+                customerRepository.findFirstByShopIdAndUserIdOrderByIdDesc(booking.getShopId(), booking.getUserId())
+                        .ifPresent(linkedCustomer -> booking.setCustomerId(linkedCustomer.getId()));
+            }
+            if (booking.getSource() == BookingSource.CUSTOMER && booking.getCreatedBy() == null) {
+                booking.setCreatedBy(booking.getUserId());
+            }
+            return;
+        }
+
+        if (booking.getSource() == BookingSource.CUSTOMER) {
+            throw new BookingValidationException(
+                    "BookingUserRequired",
+                    "Lịch hẹn từ người dùng cần có userId"
+            );
+        }
+    }
+
+    private void assertActiveUser(Long userId) {
+        if (!userRepository.existsByIdAndStatus(userId, UserStatus.ACTIVE)) {
+            throw new BookingValidationException(
+                    "BookingUserNotFound",
+                    "Không tìm thấy người dùng đang hoạt động"
+            );
+        }
+    }
+
+    private void publishBookingCreatedNotification(Booking booking) {
+        if (booking.getSource() != BookingSource.CUSTOMER) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(booking.getShopId(), booking.getCustomerId());
+        User user = resolveNotificationUser(booking.getUserId());
+        String displayName = user != null ? user.getFullName() : customer != null ? customer.getFullName() : null;
+
+        notificationService.publishToShop(
+                booking.getShopId(),
+                NotificationType.BOOKING_CREATED,
+                NotificationTargetType.BOOKING,
+                booking.getId(),
+                booking.getUserId(),
+                "Lịch booking mới",
+                displayName != null && !displayName.isBlank()
+                        ? "Có lịch booking mới từ " + displayName
+                        : "Có lịch booking mới",
+                buildBookingNotificationMetadata(booking, user, customer)
+        );
+    }
+
+    private Map<String, Object> buildBookingNotificationMetadata(
+            Booking booking,
+            User user,
+            Customer customer
+    ) {
+        Map<String, Object> metadata = new LinkedHashMap<>();
+        metadata.put("bookingId", booking.getId());
+        metadata.put("bookingCode", formatBookingCode(booking.getId()));
+        metadata.put("userId", booking.getUserId());
+        metadata.put("userFullName", user != null ? user.getFullName() : null);
+        metadata.put("customerId", booking.getCustomerId());
+        metadata.put("customerName", customer != null ? customer.getFullName() : null);
+        metadata.put("source", booking.getSource());
+        metadata.put("startAt", booking.getStartAt());
+        metadata.put("endAt", booking.getEndAt());
+        metadata.put("senderUserId", booking.getUserId());
+        metadata.put("senderAvatarUrl", user != null ? user.getAvatarUrlPreview() : null);
+        return metadata;
+    }
+
+    private Customer resolveNotificationCustomer(Long shopId, Long customerId) {
+        if (shopId == null || customerId == null) {
+            return null;
+        }
+        return customerRepository.findByShopIdAndId(shopId, customerId).orElse(null);
+    }
+
+    private User resolveNotificationUser(Long userId) {
+        if (userId == null) {
+            return null;
+        }
+        return userRepository.findById(userId).orElse(null);
+    }
+
     private String toStatusLabel(BookingStatus status) {
         if (status == null) {
             return null;
@@ -312,9 +429,13 @@ public class BookingService {
 
     @Transactional
     public BookingListItemDTO create(BookingDTO dto) {
-        Booking savedBooking = bookingRepository.save(BookingMapper.toEntity(dto));
+        Booking booking = BookingMapper.toEntity(dto);
+        normalizeUserAndCustomer(booking);
+        Booking savedBooking = bookingRepository.save(booking);
         syncAssignedStaff(savedBooking, dto.getAssignedStaffIds());
-        return getById(savedBooking.getId());
+        BookingListItemDTO result = getById(savedBooking.getId());
+        publishBookingCreatedNotification(savedBooking);
+        return result;
     }
 
     @Transactional
@@ -382,6 +503,7 @@ public class BookingService {
     ) {
         InvoiceDTO dto = new InvoiceDTO();
         dto.setShopId(booking.getShopId());
+        dto.setUserId(booking.getUserId());
         dto.setCustomerId(booking.getCustomerId());
         dto.setBookingId(booking.getId());
         dto.setStatus(InvoiceStatus.ISSUED);
@@ -587,6 +709,9 @@ public class BookingService {
     public BookingListItemDTO update(Long id, BookingDTO dto) {
         Booking entity = findBookingById(id);
         BookingMapper.updateEntity(entity, dto);
+        if (dto.getUserId() != null || dto.getCustomerId() != null) {
+            normalizeUserAndCustomer(entity);
+        }
         Booking savedBooking = bookingRepository.save(entity);
         if (dto.getAssignedStaffIds() != null) {
             syncAssignedStaff(savedBooking, dto.getAssignedStaffIds());

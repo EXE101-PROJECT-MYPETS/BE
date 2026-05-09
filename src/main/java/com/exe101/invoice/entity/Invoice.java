@@ -4,6 +4,7 @@ import com.exe101.booking.entity.Booking;
 import com.exe101.customer.entity.Customer;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.shop.entity.Shop;
+import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -23,6 +24,9 @@ public class Invoice {
 
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
+
+    @Column(name = "user_id")
+    private Long userId;
 
     @Column(name = "customer_id")
     private Long customerId;
@@ -57,6 +61,11 @@ public class Invoice {
     @JoinColumn(name = "shop_id", insertable = false, updatable = false)
     @JsonIgnore
     private Shop shop;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({

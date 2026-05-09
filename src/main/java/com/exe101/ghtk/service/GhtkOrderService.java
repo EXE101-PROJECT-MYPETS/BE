@@ -277,6 +277,9 @@ public class GhtkOrderService {
     }
 
     private void applyCustomerAddressSnapshot(CustomerOrder order) {
+        if (order.getCustomerAddressId() == null && order.getCustomerId() == null) {
+            return;
+        }
         CustomerAddress address = resolveCustomerAddress(order);
         order.setCustomerAddressId(address.getId());
         order.setReceiverName(address.getName());

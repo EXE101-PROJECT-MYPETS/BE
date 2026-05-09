@@ -20,6 +20,7 @@ public class InvoiceMapper {
         return new InvoiceDTO(
                 entity.getId(),
                 entity.getShopId(),
+                entity.getUserId(),
                 entity.getCustomerId(),
                 entity.getBookingId(),
                 entity.getOrderId(),
@@ -42,6 +43,7 @@ public class InvoiceMapper {
 
     public static void updateEntity(Invoice entity, InvoiceDTO dto) {
         entity.setShopId(dto.getShopId());
+        entity.setUserId(dto.getUserId());
         entity.setCustomerId(dto.getCustomerId());
         entity.setBookingId(dto.getBookingId());
         entity.setOrderId(dto.getOrderId());

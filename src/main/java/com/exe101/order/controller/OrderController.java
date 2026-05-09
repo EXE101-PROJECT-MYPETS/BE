@@ -24,6 +24,7 @@ public class OrderController {
     @GetMapping
     public ResponseEntity<ScrollResponse<OrderListItemDTO>> getAll(
             @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) OrderStatus status,
             @RequestParam(required = false) OrderSource source,
@@ -35,6 +36,7 @@ public class OrderController {
     ) {
         return ResponseEntity.ok(orderService.getAllForScroll(
                 shopId,
+                userId,
                 customerId,
                 status,
                 source,

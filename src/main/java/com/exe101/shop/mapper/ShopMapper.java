@@ -17,6 +17,7 @@ public class ShopMapper {
         dto.setId(entity.getId());
         dto.setName(entity.getName());
         dto.setAddressText(entity.getAddressText());
+        dto.setImageUrl(entity.getImageUrl());
         dto.setLat(entity.getLat());
         dto.setLng(entity.getLng());
         dto.setLocationSource(entity.getLocationSource());
@@ -33,6 +34,7 @@ public class ShopMapper {
         Shop entity = new Shop();
         entity.setName(req.getName());
         entity.setAddressText(req.getAddressText());
+        entity.setImageUrl(req.getImageUrl());
         entity.setLat(req.getLat());
         entity.setLng(req.getLng());
         entity.setLocationSource(

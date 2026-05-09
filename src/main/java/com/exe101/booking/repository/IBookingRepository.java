@@ -21,9 +21,15 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                     SELECT b
                     FROM Booking b
                     LEFT JOIN b.customer c
+                    LEFT JOIN b.user u
                     WHERE (:shopId IS NULL OR b.shopId = :shopId)
+                      AND (:userId IS NULL OR b.userId = :userId)
                       AND (:customerId IS NULL OR b.customerId = :customerId)
-                      AND (:customerName IS NULL OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%')))
+                      AND (
+                        :customerName IS NULL
+                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                      )
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)
                       AND (:createdFrom IS NULL OR b.createdAt >= :createdFrom)
@@ -60,9 +66,15 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                     SELECT COUNT(b)
                     FROM Booking b
                     LEFT JOIN b.customer c
+                    LEFT JOIN b.user u
                     WHERE (:shopId IS NULL OR b.shopId = :shopId)
+                      AND (:userId IS NULL OR b.userId = :userId)
                       AND (:customerId IS NULL OR b.customerId = :customerId)
-                      AND (:customerName IS NULL OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%')))
+                      AND (
+                        :customerName IS NULL
+                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                      )
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)
                       AND (:createdFrom IS NULL OR b.createdAt >= :createdFrom)
@@ -73,6 +85,7 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
     )
     Page<Booking> findForScroll(
             @Param("shopId") Long shopId,
+            @Param("userId") Long userId,
             @Param("customerId") Long customerId,
             @Param("customerName") String customerName,
             @Param("status") BookingStatus status,

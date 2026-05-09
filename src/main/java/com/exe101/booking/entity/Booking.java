@@ -23,7 +23,10 @@ public class Booking {
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
 
-    @Column(name = "customer_id", nullable = false)
+    @Column(name = "user_id")
+    private Long userId;
+
+    @Column(name = "customer_id")
     private Long customerId;
 
     @Column(name = "start_at", nullable = false)
@@ -55,6 +58,11 @@ public class Booking {
     @JoinColumn(name = "shop_id", insertable = false, updatable = false)
     @JsonIgnore
     private Shop shop;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumns({

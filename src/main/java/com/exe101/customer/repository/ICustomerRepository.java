@@ -12,6 +12,8 @@ public interface ICustomerRepository extends JpaRepository<Customer, Long> {
 
     Optional<Customer> findByShopIdAndId(Long shopId, Long id);
 
+    Optional<Customer> findFirstByShopIdAndUserIdOrderByIdDesc(Long shopId, Long userId);
+
     Optional<Customer> findByShopIdAndPhone(Long shopId, String phone);
 
     List<Customer> findByShopIdAndPhoneStartingWithOrderByIdDesc(Long shopId, String phone, Pageable pageable);

@@ -190,6 +190,7 @@ public class InvoiceService implements IService<Invoice, InvoiceDTO, Long> {
         if (invoice.getOrderId() != null) {
             CustomerOrder order = orderRepository.findByIdAndShopId(invoice.getOrderId(), invoice.getShopId())
                     .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+            invoice.setUserId(order.getUserId());
             invoice.setCustomerId(order.getCustomerId());
             invoice.setTotalAmount(order.getTotalAmount());
             return buildLinesFromOrder(invoice);
@@ -201,6 +202,7 @@ public class InvoiceService implements IService<Invoice, InvoiceDTO, Long> {
                             "InvoiceBookingNotFound",
                             "Không tìm thấy lịch hẹn"
                     ));
+            invoice.setUserId(booking.getUserId());
             invoice.setCustomerId(booking.getCustomerId());
             return buildLinesFromBooking(invoice);
         }

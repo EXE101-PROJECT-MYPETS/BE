@@ -1,7 +1,5 @@
 package com.exe101.order.mapper;
 
-import com.exe101.customer.dto.CustomerDTO;
-import com.exe101.customerAddress.dto.CustomerAddressDTO;
 import com.exe101.order.dto.OrderDTO;
 import com.exe101.order.dto.OrderItemDTO;
 import com.exe101.order.dto.OrderListItemDTO;
@@ -9,6 +7,7 @@ import com.exe101.order.dto.OrderShippingSnapshotDTO;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
+import com.exe101.user.entity.User;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -22,8 +21,10 @@ public class OrderMapper {
                 entity.getId(),
                 entity.getOrderCode(),
                 entity.getShopId(),
+                entity.getUserId(),
                 entity.getCustomerId(),
                 entity.getCustomerAddressId(),
+                entity.getUserAddressId(),
                 entity.getStatus(),
                 entity.getSource(),
                 entity.getSubtotalAmount(),
@@ -47,8 +48,7 @@ public class OrderMapper {
 
     public static OrderListItemDTO toListItemDTO(
             CustomerOrder entity,
-            CustomerDTO customer,
-            CustomerAddressDTO customerAddress,
+            User user,
             List<OrderItemDTO> items,
             String statusLabel
     ) {
@@ -57,10 +57,12 @@ public class OrderMapper {
                 entity.getId(),
                 entity.getOrderCode(),
                 entity.getShopId(),
-                entity.getCustomerId(),
-                customer,
-                entity.getCustomerAddressId(),
-                customerAddress,
+                entity.getUserId(),
+                user != null ? user.getFullName() : null,
+                user != null ? user.getPhone() : null,
+                user != null ? user.getEmail() : null,
+                user != null ? user.getAvatarUrlPreview() : null,
+                entity.getUserAddressId(),
                 toShippingSnapshotDTO(entity),
                 items,
                 entity.getTotalAmount(),
@@ -88,8 +90,10 @@ public class OrderMapper {
         if (dto == null) return null;
         CustomerOrder entity = new CustomerOrder();
         entity.setShopId(dto.getShopId());
+        entity.setUserId(dto.getUserId());
         entity.setCustomerId(dto.getCustomerId());
         entity.setCustomerAddressId(dto.getCustomerAddressId());
+        entity.setUserAddressId(dto.getUserAddressId());
         entity.setOrderCode(dto.getOrderCode());
         entity.setStatus(dto.getStatus() != null ? dto.getStatus() : OrderStatus.PENDING);
         entity.setSource(dto.getSource() != null ? dto.getSource() : OrderSource.ONLINE);
@@ -113,11 +117,17 @@ public class OrderMapper {
         if (dto.getShopId() != null) {
             entity.setShopId(dto.getShopId());
         }
+        if (dto.getUserId() != null) {
+            entity.setUserId(dto.getUserId());
+        }
         if (dto.getCustomerId() != null) {
             entity.setCustomerId(dto.getCustomerId());
         }
         if (dto.getCustomerAddressId() != null) {
             entity.setCustomerAddressId(dto.getCustomerAddressId());
+        }
+        if (dto.getUserAddressId() != null) {
+            entity.setUserAddressId(dto.getUserAddressId());
         }
         if (dto.getOrderCode() != null) {
             entity.setOrderCode(dto.getOrderCode());

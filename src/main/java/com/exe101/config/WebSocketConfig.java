@@ -11,6 +11,8 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     private static final String[] ALLOWED_ORIGIN_PATTERNS = {
+            "http://localhost:*",
+            "http://localhost:3000",
             "http://localhost:5173",
             "https://exe-fe-gold.vercel.app",
             "https://*.vercel.app"

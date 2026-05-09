@@ -53,6 +53,7 @@ Shop-owned endpoint groups currently requiring `X-Shop-Id`:
 - `/api/invoices`
 - `/api/payments`
 - `/api/conversations`
+- `/api/reviews`
 - `/api/service-categories`
 - `/api/shops/staff`
 
@@ -114,6 +115,7 @@ com.exe101/
 |-- payment/           # Payment intents and payment transactions
 |-- pet/               # Pets, species, breeds, health profile
 |-- product/           # Products
+|-- review/            # Product reviews
 |-- resource/          # Shop resources
 |-- servicePackage/    # Packages, customer packages, package ledger
 |-- service_shop/      # Service catalog and service categories for shops
@@ -176,6 +178,7 @@ Errors
 | `invoice`        | CRUD scaffold | `/api/invoices`      | Invoice CRUD                                                                                    |
 | `payment`        | CRUD scaffold | `/api/payments`      | Payment intent CRUD                                                                             |
 | `conversation`   | CRUD scaffold | `/api/conversations` | Conversation CRUD                                                                               |
+| `review`         | CRUD scaffold | `/api/reviews`       | Product review CRUD (shop-scoped)                                                               |
 | `shop`           | Incomplete    | `/api/shop`          | Prefix exists, no real handler methods                                                          |
 | `shopMember`     | Incomplete    | `/api/shop-member`   | Prefix exists, no real handler methods                                                          |
 
@@ -186,9 +189,9 @@ Errors
 | Auth model        | Stateless JWT                                                                               |
 | JWT filter        | `JwtAuthenticationFilterController`                                                         |
 | JWT claims in use | `sub`, `role`, `userId`                                                                     |
-| Public routes     | `/api/auth/**`, `/error`, `/graphql`, `/ws/**`, `/ws-sockjs/**`, `/chat/**`, `/api/test/**` |
+| Public routes     | `/api/auth/**`, `/api/public/**`, `/error`, `/graphql`, `/ws/**`, `/ws-sockjs/**`, `/chat/**`, `/api/test/**` |
 | Protected routes  | Everything else                                                                             |
-| CORS origins      | `http://localhost:5173`, `https://*.vercel.app`                                             |
+| CORS origins      | `http://localhost:3000`, `http://localhost:5173`, `https://*.vercel.app`                    |
 
 ### Storage Architecture
 
@@ -350,7 +353,9 @@ Error payload shape:
 
 | Method | Endpoint                        | Description                                                                                                                                              |
 |--------|---------------------------------|----------------------------------------------------------------------------------------------------------------------------------------------------------|
-| `POST` | `/api/auth/register`            | Register with `multipart/form-data`, create user and credential, optionally upload avatar to Supabase, return tokens plus user DTO                       |
+| `POST` | `/api/auth/register/email-verification/send-code`   | Send a 6-digit email verification code before first-time registration; request only needs `email`                                         |
+| `POST` | `/api/auth/register/email-verification/verify-code` | Verify the first-time registration email code; request needs `email` and `code`                                            |
+| `POST` | `/api/auth/register`            | Register with `multipart/form-data`, create user and credential, optionally upload avatar to Supabase, return tokens plus user DTO |
 | `POST` | `/api/auth/shop-owner/register` | Register a shop owner with `multipart/form-data`, create `users`, `user_credentials`, `shops`, `shop_members`, then return tokens plus user and shop DTO |
 | `POST` | `/api/auth/customer/login`      | Customer login with email/password JSON payload                                                                                                          |
 | `POST` | `/api/auth/shop/login`          | Shop login with email/password JSON payload; only `SHOP` accounts with active `shop_members` are allowed; response includes `shops` and `currentShopId` |
@@ -359,6 +364,27 @@ Error payload shape:
 | `POST` | `/api/auth/logout-all`          | Revoke all refresh tokens for the authenticated user; current implementation still has a principal-casting bug                                           |
 
 Auth payload examples:
+
+First-time registration email verification:
+
+`POST /api/auth/register/email-verification/send-code`
+
+```json
+{
+  "email": "user@example.com"
+}
+```
+
+`POST /api/auth/register/email-verification/verify-code`
+
+```json
+{
+  "email": "user@example.com",
+  "code": "123456"
+}
+```
+
+The registration email verification endpoints are standalone public APIs for frontend-led registration flows. Current customer/shop-owner register endpoints do not call the email service automatically.
 
 `POST /api/auth/customer/login`
 
@@ -418,14 +444,14 @@ Frontend must send `currentShopId` or a selected item from `shops` as the `X-Sho
 
 | Module           | Base path            | Methods               | Status        | Description                                                                         |
 |------------------|----------------------|-----------------------|---------------|-------------------------------------------------------------------------------------|
-| `auth`           | `/api/auth`          | `POST`                | Concrete      | Customer register, shop-owner register, customer login, shop login, refresh, logout |
+| `auth`           | `/api/auth`          | `POST`                | Concrete      | Register email verification, customer register, shop-owner register, customer login, shop login, refresh, logout |
 | `user`           | `/api/user`          | `GET`                 | Partial       | Read-only user lookup                                                               |
 | `service_shop`   | `/api/services`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service catalog CRUD plus cursor scroll                                             |
 | `service_category` | `/api/service-categories` | `GET/POST/PUT/DELETE` | CRUD scaffold | Shop-scoped service category CRUD with active filter                                |
 | `customer`       | `/api/customers`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Customer CRUD                                                                       |
 | `pet`            | `/api/pets`          | `GET/POST/PUT/DELETE` | CRUD scaffold | Pet CRUD                                                                            |
 | `vaccine`        | `/api/vaccines`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Vaccine CRUD                                                                        |
-| `product`        | `/api/products`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Product CRUD                                                                        |
+| `product`        | `/api/products`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Product CRUD with dynamic `reviewAvg` and `totalReviews` from reviews             |
 | `inventory`      | `/api/inventories`   | `GET/POST/PUT/DELETE` | CRUD scaffold | Composite-key inventory CRUD                                                        |
 | `resource`       | `/api/resources`     | `GET/POST/PUT/DELETE` | CRUD scaffold | Resource CRUD                                                                       |
 | `booking`        | `/api/bookings`      | `GET/POST/PUT/DELETE` | CRUD scaffold | Service appointment CRUD plus cursor scroll                                         |
@@ -469,7 +495,15 @@ Applies to these route groups:
 |--------------------|----------|------------------------------------------------------|------------------------------------------------------|
 | `customer`         | `GET`    | `/api/customers?shopId=1`                            | List customers for one shop                          |
 | `pet`              | `GET`    | `/api/pets?shopId=1`                                 | List pets for one shop                               |
-| `product`          | `GET`    | `/api/products?shopId=1`                             | List products for one shop                           |
+| `product`          | `GET`    | `/api/products?shopId=1`                             | List products for one shop; response includes `reviewAvg` and `totalReviews` |
+| `product`          | `GET`    | `/api/public/products/mobile?size=20&cursor=<nextCursor>` | Public mobile infinite scroll, sorted by rating descending, max 20 records per request; accepts `X-Shop-Id` header or `shopId` query |
+| `product`          | `GET`    | `/api/public/products?shopId=1&size=20` | Public product list by shop for product detail related sections |
+| `product`          | `GET`    | `/api/public/products/mobile/{productId}` | Public product detail for mobile |
+| `product`          | `GET`    | `/api/public/products/{productId}/reviews` | Public review list by product |
+| `product`          | `GET`    | `/api/public/products/reviews?productId=1` | Public review list by query |
+| `product`          | `GET`    | `/api/public/products/{productId}/related?size=10` | Public related products in same shop |
+| `shop`             | `GET`    | `/api/public/shops/{shopId}` | Public shop info |
+| `shop`             | `GET`    | `/api/public/shop/{shopId}` | Public shop info alias |
 | `resource`         | `GET`    | `/api/resources?shopId=1`                            | List shop resources for one shop                     |
 | `package`          | `GET`    | `/api/packages?shopId=1`                             | List service packages for one shop                   |
 | `invoice`          | `GET`    | `/api/invoices?shopId=1`                             | List invoices for one shop                           |

@@ -66,7 +66,7 @@ public class ShopMemberService {
         return shopMemberRepository.findDetailByShopIdAndUserId(shopId, userId)
                 .orElseThrow(() -> new ShopMemberNotFound(
                         "ShopMemberNotFound",
-                        "Khong tim thay tai khoan trong shop"
+                        "Không tìm thấy tài khoản trong shop"
                 ));
     }
 
@@ -79,7 +79,7 @@ public class ShopMemberService {
                 && shopMemberRepository.existsByShopIdAndStatus(shopId, MemberStatus.ACTIVE)) {
             throw new ShopMemberValidationException(
                     "ShopSingleActiveAccount",
-                    "Shop chi duoc co mot tai khoan dang hoat dong"
+                    "Shop chỉ được có một tài khoản đang hoạt động"
             );
         }
 
@@ -102,7 +102,7 @@ public class ShopMemberService {
         if (request.getRole() == null && request.getStatus() == null) {
             throw new ShopMemberValidationException(
                     "ShopMemberUpdateEmpty",
-                    "Can cung cap trang thai de cap nhat tai khoan shop"
+                    "Cần cung cấp trạng thái để cập nhật tài khoản shop"
             );
         }
 
@@ -113,7 +113,7 @@ public class ShopMemberService {
         if (currentUserId.equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfUpdateNotAllowed",
-                    "Khong the tu thay doi trang thai cua chinh minh"
+                    "Không thể tự thay đổi trạng thái của chính mình"
             );
         }
 
@@ -132,14 +132,14 @@ public class ShopMemberService {
         if (actorMembership.getUserId().equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfResetPasswordNotAllowed",
-                    "Khong the dung API nay de tu dat lai mat khau cua chinh minh"
+                    "Không thể dùng API này để tự đặt lại mật khẩu của chính mình"
             );
         }
 
         UserCredential credential = credentialRepository.findById(userId)
                 .orElseThrow(() -> new ShopMemberNotFound(
                         "ShopMemberCredentialNotFound",
-                        "Khong tim thay thong tin dang nhap cua tai khoan"
+                        "Không tìm thấy thông tin đăng nhập của tài khoản"
                 ));
 
         credential.setProvider(CredentialProvider.LOCAL);
@@ -156,7 +156,7 @@ public class ShopMemberService {
         if (actorMembership.getUserId().equals(userId)) {
             throw new ShopMemberValidationException(
                     "ShopMemberSelfDeleteNotAllowed",
-                    "Khong the tu xoa chinh minh khoi shop"
+                    "Không thể tự xoá chính mình khỏi shop"
             );
         }
 
@@ -166,10 +166,10 @@ public class ShopMemberService {
 
     private void validateUniqueUser(String email, String phone) {
         if (userRepository.existsByEmail(normalizeRequiredValue(email))) {
-            throw new UserDuplicate("EmailUserDuplicate", "Email da ton tai");
+            throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại");
         }
         if (userRepository.existsByPhone(normalizeRequiredValue(phone))) {
-            throw new UserDuplicate("PhoneUserDuplicate", "So dien thoai da ton tai");
+            throw new UserDuplicate("PhoneUserDuplicate", "Số điện thoại đã tồn tại");
         }
     }
 
@@ -209,7 +209,7 @@ public class ShopMemberService {
         if (membership.getStatus() != MemberStatus.ACTIVE) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Tai khoan shop khong hoat dong"
+                    "Tài khoản shop không hoạt động"
             );
         }
     }
@@ -219,7 +219,7 @@ public class ShopMemberService {
         if (membership.getStatus() != MemberStatus.ACTIVE) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Tai khoan shop khong hoat dong"
+                    "Tài khoản shop không hoạt động"
             );
         }
         return membership;
@@ -230,7 +230,7 @@ public class ShopMemberService {
         return shopMemberRepository.findByShopIdAndUserId(shopId, currentUserId)
                 .orElseThrow(() -> new ShopMemberAccessDenied(
                         "ShopMemberAccessDenied",
-                        "Tai khoan khong thuoc shop nay"
+                        "Tài khoản không thuộc shop này"
                 ));
     }
 
@@ -239,7 +239,7 @@ public class ShopMemberService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ShopMemberAccessDenied(
                     "ShopMemberAccessDenied",
-                    "Yeu cau nguoi dung da dang nhap"
+                    "Yêu cầu người dùng đã đăng nhập"
             );
         }
         return userPrincipal.getUser().getId();
@@ -249,7 +249,7 @@ public class ShopMemberService {
         return shopMemberRepository.findByShopIdAndUserId(shopId, userId)
                 .orElseThrow(() -> new ShopMemberNotFound(
                         "ShopMemberNotFound",
-                        "Khong tim thay tai khoan trong shop"
+                        "Không tìm thấy tài khoản trong shop"
                 ));
     }
 

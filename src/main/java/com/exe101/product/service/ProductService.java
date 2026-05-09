@@ -19,6 +19,7 @@ import com.exe101.product.mapper.ProductMapper;
 import com.exe101.product.repository.IProductCategoryRepository;
 import com.exe101.product.repository.IProductImageRepository;
 import com.exe101.product.repository.IProductRepository;
+import com.exe101.review.repository.IReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -38,11 +39,13 @@ import org.springframework.web.multipart.MultipartFile;
 public class ProductService implements IService<Product, ProductDTO, Long> {
 
     private static final int MAX_SCROLL_SIZE = 20;
+    private static final int MAX_MOBILE_SCROLL_SIZE = 20;
 
     private final IProductRepository productRepository;
     private final IProductCategoryRepository productCategoryRepository;
     private final IProductImageRepository productImageRepository;
     private final IInventoryRepository inventoryRepository;
+    private final IReviewRepository reviewRepository;
     private final FileUploadUtil fileUploadUtil;
 
     @Override
@@ -60,6 +63,35 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
 
         List<Product> products = productRepository.findForScroll(
+                shopId,
+                normalizedKeyword,
+                active,
+                normalizedCursor,
+                PageRequest.of(0, normalizedSize + 1)
+        );
+
+        boolean hasNext = products.size() > normalizedSize;
+        List<Product> content = products.stream()
+                .limit(normalizedSize)
+                .toList();
+        Long nextCursor = hasNext && !content.isEmpty()
+                ? content.get(content.size() - 1).getId()
+                : null;
+
+        return ScrollResponse.of(toProductDTOs(content), normalizedSize, nextCursor, hasNext);
+    }
+
+    public ScrollResponse<ProductDTO> getAllForMobile(
+            Long shopId,
+            String keyword,
+            Boolean active,
+            Long cursor,
+            int size
+    ) {
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_MOBILE_SCROLL_SIZE);
+        Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        List<Product> products = productRepository.findTopRatedForMobile(
                 shopId,
                 normalizedKeyword,
                 active,
@@ -154,6 +186,7 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         Map<Long, String> categoryNamesById = loadCategoryNamesById(products);
         Map<Long, Long> stockQtyByProductId = loadStockQtyByProductId(products);
         Map<Long, List<String>> imageUrlsByProductId = loadImageUrlsByProductId(products);
+        Map<String, ReviewStats> reviewStatsByProductKey = loadReviewStatsByProduct(products);
 
         return products.stream()
                 .map(product -> {
@@ -161,9 +194,52 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
                     dto.setCategoryName(categoryNamesById.get(product.getCategoryId()));
                     dto.setStockQty(stockQtyByProductId.getOrDefault(product.getId(), 0L));
                     dto.setImageUrls(imageUrlsByProductId.getOrDefault(product.getId(), List.of()));
+                    ReviewStats reviewStats = reviewStatsByProductKey.getOrDefault(
+                            buildShopProductKey(product.getShopId(), product.getId()),
+                            new ReviewStats(0.0, 0L)
+                    );
+                    dto.setReviewAvg(reviewStats.reviewAvg());
+                    dto.setTotalReviews(reviewStats.totalReviews());
+                    dto.setRating(reviewStats.reviewAvg());
+                    dto.setReviewCount(reviewStats.totalReviews());
                     return dto;
                 })
                 .toList();
+    }
+
+    private Map<String, ReviewStats> loadReviewStatsByProduct(List<Product> products) {
+        Map<String, ReviewStats> reviewStatsByProductKey = new HashMap<>();
+        Map<Long, List<Product>> productsByShopId = products.stream()
+                .collect(Collectors.groupingBy(Product::getShopId));
+
+        for (Map.Entry<Long, List<Product>> entry : productsByShopId.entrySet()) {
+            Long shopId = entry.getKey();
+            List<Long> productIds = entry.getValue().stream()
+                    .map(Product::getId)
+                    .distinct()
+                    .toList();
+
+            if (productIds.isEmpty()) {
+                continue;
+            }
+
+            List<Object[]> rows = reviewRepository.aggregateRatingAndTotalByShopAndProductIds(shopId, productIds);
+            for (Object[] row : rows) {
+                Long productId = ((Number) row[0]).longValue();
+                double reviewAvg = row[1] == null ? 0.0 : ((Number) row[1]).doubleValue();
+                long totalReviews = ((Number) row[2]).longValue();
+                reviewStatsByProductKey.put(
+                        buildShopProductKey(shopId, productId),
+                        new ReviewStats(reviewAvg, totalReviews)
+                );
+            }
+        }
+
+        return reviewStatsByProductKey;
+    }
+
+    private String buildShopProductKey(Long shopId, Long productId) {
+        return shopId + ":" + productId;
     }
 
     private Map<Long, String> loadCategoryNamesById(List<Product> products) {
@@ -382,5 +458,8 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
             List<MultipartFile> imageFiles,
             boolean imageUrlsProvided
     ) {
+    }
+
+    private record ReviewStats(double reviewAvg, long totalReviews) {
     }
 }

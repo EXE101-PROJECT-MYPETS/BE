@@ -53,7 +53,7 @@ public class GhtkConfigCryptoService {
         try {
             byte[] payload = Base64.getDecoder().decode(encryptedText);
             if (payload.length <= IV_BYTES) {
-                throw new IllegalArgumentException("Invalid encrypted payload");
+                throw new IllegalArgumentException("Dữ liệu mã hoá không hợp lệ");
             }
 
             ByteBuffer buffer = ByteBuffer.wrap(payload);

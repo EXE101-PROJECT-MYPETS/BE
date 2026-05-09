@@ -19,9 +19,11 @@ public class BookingListItemDTO {
     private Long id;
     private String bookingCode;
     private Long shopId;
-    private Long customerId;
-    private String customerName;
-    private String customerPhone;
+    private Long userId;
+    private String userFullName;
+    private String userPhone;
+    private String userEmail;
+    private String userAvatarUrlPreview;
     private OffsetDateTime startAt;
     private OffsetDateTime endAt;
     private List<BookingLineItemDTO> items;

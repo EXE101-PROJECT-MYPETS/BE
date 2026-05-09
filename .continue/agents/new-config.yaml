@@ -1,0 +1,12 @@
+name: 9Router Config
+version: 1.0.0
+schema: v1
+
+models:
+  - name: 9Router Codex
+    provider: openai
+    model: cx/gpt-5.4
+    apiBase: http://localhost:20128/v1
+    apiKey: sk-6cd391c865d75fbd-xi9gyx-517baaef
+    roles:
+      - chat

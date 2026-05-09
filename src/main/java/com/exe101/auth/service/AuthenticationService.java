@@ -18,6 +18,8 @@ import com.exe101.user.exception.UserDuplicate;
 import com.exe101.user.exception.UserNotFound;
 import com.exe101.user.mapper.UserMapper;
 import com.exe101.user.repository.IUserRepository;
+import com.exe101.userAddress.entity.UserAddress;
+import com.exe101.userAddress.repository.IUserAddressRepository;
 import com.exe101.userCredential.entity.CredentialProvider;
 import com.exe101.userCredential.entity.UserCredential;
 import com.exe101.userCredential.repository.IUserCredentialRepository;
@@ -27,6 +29,7 @@ import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
@@ -46,7 +49,9 @@ public class AuthenticationService {
     private final UserMapper userMapper;
     private final FileUploadUtil fileUploadUtil;
     private final IShopMemberRepository shopMemberRepository;
+    private final IUserAddressRepository userAddressRepository;
 
+    @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new UserDuplicate("EmailUserDuplicate", "Email đã tồn tại");
@@ -56,10 +61,10 @@ public class AuthenticationService {
         }
 
         User user = new User();
-        user.setEmail(request.getEmail());
-        user.setFullName(request.getFullName());
-        user.setPhone(request.getPhone());
-        user.setAddress(request.getAddress());
+        user.setEmail(normalizeRequiredValue(request.getEmail()));
+        user.setFullName(normalizeRequiredValue(request.getFullName()));
+        user.setPhone(normalizeRequiredValue(request.getPhone()));
+        user.setAddress(toDisplayAddress(request));
         user.setAge(request.getAge());
         user.setRole(UserRole.CUSTOMER);
         user.setStatus(UserStatus.ACTIVE);
@@ -67,6 +72,7 @@ public class AuthenticationService {
         user.setUpdatedAt(LocalDateTime.now());
 
         user = userRepository.save(user);
+        createDefaultUserAddress(user, request);
 
         MultipartFile avatarFile = request.getAvatarUrlPreview();
         if (avatarFile != null && !avatarFile.isEmpty()) {
@@ -206,6 +212,35 @@ public class AuthenticationService {
                 shops,
                 resolveCurrentShopId(shops)
         );
+    }
+
+    private void createDefaultUserAddress(User user, RegisterRequest request) {
+        UserAddress address = new UserAddress();
+        address.setUserId(user.getId());
+        address.setName(normalizeRequiredValue(request.getFullName()));
+        address.setTel(normalizeRequiredValue(request.getPhone()));
+        address.setAddress(normalizeRequiredValue(request.getAddress()));
+        address.setProvince(normalizeRequiredValue(request.getProvince()));
+        address.setDistrict(normalizeRequiredValue(request.getDistrict()));
+        address.setWard(normalizeRequiredValue(request.getWard()));
+        address.setHamlet(normalizeRequiredValue(request.getHamlet()));
+        address.setDefaultAddress(true);
+        userAddressRepository.save(address);
+    }
+
+    private String toDisplayAddress(RegisterRequest request) {
+        return String.join(
+                ", ",
+                normalizeRequiredValue(request.getAddress()),
+                normalizeRequiredValue(request.getHamlet()),
+                normalizeRequiredValue(request.getWard()),
+                normalizeRequiredValue(request.getDistrict()),
+                normalizeRequiredValue(request.getProvince())
+        );
+    }
+
+    private String normalizeRequiredValue(String value) {
+        return value.trim();
     }
 
     private List<AuthenticatedShopDTO> resolveAuthenticatedShops(User user) {

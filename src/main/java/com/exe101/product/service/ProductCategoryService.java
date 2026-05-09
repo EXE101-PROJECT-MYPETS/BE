@@ -35,7 +35,7 @@ public class ProductCategoryService {
     public ProductCategoryDTO getById(Long shopId, Long id) {
         return productCategoryRepository.findByIdAndShopId(id, shopId)
                 .map(ProductCategoryMapper::toDTO)
-                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Product category not found"));
+                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Không tìm thấy danh mục sản phẩm"));
     }
 
     public ProductCategoryDTO create(Long shopId, ProductCategoryDTO dto) {
@@ -51,7 +51,7 @@ public class ProductCategoryService {
         assertCanManageCategory(shopId);
 
         ProductCategory entity = productCategoryRepository.findByIdAndShopId(id, shopId)
-                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Product category not found"));
+                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Không tìm thấy danh mục sản phẩm"));
         assertCategoryNameNotDuplicated(shopId, dto.getName(), id);
         ProductCategoryMapper.updateEntity(entity, dto);
         return ProductCategoryMapper.toDTO(productCategoryRepository.save(entity));
@@ -61,7 +61,7 @@ public class ProductCategoryService {
         assertCanManageCategory(shopId);
 
         ProductCategory entity = productCategoryRepository.findByIdAndShopId(id, shopId)
-                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Product category not found"));
+                .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Không tìm thấy danh mục sản phẩm"));
         entity.setActive(false);
         productCategoryRepository.save(entity);
     }
@@ -77,7 +77,7 @@ public class ProductCategoryService {
         if (!allowed) {
             throw new ProductAccessDenied(
                     "ProductAccessDenied",
-                    "Active shop account is required to manage product categories"
+                    "Cần tài khoản shop đang hoạt động để quản lý danh mục sản phẩm"
             );
         }
     }
@@ -87,7 +87,7 @@ public class ProductCategoryService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ProductAccessDenied(
                     "ProductAccessDenied",
-                    "Authenticated user is required"
+                    "Cần người dùng đã đăng nhập"
             );
         }
         return userPrincipal.getUser().getId();
@@ -101,7 +101,7 @@ public class ProductCategoryService {
         if (duplicated) {
             throw new ProductCategoryDuplicate(
                     "ProductCategoryDuplicate",
-                    "Product category name already exists in shop"
+                    "Tên danh mục sản phẩm đã tồn tại trong shop"
             );
         }
     }

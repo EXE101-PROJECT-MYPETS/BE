@@ -11,20 +11,24 @@ public class ProductMapper {
 
     public static ProductDTO toDTO(Product entity) {
         if (entity == null) return null;
-        return new ProductDTO(
-                entity.getId(),
-                entity.getShopId(),
-                entity.getCategoryId(),
-                null,
-                entity.getSku(),
-                entity.getName(),
-                entity.getUnit(),
-                entity.getPrice(),
-                entity.getWeightKg(),
-                entity.getActive(),
-                null,
-                null
-        );
+        ProductDTO dto = new ProductDTO();
+        dto.setId(entity.getId());
+        dto.setShopId(entity.getShopId());
+        dto.setCategoryId(entity.getCategoryId());
+        dto.setCategoryName(null);
+        dto.setRating(0.0);
+        dto.setReviewCount(0L);
+        dto.setReviewAvg(0.0);
+        dto.setTotalReviews(0L);
+        dto.setSku(entity.getSku());
+        dto.setName(entity.getName());
+        dto.setUnit(entity.getUnit());
+        dto.setPrice(entity.getPrice());
+        dto.setWeightKg(entity.getWeightKg());
+        dto.setActive(entity.getActive());
+        dto.setStockQty(null);
+        dto.setImageUrls(null);
+        return dto;
     }
 
     public static Product toEntity(ProductDTO dto) {

@@ -29,6 +29,7 @@ public class BookingController {
     @GetMapping
     public ResponseEntity<ScrollResponse<BookingListItemDTO>> getAll(
             @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam(required = false) Long userId,
             @RequestParam(required = false) Long customerId,
             @RequestParam(required = false) String customerName,
             @RequestParam(required = false) BookingStatus status,
@@ -44,6 +45,7 @@ public class BookingController {
     ) {
         return ResponseEntity.ok(bookingService.getAllForScroll(
                 shopId,
+                userId,
                 customerId,
                 customerName,
                 status,

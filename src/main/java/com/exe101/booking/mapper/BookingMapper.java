@@ -14,6 +14,7 @@ public class BookingMapper {
         return new BookingDTO(
                 entity.getId(),
                 entity.getShopId(),
+                entity.getUserId(),
                 entity.getCustomerId(),
                 entity.getStartAt(),
                 entity.getEndAt(),
@@ -37,6 +38,7 @@ public class BookingMapper {
 
     public static void updateEntity(Booking entity, BookingDTO dto) {
         entity.setShopId(dto.getShopId());
+        entity.setUserId(dto.getUserId());
         entity.setCustomerId(dto.getCustomerId());
         entity.setStartAt(dto.getStartAt());
         entity.setEndAt(dto.getEndAt());
