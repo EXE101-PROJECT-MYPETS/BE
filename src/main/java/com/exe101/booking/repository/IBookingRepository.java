@@ -27,8 +27,8 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                       AND (:customerId IS NULL OR b.customerId = :customerId)
                       AND (
                         :customerName IS NULL
-                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
-                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', CAST(:customerName AS string), '%'))
+                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:customerName AS string), '%'))
                       )
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)
@@ -72,8 +72,8 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                       AND (:customerId IS NULL OR b.customerId = :customerId)
                       AND (
                         :customerName IS NULL
-                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
-                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', :customerName, '%'))
+                        OR LOWER(c.fullName) LIKE LOWER(CONCAT('%', CAST(:customerName AS string), '%'))
+                        OR LOWER(u.fullName) LIKE LOWER(CONCAT('%', CAST(:customerName AS string), '%'))
                       )
                       AND (:status IS NULL OR b.status = :status)
                       AND (:source IS NULL OR b.source = :source)

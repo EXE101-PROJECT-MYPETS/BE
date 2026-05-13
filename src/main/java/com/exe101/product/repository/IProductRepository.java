@@ -21,7 +21,7 @@ public interface IProductRepository extends JpaRepository<Product, Long> {
             SELECT p
             FROM Product p
             WHERE p.shopId = :shopId
-              AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
               AND (:active IS NULL OR p.active = :active)
               AND (:cursor IS NULL OR p.id < :cursor)
             ORDER BY p.id DESC
@@ -40,7 +40,7 @@ public interface IProductRepository extends JpaRepository<Product, Long> {
             LEFT JOIN Review r
                 ON r.shopId = p.shopId AND r.productId = p.id
             WHERE p.shopId = :shopId
-              AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
               AND (:active IS NULL OR p.active = :active)
               AND (:cursor IS NULL OR p.id < :cursor)
             GROUP BY p
@@ -59,7 +59,7 @@ public interface IProductRepository extends JpaRepository<Product, Long> {
             FROM Product p
             LEFT JOIN Review r
                 ON r.shopId = p.shopId AND r.productId = p.id
-            WHERE (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+            WHERE (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))
               AND (:active IS NULL OR p.active = :active)
               AND (:cursor IS NULL OR p.id < :cursor)
             GROUP BY p
