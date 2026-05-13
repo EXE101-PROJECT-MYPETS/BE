@@ -21,6 +21,14 @@ public class PetController {
         return ResponseEntity.ok(petService.getAllByShopId(shopId));
     }
 
+    @GetMapping("/customer")
+    public ResponseEntity<List<PetDTO>> getAllByCustomer(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestHeader("X-Customer-Id") Long customerId
+    ) {
+        return ResponseEntity.ok(petService.getAllByCustomerId(shopId, customerId));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<PetDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(petService.getById(id));

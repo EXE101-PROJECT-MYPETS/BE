@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface IPetRepository extends JpaRepository<Pet, Long> {
     List<Pet> findByShopIdOrderByIdDesc(Long shopId);
+
+    List<Pet> findByShopIdAndCustomerIdOrderByIdDesc(Long shopId, Long customerId);
 }
