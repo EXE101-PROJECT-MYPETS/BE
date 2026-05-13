@@ -34,6 +34,15 @@ public class ProductPublicService {
     private final ShopPublicService shopPublicService;
 
     public ScrollResponse<ProductDTO> getAllForMobile(
+            String keyword,
+            Boolean active,
+            Long cursor,
+            int size
+    ) {
+        return productService.getAllForMobileAllShops(keyword, active, cursor, size);
+    }
+
+    public ScrollResponse<ProductDTO> getAllForMobileByShop(
             Long shopId,
             String keyword,
             Boolean active,
@@ -65,9 +74,13 @@ public class ProductPublicService {
                 dto.getShopId(),
                 shop.getName(),
                 shop.getImageUrl(),
-                false,
+                shop.getBadges() != null && !shop.getBadges().isEmpty(),
                 shop.getRating(),
                 shop.getProductCount(),
+                shop.getAddress(),
+                shop.getContact() != null ? shop.getContact().getName() : null,
+                shop.getContact() != null ? shop.getContact().getPhone() : null,
+                shop.getContact() != null ? shop.getContact().getEmail() : null,
                 dto.getImageUrls(),
                 dto.getReviewAvg(),
                 dto.getReviewCount(),

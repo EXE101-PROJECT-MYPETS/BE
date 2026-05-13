@@ -3,7 +3,10 @@ package com.exe101.service_shop.service;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.IService;
 import com.exe101.common.ScrollResponse;
+import com.exe101.file.FileUploadUtil;
+import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDTO;
+import com.exe101.service_shop.entity.Service;
 import com.exe101.service_shop.exception.ServiceAccessDenied;
 import com.exe101.service_shop.exception.ServiceDuplicate;
 import com.exe101.service_shop.exception.ServiceNotFound;
@@ -16,21 +19,23 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.util.StringUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
-public class ServiceService implements IService<com.exe101.service_shop.entity.Service, ServiceDTO, Long> {
+public class ServiceService implements IService<Service, ServiceDTO, Long> {
 
     private static final int MAX_SCROLL_SIZE = 50;
 
     private final IServiceRepository serviceRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final FileUploadUtil fileUploadUtil;
 
     @Override
     public List<ServiceDTO> getAll() {
-        return serviceRepository.findAll().stream().map(ServiceMapper::toDTO).toList();
+        return serviceRepository.findAll().stream().map(this::toDTO).toList();
     }
 
     public ScrollResponse<ServiceDTO> getAllForScroll(
@@ -45,7 +50,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
         Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
         String normalizedSearch = StringUtils.hasText(search) ? search.trim() : null;
 
-        List<com.exe101.service_shop.entity.Service> services = serviceRepository.findForScroll(
+        List<Service> services = serviceRepository.findForScroll(
                 shopId,
                 normalizedSearch,
                 categoryId,
@@ -57,7 +62,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
         boolean hasNext = services.size() > normalizedSize;
         List<ServiceDTO> content = services.stream()
                 .limit(normalizedSize)
-                .map(ServiceMapper::toDTO)
+                .map(this::toDTO)
                 .toList();
         Long nextCursor = hasNext && !content.isEmpty()
                 ? content.get(content.size() - 1).getId()
@@ -69,7 +74,7 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
     @Override
     public ServiceDTO getById(Long id) {
         return serviceRepository.findById(id)
-                .map(ServiceMapper::toDTO)
+                .map(this::toDTO)
                 .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
     }
 
@@ -77,21 +82,104 @@ public class ServiceService implements IService<com.exe101.service_shop.entity.S
     public ServiceDTO create(ServiceDTO dto) {
         assertCanCreateService(dto.getShopId());
         assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), null);
-        return ServiceMapper.toDTO(serviceRepository.save(ServiceMapper.toEntity(dto)));
+        Service entity = ServiceMapper.toEntity(dto);
+        entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
+        return toDTO(serviceRepository.save(entity));
+    }
+
+    public ServiceDTO create(Long shopId, ServiceCreateRequest request) {
+        assertCanCreateService(shopId);
+        assertServiceNameNotDuplicated(shopId, request.getName(), null);
+
+        Service entity = new Service();
+        entity.setShopId(shopId);
+        applyWriteData(entity, request);
+        entity.setImageUrl(normalizeImageUrl(request.getImageUrl()));
+
+        Service saved = serviceRepository.save(entity);
+        if (request.getImageUrlPreview() != null && !request.getImageUrlPreview().isEmpty()) {
+            saved.setImageUrl(fileUploadUtil.uploadServiceImage(shopId, saved.getId(), request.getImageUrlPreview()));
+            saved = serviceRepository.save(saved);
+        }
+
+        return toDTO(saved);
     }
 
     @Override
     public ServiceDTO update(Long id, ServiceDTO dto) {
-        com.exe101.service_shop.entity.Service entity = serviceRepository.findById(id)
+        Service entity = serviceRepository.findById(id)
                 .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), id);
-        entity.setShopId(dto.getShopId());
-        entity.setName(dto.getName());
-        entity.setDurationMin(dto.getDurationMin());
-        entity.setBasePrice(dto.getBasePrice());
-        entity.setCategoryId(dto.getCategoryId());
-        entity.setActive(dto.getActive() != null ? dto.getActive() : Boolean.TRUE);
-        return ServiceMapper.toDTO(serviceRepository.save(entity));
+        applyWriteData(entity, dto.getShopId(), dto.getName(), dto.getDurationMin(), dto.getBasePrice(), dto.getCategoryId(), dto.getActive());
+        entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
+        return toDTO(serviceRepository.save(entity));
+    }
+
+    public ServiceDTO update(Long id, Long shopId, ServiceCreateRequest request) {
+        Service entity = serviceRepository.findById(id)
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
+        assertServiceNameNotDuplicated(shopId, request.getName(), id);
+
+        applyWriteData(
+                entity,
+                shopId,
+                request.getName(),
+                request.getDurationMin(),
+                request.getBasePrice(),
+                request.getCategoryId(),
+                request.getActive()
+        );
+
+        MultipartFile imageUrlPreview = request.getImageUrlPreview();
+        if (imageUrlPreview != null && !imageUrlPreview.isEmpty()) {
+            entity.setImageUrl(fileUploadUtil.uploadServiceImage(shopId, entity.getId(), imageUrlPreview));
+        } else if (request.getImageUrl() != null) {
+            entity.setImageUrl(normalizeImageUrl(request.getImageUrl()));
+        }
+
+        return toDTO(serviceRepository.save(entity));
+    }
+
+    private void applyWriteData(Service entity, ServiceCreateRequest request) {
+        applyWriteData(
+                entity,
+                entity.getShopId(),
+                request.getName(),
+                request.getDurationMin(),
+                request.getBasePrice(),
+                request.getCategoryId(),
+                request.getActive()
+        );
+    }
+
+    private void applyWriteData(
+            Service entity,
+            Long shopId,
+            String name,
+            Integer durationMin,
+            Long basePrice,
+            Long categoryId,
+            Boolean active
+    ) {
+        entity.setShopId(shopId);
+        entity.setName(name);
+        entity.setDurationMin(durationMin);
+        entity.setBasePrice(basePrice);
+        entity.setCategoryId(categoryId);
+        entity.setActive(active != null ? active : Boolean.TRUE);
+    }
+
+    private String normalizeImageUrl(String imageUrl) {
+        if (!StringUtils.hasText(imageUrl)) {
+            return null;
+        }
+        return fileUploadUtil.normalizeServiceImagePath(imageUrl.trim());
+    }
+
+    private ServiceDTO toDTO(Service service) {
+        ServiceDTO dto = ServiceMapper.toDTO(service);
+        dto.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
+        return dto;
     }
 
     @Override

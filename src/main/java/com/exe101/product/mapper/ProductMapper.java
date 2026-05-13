@@ -14,6 +14,7 @@ public class ProductMapper {
         ProductDTO dto = new ProductDTO();
         dto.setId(entity.getId());
         dto.setShopId(entity.getShopId());
+        dto.setShopProvince(null);
         dto.setCategoryId(entity.getCategoryId());
         dto.setCategoryName(null);
         dto.setRating(0.0);

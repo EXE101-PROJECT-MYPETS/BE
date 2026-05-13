@@ -2,6 +2,8 @@ package com.exe101.ghtk.controller;
 
 import com.exe101.ghtk.dto.GhtkSubmitOrderRequest;
 import com.exe101.ghtk.dto.GhtkSubmitOrderResponse;
+import com.exe101.ghtk.dto.GhtkFeeRequest;
+import com.exe101.ghtk.dto.GhtkFeeResponse;
 import com.exe101.ghtk.service.GhtkOrderService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -27,5 +29,13 @@ public class GhtkOrderController {
             @RequestBody(required = false) @Valid GhtkSubmitOrderRequest request
     ) {
         return ResponseEntity.ok(ghtkOrderService.submitOrder(shopId, orderId, request));
+    }
+
+    @PostMapping("/fee")
+    public ResponseEntity<GhtkFeeResponse> calculateFee(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestBody @Valid GhtkFeeRequest request
+    ) {
+        return ResponseEntity.ok(ghtkOrderService.calculateFee(shopId, request));
     }
 }

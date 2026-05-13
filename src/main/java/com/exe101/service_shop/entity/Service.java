@@ -38,6 +38,9 @@ public class Service {
     @Column(name = "category_id")
     private Long categoryId;
 
+    @Column(name = "image_url")
+    private String imageUrl;
+
     @Column(nullable = false)
     private Boolean active = true;
 

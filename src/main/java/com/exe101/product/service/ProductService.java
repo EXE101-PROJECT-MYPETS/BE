@@ -20,6 +20,8 @@ import com.exe101.product.repository.IProductCategoryRepository;
 import com.exe101.product.repository.IProductImageRepository;
 import com.exe101.product.repository.IProductRepository;
 import com.exe101.review.repository.IReviewRepository;
+import com.exe101.shop.entity.Shop;
+import com.exe101.shop.repository.IShopRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,7 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
     private final IProductImageRepository productImageRepository;
     private final IInventoryRepository inventoryRepository;
     private final IReviewRepository reviewRepository;
+    private final IShopRepository shopRepository;
     private final FileUploadUtil fileUploadUtil;
 
     @Override
@@ -93,6 +96,33 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
         List<Product> products = productRepository.findTopRatedForMobile(
                 shopId,
+                normalizedKeyword,
+                active,
+                normalizedCursor,
+                PageRequest.of(0, normalizedSize + 1)
+        );
+
+        boolean hasNext = products.size() > normalizedSize;
+        List<Product> content = products.stream()
+                .limit(normalizedSize)
+                .toList();
+        Long nextCursor = hasNext && !content.isEmpty()
+                ? content.get(content.size() - 1).getId()
+                : null;
+
+        return ScrollResponse.of(toProductDTOs(content), normalizedSize, nextCursor, hasNext);
+    }
+
+    public ScrollResponse<ProductDTO> getAllForMobileAllShops(
+            String keyword,
+            Boolean active,
+            Long cursor,
+            int size
+    ) {
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_MOBILE_SCROLL_SIZE);
+        Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
+        String normalizedKeyword = keyword == null || keyword.isBlank() ? null : keyword.trim();
+        List<Product> products = productRepository.findTopRatedForMobileAllShops(
                 normalizedKeyword,
                 active,
                 normalizedCursor,
@@ -186,11 +216,13 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         Map<Long, String> categoryNamesById = loadCategoryNamesById(products);
         Map<Long, Long> stockQtyByProductId = loadStockQtyByProductId(products);
         Map<Long, List<String>> imageUrlsByProductId = loadImageUrlsByProductId(products);
+        Map<Long, String> shopProvinceByShopId = loadShopProvinceByShopId(products);
         Map<String, ReviewStats> reviewStatsByProductKey = loadReviewStatsByProduct(products);
 
         return products.stream()
                 .map(product -> {
                     ProductDTO dto = ProductMapper.toDTO(product);
+                    dto.setShopProvince(shopProvinceByShopId.get(product.getShopId()));
                     dto.setCategoryName(categoryNamesById.get(product.getCategoryId()));
                     dto.setStockQty(stockQtyByProductId.getOrDefault(product.getId(), 0L));
                     dto.setImageUrls(imageUrlsByProductId.getOrDefault(product.getId(), List.of()));
@@ -205,6 +237,39 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
                     return dto;
                 })
                 .toList();
+    }
+
+    private Map<Long, String> loadShopProvinceByShopId(List<Product> products) {
+        List<Long> shopIds = products.stream()
+                .map(Product::getShopId)
+                .filter(Objects::nonNull)
+                .distinct()
+                .toList();
+        if (shopIds.isEmpty()) {
+            return Map.of();
+        }
+
+        Map<Long, String> result = new HashMap<>();
+        for (Shop shop : shopRepository.findAllById(shopIds)) {
+            result.put(shop.getId(), extractProvince(shop.getAddressText()));
+        }
+        return result;
+    }
+
+    private String extractProvince(String addressText) {
+        if (addressText == null) {
+            return null;
+        }
+        String normalized = addressText.trim();
+        if (normalized.isBlank()) {
+            return null;
+        }
+        int lastComma = normalized.lastIndexOf(',');
+        if (lastComma < 0) {
+            return normalized;
+        }
+        String province = normalized.substring(lastComma + 1).trim();
+        return province.isEmpty() ? normalized : province;
     }
 
     private Map<String, ReviewStats> loadReviewStatsByProduct(List<Product> products) {

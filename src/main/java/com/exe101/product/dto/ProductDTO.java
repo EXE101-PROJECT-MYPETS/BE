@@ -18,6 +18,7 @@ import java.util.List;
 public class ProductDTO {
     private Long id;
     private Long shopId;
+    private String shopProvince;
     private Long categoryId;
     private String categoryName;
     private Double rating;

@@ -496,7 +496,7 @@ Applies to these route groups:
 | `customer`         | `GET`    | `/api/customers?shopId=1`                            | List customers for one shop                          |
 | `pet`              | `GET`    | `/api/pets?shopId=1`                                 | List pets for one shop                               |
 | `product`          | `GET`    | `/api/products?shopId=1`                             | List products for one shop; response includes `reviewAvg` and `totalReviews` |
-| `product`          | `GET`    | `/api/public/products/mobile?size=20&cursor=<nextCursor>` | Public mobile infinite scroll, sorted by rating descending, max 20 records per request; accepts `X-Shop-Id` header or `shopId` query |
+| `product`          | `GET`    | `/api/public/products/mobile?size=20&cursor=<nextCursor>` | Public mobile infinite scroll across all shops, sorted by rating descending, max 20 records per request |
 | `product`          | `GET`    | `/api/public/products?shopId=1&size=20` | Public product list by shop for product detail related sections |
 | `product`          | `GET`    | `/api/public/products/mobile/{productId}` | Public product detail for mobile |
 | `product`          | `GET`    | `/api/public/products/{productId}/reviews` | Public review list by product |

@@ -1,10 +1,12 @@
 package com.exe101.service_shop.controller;
 
 import com.exe101.common.ScrollResponse;
+import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDTO;
 import com.exe101.service_shop.service.ServiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
@@ -39,7 +41,7 @@ public class ServiceController {
         return ResponseEntity.ok(serviceService.getById(id));
     }
 
-    @PostMapping("/services")
+    @PostMapping(value = "/services", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ServiceDTO> create(
             @RequestHeader("X-Shop-Id") Long shopId,
             @Valid @RequestBody ServiceDTO dto
@@ -48,7 +50,15 @@ public class ServiceController {
         return ResponseEntity.ok(serviceService.create(dto));
     }
 
-    @PutMapping("/services/{id}")
+    @PostMapping(value = "/services", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ServiceDTO> createMultipart(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @ModelAttribute @Valid ServiceCreateRequest request
+    ) {
+        return ResponseEntity.ok(serviceService.create(shopId, request));
+    }
+
+    @PutMapping(value = "/services/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<ServiceDTO> update(
             @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
@@ -56,6 +66,15 @@ public class ServiceController {
     ) {
         dto.setShopId(shopId);
         return ResponseEntity.ok(serviceService.update(id, dto));
+    }
+
+    @PutMapping(value = "/services/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<ServiceDTO> updateMultipart(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id,
+            @ModelAttribute @Valid ServiceCreateRequest request
+    ) {
+        return ResponseEntity.ok(serviceService.update(id, shopId, request));
     }
 
     @DeleteMapping("/services/{id}")

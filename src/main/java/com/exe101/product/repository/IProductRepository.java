@@ -53,4 +53,22 @@ public interface IProductRepository extends JpaRepository<Product, Long> {
             @Param("cursor") Long cursor,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT p
+            FROM Product p
+            LEFT JOIN Review r
+                ON r.shopId = p.shopId AND r.productId = p.id
+            WHERE (:keyword IS NULL OR LOWER(p.name) LIKE LOWER(CONCAT('%', :keyword, '%')))
+              AND (:active IS NULL OR p.active = :active)
+              AND (:cursor IS NULL OR p.id < :cursor)
+            GROUP BY p
+            ORDER BY COALESCE(AVG(r.rating), 0) DESC, p.id DESC
+            """)
+    List<Product> findTopRatedForMobileAllShops(
+            @Param("keyword") String keyword,
+            @Param("active") Boolean active,
+            @Param("cursor") Long cursor,
+            Pageable pageable
+    );
 }

@@ -24,7 +24,18 @@ public class FileUploadUtil {
         );
     }
 
+    public String uploadServiceImage(Long shopId, Long serviceId, MultipartFile imageFile) {
+        return supabaseStorageService.uploadPublicPath(
+                imageFile,
+                "shops/" + shopId + "/services/" + serviceId + "/images"
+        );
+    }
+
     public String normalizeProductImagePath(String imageUrl) {
+        return supabaseStorageService.extractPublicObjectPath(imageUrl);
+    }
+
+    public String normalizeServiceImagePath(String imageUrl) {
         return supabaseStorageService.extractPublicObjectPath(imageUrl);
     }
 }

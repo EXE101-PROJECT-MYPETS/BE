@@ -16,6 +16,7 @@ public class ServiceMapper {
         dto.setDurationMin(e.getDurationMin());
         dto.setBasePrice(e.getBasePrice());
         dto.setCategoryId(e.getCategoryId());
+        dto.setImageUrl(e.getImageUrl());
         dto.setActive(e.getActive());
         return dto;
     }
@@ -29,6 +30,7 @@ public class ServiceMapper {
         e.setDurationMin(dto.getDurationMin());
         e.setBasePrice(dto.getBasePrice());
         e.setCategoryId(dto.getCategoryId());
+        e.setImageUrl(dto.getImageUrl());
         e.setActive(dto.getActive() != null ? dto.getActive() : Boolean.TRUE);
         return e;
     }

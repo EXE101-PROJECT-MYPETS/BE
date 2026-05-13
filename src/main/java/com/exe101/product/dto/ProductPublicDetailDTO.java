@@ -23,6 +23,10 @@ public class ProductPublicDetailDTO {
     private Boolean shopVerified;
     private Double shopRating;
     private Long shopProductCount;
+    private String shopAddress;
+    private String shopContactName;
+    private String shopContactPhone;
+    private String shopContactEmail;
     private List<String> imageUrls;
     private Double reviewAvg;
     private Long reviewCount;

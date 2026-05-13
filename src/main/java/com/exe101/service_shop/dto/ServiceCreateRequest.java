@@ -1,27 +1,16 @@
 package com.exe101.service_shop.dto;
 
-
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
-import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
+import org.springframework.web.multipart.MultipartFile;
 
 @Getter
 @Setter
-@NoArgsConstructor
-@AllArgsConstructor
-public class ServiceDTO {
-
-    private Long id;
-
-    private Long shopId;
-    private Double shopLat;
-    private Double shopLng;
-    private Double distanceKm;
+public class ServiceCreateRequest {
 
     @NotBlank(message = "Tên dịch vụ không được để trống")
     @Size(max = 255, message = "Tên dịch vụ không được vượt quá 255 ký tự")
@@ -41,4 +30,6 @@ public class ServiceDTO {
     private String imageUrl;
 
     private Boolean active;
+
+    private MultipartFile imageUrlPreview;
 }
