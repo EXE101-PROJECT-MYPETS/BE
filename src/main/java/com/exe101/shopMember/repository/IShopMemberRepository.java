@@ -19,7 +19,8 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
 
     boolean existsByShopIdAndUserId(Long shopId, Long userId);
 
-    boolean existsByShopIdAndUserIdAndStatus(Long shopId, Long userId, MemberStatus status);
+        @Query("SELECT COUNT(m) > 0 FROM ShopMember m WHERE m.shopId = :shopId AND m.userId = :userId AND m.status = :status")
+        boolean existsByShopIdAndUserIdAndStatus(@Param("shopId") Long shopId, @Param("userId") Long userId, @Param("status") MemberStatus status);
 
     java.util.Optional<ShopMember> findByShopIdAndUserId(Long shopId, Long userId);
 

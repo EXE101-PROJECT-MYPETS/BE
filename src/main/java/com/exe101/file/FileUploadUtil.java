@@ -32,10 +32,10 @@ public class FileUploadUtil {
     }
 
     public String normalizeProductImagePath(String imageUrl) {
-        return supabaseStorageService.extractPublicObjectPath(imageUrl);
+        return supabaseStorageService.toPublicUrl(imageUrl);
     }
 
     public String normalizeServiceImagePath(String imageUrl) {
-        return supabaseStorageService.extractPublicObjectPath(imageUrl);
+        return supabaseStorageService.toPublicUrl(imageUrl);
     }
 }

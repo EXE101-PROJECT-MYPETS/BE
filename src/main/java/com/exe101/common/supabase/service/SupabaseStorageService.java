@@ -9,6 +9,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.multipart.MultipartFile;
 
+import java.net.URI;
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.Objects;
@@ -42,9 +43,14 @@ public class SupabaseStorageService {
             return null;
         }
 
-        String normalized = urlOrPath.trim();
+        String normalized = urlOrPath.trim().replace('\\', '/');
         if (normalized.isBlank()) {
             return normalized;
+        }
+
+        int queryIndex = normalized.indexOf('?');
+        if (queryIndex >= 0) {
+            normalized = normalized.substring(0, queryIndex);
         }
 
         String publicPrefix = buildPublicPrefix();
@@ -52,12 +58,36 @@ public class SupabaseStorageService {
             return normalized.substring(publicPrefix.length());
         }
 
+        String publicPathMarker = "/storage/v1/object/public/" + bucket + "/";
+        int markerIndex = normalized.indexOf(publicPathMarker);
+        if (markerIndex >= 0) {
+            return normalized.substring(markerIndex + publicPathMarker.length());
+        }
+
+        if (normalized.startsWith("http://") || normalized.startsWith("https://")) {
+            try {
+                URI uri = URI.create(normalized);
+                String uriPath = uri.getPath();
+                normalized = uriPath == null ? normalized : uriPath;
+            } catch (IllegalArgumentException ignored) {
+            }
+        }
+
+        while (normalized.startsWith("/")) {
+            normalized = normalized.substring(1);
+        }
+
         String bucketPrefix = bucket + "/";
         if (normalized.startsWith(bucketPrefix)) {
             return normalized.substring(bucketPrefix.length());
         }
 
-        return normalized.startsWith("/") ? normalized.substring(1) : normalized;
+        String uploadsPrefix = "uploads/";
+        if (normalized.startsWith(uploadsPrefix)) {
+            return normalized.substring(uploadsPrefix.length());
+        }
+
+        return normalized;
     }
 
     private UploadTarget upload(MultipartFile file, String folder) {
@@ -101,6 +131,17 @@ public class SupabaseStorageService {
 
     private String buildPublicUrl(String encodedPath) {
         return buildPublicPrefix() + encodedPath;
+    }
+
+    /**
+     * Convert a stored object URL or path into a full public URL clients can use.
+     */
+    public String toPublicUrl(String urlOrPath) {
+        if (urlOrPath == null) return null;
+        String path = extractPublicObjectPath(urlOrPath);
+        if (path == null || path.isBlank()) return path;
+        String encoded = encodePath(path);
+        return buildPublicPrefix() + encoded;
     }
 
     private String buildPublicPrefix() {
