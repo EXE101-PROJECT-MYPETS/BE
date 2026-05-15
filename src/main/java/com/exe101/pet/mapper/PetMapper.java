@@ -12,7 +12,7 @@ public class PetMapper {
         return new PetDTO(
                 entity.getId(),
                 entity.getShopId(),
-                entity.getCustomerId(),
+                entity.getUserId(),
                 entity.getSpeciesId(),
                 entity.getBreedId(),
                 entity.getBreedText(),
@@ -35,7 +35,7 @@ public class PetMapper {
 
     public static void updateEntity(Pet entity, PetDTO dto) {
         entity.setShopId(dto.getShopId());
-        entity.setCustomerId(dto.getCustomerId());
+        entity.setUserId(dto.getUserId());
         entity.setSpeciesId(dto.getSpeciesId());
         entity.setBreedId(dto.getBreedId());
         entity.setBreedText(dto.getBreedText());

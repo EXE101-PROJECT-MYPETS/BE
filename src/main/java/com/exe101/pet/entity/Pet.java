@@ -1,7 +1,7 @@
 package com.exe101.pet.entity;
 
-import com.exe101.customer.entity.Customer;
 import com.exe101.shop.entity.Shop;
+import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -23,8 +23,8 @@ public class Pet {
     @Column(name = "shop_id", nullable = false)
     private Long shopId;
 
-    @Column(name = "customer_id", nullable = false)
-    private Long customerId;
+    @Column(name = "user_id", nullable = false)
+    private Long userId;
 
     @Column(name = "species_id", nullable = false)
     private Long speciesId;
@@ -59,12 +59,9 @@ public class Pet {
     private Shop shop;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumns({
-            @JoinColumn(name = "shop_id", referencedColumnName = "shop_id", insertable = false, updatable = false),
-            @JoinColumn(name = "customer_id", referencedColumnName = "id", insertable = false, updatable = false)
-    })
+    @JoinColumn(name = "user_id", insertable = false, updatable = false)
     @JsonIgnore
-    private Customer customer;
+    private User user;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "species_id", insertable = false, updatable = false)

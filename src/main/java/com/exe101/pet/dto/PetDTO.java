@@ -15,7 +15,7 @@ import java.time.OffsetDateTime;
 public class PetDTO {
     private Long id;
     private Long shopId;
-    private Long customerId;
+    private Long userId;
     private Long speciesId;
     private Long breedId;
     private String breedText;
