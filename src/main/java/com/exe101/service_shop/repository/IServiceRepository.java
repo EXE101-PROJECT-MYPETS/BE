@@ -14,7 +14,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             SELECT s
             FROM Service s
             WHERE (:shopId IS NULL OR s.shopId = :shopId)
-              AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
               AND (:categoryId IS NULL OR s.categoryId = :categoryId)
               AND (:active IS NULL OR s.active = :active)
               AND (:cursor IS NULL OR s.id < :cursor)
@@ -35,7 +35,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             LEFT JOIN ServiceReview r
                 ON r.shopId = s.shopId AND r.serviceId = s.id
             WHERE (:shopId IS NULL OR s.shopId = :shopId)
-              AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', :search, '%')))
+              AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
               AND (:categoryId IS NULL OR s.categoryId = :categoryId)
               AND (:active IS NULL OR s.active = :active)
               AND (:cursor IS NULL OR s.id < :cursor)

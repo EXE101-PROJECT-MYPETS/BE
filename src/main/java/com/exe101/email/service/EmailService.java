@@ -9,7 +9,7 @@ import com.exe101.email.repository.IEmailVerificationTokenRepository;
 import com.exe101.user.entity.User;
 import com.exe101.user.exception.UserDuplicate;
 import com.exe101.user.repository.IUserRepository;
-import jakarta.mail.MessagingException;
+import jakarta.mail                                                             .MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;

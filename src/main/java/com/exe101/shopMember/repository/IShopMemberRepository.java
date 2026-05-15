@@ -90,9 +90,9 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
               AND (:status IS NULL OR member.status = :status)
               AND (
                   :keyword IS NULL
-                  OR LOWER(user.fullName) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                  OR LOWER(COALESCE(user.email, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
-                  OR LOWER(COALESCE(user.phone, '')) LIKE LOWER(CONCAT('%', :keyword, '%'))
+                  OR LOWER(user.fullName) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
+                  OR LOWER(COALESCE(user.email, '')) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
+                  OR LOWER(COALESCE(user.phone, '')) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%'))
               )
             ORDER BY member.createdAt ASC, member.userId ASC
             """)
