@@ -117,7 +117,8 @@ public class SecurityConfig {
                                 "/ws/**",
                                 "/ws-sockjs/**",
                                 "/chat/**",
-                                "/api/test/**"
+                                "/api/test/**",
+                                "/uploads/**"
                         )
                         .permitAll()
                         .anyRequest().authenticated()

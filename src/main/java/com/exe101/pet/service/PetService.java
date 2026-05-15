@@ -28,6 +28,12 @@ public class PetService implements IService<Pet, PetDTO, Long> {
                 .toList();
     }
 
+    public List<PetDTO> getAllByCustomerId(Long shopId, Long customerId) {
+        return petRepository.findByShopIdAndCustomerIdOrderByIdDesc(shopId, customerId).stream()
+                .map(PetMapper::toDTO)
+                .toList();
+    }
+
     @Override
     public PetDTO getById(Long id) {
         return petRepository.findById(id)

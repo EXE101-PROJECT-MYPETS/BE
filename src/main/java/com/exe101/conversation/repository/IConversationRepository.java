@@ -23,7 +23,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 conversation.id,
                 conversation.shopId,
                 conversation.userId,
-                targetUser.fullName,
+                COALESCE(targetUser.fullName, ''),
                 targetUser.phone,
                 targetUser.email,
                 targetUser.avatarUrlPreview,
@@ -34,8 +34,8 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 (
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
-                    WHERE unreadMessage.conversationId = conversation.id
-                      AND unreadMessage.senderType = com.exe101.conversation.entity.MessageSenderType.USER
+                                        WHERE unreadMessage.conversationId = conversation.id
+                                            AND CAST(unreadMessage.senderType AS string) = 'USER'
                       AND (
                           conversation.shopLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.shopLastReadMessageId
@@ -47,7 +47,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 conversation.updatedAt
             )
             FROM Conversation conversation
-            JOIN conversation.user targetUser
+            LEFT JOIN conversation.user targetUser
             LEFT JOIN Message lastMessage
               ON lastMessage.conversationId = conversation.id
              AND lastMessage.id = (
@@ -65,7 +65,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 conversation.id,
                 conversation.shopId,
                 conversation.userId,
-                targetUser.fullName,
+                COALESCE(targetUser.fullName, ''),
                 targetUser.phone,
                 targetUser.email,
                 targetUser.avatarUrlPreview,
@@ -76,8 +76,8 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 (
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
-                    WHERE unreadMessage.conversationId = conversation.id
-                      AND unreadMessage.senderType = com.exe101.conversation.entity.MessageSenderType.USER
+                                        WHERE unreadMessage.conversationId = conversation.id
+                                            AND CAST(unreadMessage.senderType AS string) = 'USER'
                       AND (
                           conversation.shopLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.shopLastReadMessageId
@@ -89,7 +89,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                 conversation.updatedAt
             )
             FROM Conversation conversation
-            JOIN conversation.user targetUser
+            LEFT JOIN conversation.user targetUser
             LEFT JOIN Message lastMessage
               ON lastMessage.conversationId = conversation.id
              AND lastMessage.id = (
@@ -104,4 +104,82 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
             @Param("id") Long id,
             @Param("shopId") Long shopId
     );
+
+    @Query("""
+            SELECT new com.exe101.conversation.dto.CustomerConversationDTO(
+                conversation.id,
+                conversation.shopId,
+                conversation.userId,
+                COALESCE(targetShop.name, ''),
+                targetShop.imageUrl,
+                lastMessage.id,
+                lastMessage.body,
+                lastMessage.senderType,
+                lastMessage.createdAt,
+                (
+                    SELECT COUNT(unreadMessage.id)
+                    FROM Message unreadMessage
+                                        WHERE unreadMessage.conversationId = conversation.id
+                                            AND CAST(unreadMessage.senderType AS string) = 'SHOP'
+                      AND (
+                          conversation.userLastReadMessageId IS NULL
+                          OR unreadMessage.id > conversation.userLastReadMessageId
+                      )
+                ),
+                conversation.createdAt
+            )
+            FROM Conversation conversation
+            LEFT JOIN conversation.shop targetShop
+            LEFT JOIN Message lastMessage
+              ON lastMessage.conversationId = conversation.id
+             AND lastMessage.id = (
+                 SELECT MAX(latestMessage.id)
+                 FROM Message latestMessage
+                 WHERE latestMessage.conversationId = conversation.id
+             )
+            WHERE conversation.userId = :userId
+            ORDER BY COALESCE(lastMessage.createdAt, conversation.createdAt) DESC, conversation.id DESC
+            """)
+    List<com.exe101.conversation.dto.CustomerConversationDTO> findSummariesByUserId(@Param("userId") Long userId);
+
+    @Query("""
+            SELECT new com.exe101.conversation.dto.CustomerConversationDTO(
+                conversation.id,
+                conversation.shopId,
+                conversation.userId,
+                COALESCE(targetShop.name, ''),
+                targetShop.imageUrl,
+                lastMessage.id,
+                lastMessage.body,
+                lastMessage.senderType,
+                lastMessage.createdAt,
+                (
+                    SELECT COUNT(unreadMessage.id)
+                    FROM Message unreadMessage
+                                        WHERE unreadMessage.conversationId = conversation.id
+                                            AND CAST(unreadMessage.senderType AS string) = 'SHOP'
+                      AND (
+                          conversation.userLastReadMessageId IS NULL
+                          OR unreadMessage.id > conversation.userLastReadMessageId
+                      )
+                ),
+                conversation.createdAt
+            )
+            FROM Conversation conversation
+            LEFT JOIN conversation.shop targetShop
+            LEFT JOIN Message lastMessage
+              ON lastMessage.conversationId = conversation.id
+             AND lastMessage.id = (
+                 SELECT MAX(latestMessage.id)
+                 FROM Message latestMessage
+                 WHERE latestMessage.conversationId = conversation.id
+             )
+            WHERE conversation.id = :id
+              AND conversation.userId = :userId
+            """)
+    Optional<com.exe101.conversation.dto.CustomerConversationDTO> findSummaryByIdAndUserId(
+            @Param("id") Long id,
+            @Param("userId") Long userId
+    );
 }
+

@@ -3,6 +3,7 @@ package com.exe101.conversation.service;
 import com.exe101.common.IService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.conversation.dto.ConversationDTO;
+import com.exe101.conversation.dto.CustomerConversationDTO;
 import com.exe101.conversation.dto.MessageCreateRequest;
 import com.exe101.conversation.dto.MessageDTO;
 import com.exe101.conversation.dto.ReadReceiptDTO;
@@ -326,5 +327,110 @@ public class ConversationService implements IService<Conversation, ConversationD
             );
         }
         return activeAccounts.get(0).getUserId();
+    }
+
+    // --- CUSTOMER (USER) FACING METHODS ---
+
+    @Transactional(readOnly = true)
+    public List<CustomerConversationDTO> getAllByUserId(Long userId) {
+        return conversationRepository.findSummariesByUserId(userId).stream()
+            .map(this::sanitizeShopAvatar)
+            .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public CustomerConversationDTO getByIdForUser(Long userId, Long id) {
+        return conversationRepository.findSummaryByIdAndUserId(id, userId)
+            .map(this::sanitizeShopAvatar)
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
+    }
+
+    @Transactional(readOnly = true)
+    public ScrollResponse<MessageDTO> getMessagesForUser(Long userId, Long conversationId, Long cursor, int size) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
+        
+        if (!conversation.getUserId().equals(userId)) {
+            throw new ConversationValidationException("ConversationAccessDenied", "Bạn không có quyền truy cập cuộc trò chuyện này");
+        }
+
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_MESSAGE_SCROLL_SIZE);
+        Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
+
+        List<Message> messages = messageRepository.findLatestForScroll(
+                conversation.getId(),
+                normalizedCursor,
+                PageRequest.of(0, normalizedSize + 1)
+        );
+
+        boolean hasNext = messages.size() > normalizedSize;
+        List<Message> content = new ArrayList<>(messages.stream()
+                .limit(normalizedSize)
+                .toList());
+        Collections.reverse(content);
+
+        Long nextCursor = hasNext && !content.isEmpty()
+                ? content.get(0).getId()
+                : null;
+
+        return ScrollResponse.of(content.stream()
+                .map(MessageMapper::toDTO)
+                .toList(), normalizedSize, nextCursor, hasNext);
+    }
+
+    @Transactional
+    public MessageDTO sendMessageAsUser(Long userId, Long conversationId, MessageCreateRequest request) {
+        Conversation conversation = conversationRepository.findById(conversationId)
+                .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
+        
+        if (!conversation.getUserId().equals(userId)) {
+            throw new ConversationValidationException("ConversationAccessDenied", "Bạn không có quyền gửi tin nhắn vào cuộc trò chuyện này");
+        }
+        
+        request.setSenderUserId(userId);
+        request.setSenderType(MessageSenderType.USER);
+        
+        return saveUserMessage(conversation, request);
+    }
+
+    @Transactional
+    public CustomerConversationDTO getOrCreateConversation(Long userId, Long shopId) {
+        validateUserTarget(userId);
+        
+        // Return existing if present
+        var existing = conversationRepository.findByShopIdAndUserId(shopId, userId);
+        if (existing.isPresent()) {
+            return getByIdForUser(userId, existing.get().getId());
+        }
+        
+        // Create new
+        Conversation conversation = new Conversation();
+        conversation.setShopId(shopId);
+        conversation.setUserId(userId);
+        conversation = conversationRepository.save(conversation);
+        
+        return getByIdForUser(userId, conversation.getId());
+    }
+
+    private CustomerConversationDTO sanitizeShopAvatar(CustomerConversationDTO dto) {
+        if (dto == null) {
+            return null;
+        }
+        String avatarUrl = dto.getShopAvatarUrl();
+        if (avatarUrl == null) {
+            return dto;
+        }
+        String normalized = avatarUrl.trim();
+        if (normalized.isEmpty()) {
+            dto.setShopAvatarUrl(null);
+            return dto;
+        }
+        String lower = normalized.toLowerCase();
+        if (lower.startsWith("/uploads/")
+                || lower.startsWith("uploads/")
+                || lower.contains(":8080/uploads/")) {
+            dto.setShopAvatarUrl(null);
+        }
+        return dto;
     }
 }
