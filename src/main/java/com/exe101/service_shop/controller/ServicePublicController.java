@@ -27,6 +27,7 @@ public class ServicePublicController {
             @RequestParam(required = false) Double lat,
             @RequestParam(required = false) Double lng,
             @RequestParam(required = false) Double radiusKm,
+            @RequestParam(defaultValue = "5") int perShopLimit,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "20") int size
     ) {
@@ -39,6 +40,7 @@ public class ServicePublicController {
                 lat,
                 lng,
                 radiusKm,
+                perShopLimit,
                 cursor,
                 size
         ));

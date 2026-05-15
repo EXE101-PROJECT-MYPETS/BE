@@ -12,6 +12,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.util.StringUtils;
 
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -21,7 +22,7 @@ import java.util.Map;
 public class ServicePublicService {
 
     private static final int MAX_SCROLL_SIZE = 50;
-    private static final double DEFAULT_RADIUS_KM = 5D;
+    private static final int MAX_PER_SHOP_LIMIT = 20;
 
     private final IServiceRepository serviceRepository;
     private final IServiceReviewRepository serviceReviewRepository;
@@ -37,37 +38,55 @@ public class ServicePublicService {
             Double lat,
             Double lng,
             Double radiusKm,
+            int perShopLimit,
             Long cursor,
             int size
     ) {
         int normalizedSize = Math.min(Math.max(size, 1), MAX_SCROLL_SIZE);
+        int normalizedPerShopLimit = Math.min(Math.max(perShopLimit, 1), MAX_PER_SHOP_LIMIT);
         Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
         String normalizedSearch = StringUtils.hasText(search) ? search.trim() : null;
         validateLocationParams(lat, lng, radiusKm);
-        Double normalizedRadiusKm = radiusKm != null ? radiusKm : DEFAULT_RADIUS_KM;
-        Long targetShopId = shopId;
+        List<Service> services;
         if (lat != null) {
-            if (shopId != null) {
-                throw new IllegalArgumentException("shopId chỉ được dùng khi không truyền lat và lng");
+            List<Long> orderedServiceIds = serviceRepository.findIdsForPublicOrderByDistanceThenRating(
+                    shopId,
+                    normalizedSearch,
+                    categoryId,
+                    active,
+                    minRating,
+                    normalizedCursor,
+                    lat,
+                    lng,
+                    normalizedPerShopLimit,
+                    normalizedSize + 1
+            );
+            if (orderedServiceIds.isEmpty()) {
+                services = List.of();
+            } else {
+                Map<Long, Service> serviceById = new HashMap<>();
+                for (Service service : serviceRepository.findAllById(orderedServiceIds)) {
+                    serviceById.put(service.getId(), service);
+                }
+                services = new ArrayList<>();
+                for (Long serviceId : orderedServiceIds) {
+                    Service service = serviceById.get(serviceId);
+                    if (service != null) {
+                        services.add(service);
+                    }
+                }
             }
-            targetShopId = shopRepository.findNearestShopIdWithinRadius(lat, lng, normalizedRadiusKm).orElse(null);
-            if (targetShopId == null) {
-                targetShopId = shopRepository.findNearestShopId(lat, lng).orElse(null);
-            }
-            if (targetShopId == null) {
-                return ScrollResponse.of(List.of(), normalizedSize, null, false);
-            }
+        } else {
+            services = serviceRepository.findTopRatedForPublic(
+                    shopId,
+                    normalizedSearch,
+                    categoryId,
+                    active,
+                    minRating,
+                    normalizedCursor,
+                    PageRequest.of(0, normalizedSize + 1)
+            );
         }
-
-        List<Service> services = serviceRepository.findTopRatedForPublic(
-                targetShopId,
-                normalizedSearch,
-                categoryId,
-                active,
-                minRating,
-                normalizedCursor,
-                PageRequest.of(0, normalizedSize + 1)
-        );
 
         boolean hasNext = services.size() > normalizedSize;
         List<Service> content = services.stream()

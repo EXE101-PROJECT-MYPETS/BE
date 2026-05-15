@@ -50,6 +50,14 @@ public interface IReviewRepository extends JpaRepository<Review, Long> {
             """)
     List<Object[]> aggregateRatingAndTotalByShopId(@Param("shopId") Long shopId);
 
+    @Query("""
+            SELECT r.shopId, COALESCE(AVG(r.rating), 0)
+            FROM Review r
+            WHERE r.shopId IN :shopIds
+            GROUP BY r.shopId
+            """)
+    List<Object[]> aggregateRatingByShopIds(@Param("shopIds") List<Long> shopIds);
+
     boolean existsByShopIdAndProductIdAndCustomerId(Long shopId, Long productId, Long customerId);
 
     boolean existsByShopIdAndProductIdAndCustomerIdAndIdNot(

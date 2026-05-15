@@ -16,4 +16,19 @@ public interface IServiceReviewRepository extends JpaRepository<ServiceReview, L
             GROUP BY r.serviceId
             """)
     List<Object[]> aggregateRatingAndTotalByServiceIds(@Param("serviceIds") List<Long> serviceIds);
+
+    @Query("""
+            SELECT COALESCE(AVG(r.rating), 0), COUNT(r.id)
+            FROM ServiceReview r
+            WHERE r.shopId = :shopId
+            """)
+    List<Object[]> aggregateRatingAndTotalByShopId(@Param("shopId") Long shopId);
+
+    @Query("""
+            SELECT r.shopId, COALESCE(AVG(r.rating), 0)
+            FROM ServiceReview r
+            WHERE r.shopId IN :shopIds
+            GROUP BY r.shopId
+            """)
+    List<Object[]> aggregateRatingByShopIds(@Param("shopIds") List<Long> shopIds);
 }
