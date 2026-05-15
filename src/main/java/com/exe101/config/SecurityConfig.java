@@ -104,6 +104,12 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/search",
+                                "/api/search/initial",
+                                "/api/search/suggestions"
+                        ).permitAll()
+                        .requestMatchers(
                                 "/api/auth/**",
                                 "/api/public/**",
                                 "/error",
