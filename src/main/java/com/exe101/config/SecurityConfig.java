@@ -107,14 +107,24 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/search",
                                 "/api/search/initial",
-                                "/api/search/suggestions"
+                                "/api/search/suggestions",
+                                "/api/ai/pet-health/conversations",
+                                "/api/ai/pet-health/conversations/*/messages"
+                        ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/ai/pet-health/chat",
+                                "/api/admin/ai/knowledge",
+                                "/api/admin/ai/knowledge/search-test"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/public/**",
                                 "/error",
                                 "/graphql",
+                                "/ws",
                                 "/ws/**",
+                                "/ws-sockjs",
                                 "/ws-sockjs/**",
                                 "/chat/**",
                                 "/api/test/**",
@@ -138,10 +148,14 @@ public class SecurityConfig {
 
         config.setAllowedOriginPatterns(List.of(
                 "http://localhost:*",
+                "http://127.0.0.1:*",
+                "http://192.168.*.*:*",
+                "http://10.*.*.*:*",
                 "http://localhost:3000",
                 "http://localhost:5173",
                 "https://exe-fe-gold.vercel.app",
-                "https://*.vercel.app"
+                "https://*.vercel.app",
+                "https://*.ngrok-free.dev"
         ));
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
