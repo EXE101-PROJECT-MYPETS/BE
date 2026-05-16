@@ -44,7 +44,7 @@ public class AiPetContextService {
                 .speciesName(pet.getSpecies() == null ? "khong ro" : defaultText(pet.getSpecies().getName()))
                 .breed(resolveBreedName(pet))
                 .age(resolveAge(pet))
-                .weight("khong co")
+                .weight(pet.getWeightKg() == null ? "khong co" : pet.getWeightKg() + " kg")
                 .gender(defaultText(pet.getGender()))
                 .generalNote(defaultText(pet.getNote()))
                 .allergies(healthProfile == null ? "khong co" : defaultText(healthProfile.getAllergies()))

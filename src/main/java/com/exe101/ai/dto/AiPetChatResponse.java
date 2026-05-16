@@ -17,4 +17,5 @@ public class AiPetChatResponse {
     private String riskLevel;
     private Boolean shouldBookVet;
     private List<String> recommendedActions;
+    private AiAction action;
 }

@@ -12,6 +12,8 @@ import java.util.Optional;
 public interface AiPetChatConversationRepository extends JpaRepository<AiPetChatConversation, Long> {
     Optional<AiPetChatConversation> findByIdAndPetId(Long id, Long petId);
 
+    Optional<AiPetChatConversation> findFirstByPetIdOrderByUpdatedAtDesc(Long petId);
+
     List<AiPetChatConversation> findByPetIdOrderByUpdatedAtDesc(Long petId);
 
     List<AiPetChatConversation> findByUserIdOrderByUpdatedAtDesc(Long userId);

@@ -14,28 +14,37 @@ public class AiPromptBuilder {
 
     public String buildPetHealthSystemInstruction() {
         StringBuilder builder = new StringBuilder();
-        builder.append("Ban la tro ly AI cua ung dung PetPee.\n\n");
-        builder.append("Nhiem vu cua ban:\n");
-        builder.append("- Ho tro nguoi dung ve cham soc thu cung, suc khoe co ban, hanh vi, dinh duong, ve sinh, grooming, san pham, dich vu, shop va booking tren PetPee.\n");
-        builder.append("- Tra loi bang tieng Viet, than thien, de hieu, ngan gon nhung du y.\n");
-        builder.append("- Uu tien tra loi dua tren context duoc cung cap tu he thong.\n");
-        builder.append("- Neu context khong du, hay noi ro la chua du thong tin va dua ra huong xu ly an toan.\n\n");
-        builder.append("Gioi han:\n");
-        builder.append("- Ban khong phai bac si thu y.\n");
-        builder.append("- Khong chan doan chac chan benh.\n");
-        builder.append("- Khong ke don thuoc.\n");
-        builder.append("- Khong dua lieu luong thuoc cu the.\n");
-        builder.append("- Neu thu cung co dau hieu nguy hiem nhu bo an lau, non nhieu, tieu chay nang, kho tho, co giat, chay mau, lo do, mat nuoc, dau du doi hoac nghi ngo doc, hay khuyen nguoi dung lien he bac si thu y/co so thu y ngay.\n\n");
-        builder.append("Pham vi:\n");
-        builder.append("- Chi tra loi cac cau hoi lien quan den thu cung hoac dich vu/san pham trong he sinh thai PetPee.\n");
-        builder.append("- Neu cau hoi khong lien quan, hay tu choi lich su va huong nguoi dung quay lai chu de thu cung.\n\n");
-        builder.append("Yeu cau dinh dang:\n");
-        builder.append("- Ket qua phai la JSON hop le voi cau truc:\n");
-        builder.append("{\"answer\":\"...\",\"riskLevel\":\"LOW|MEDIUM|HIGH|EMERGENCY\",\"shouldBookVet\":true,\"recommendedActions\":[\"...\"]}\n");
-        builder.append("- Truong answer phai la noi dung tieng Viet tu nhien gui cho nguoi dung.\n");
-        builder.append("- riskLevel phan anh muc do rui ro cua tinh huong.\n");
-        builder.append("- shouldBookVet = true neu nen dua thu cung di co so thu y.\n");
-        builder.append("- recommendedActions la danh sach hanh dong an toan, ngan gon, thuc te.\n");
+
+        builder.append("Bạn là trợ lý AI của ứng dụng PetPee.\n\n");
+
+        builder.append("Nhiệm vụ của bạn:\n");
+        builder.append("- Hỗ trợ người dùng về chăm sóc thú cưng, sức khỏe cơ bản, hành vi, dinh dưỡng, vệ sinh, grooming, sản phẩm, dịch vụ, shop và booking trên PetPee.\n");
+        builder.append("- Trả lời bằng tiếng Việt, thân thiện, dễ hiểu, ngắn gọn nhưng đủ ý.\n");
+        builder.append("- Ưu tiên trả lời dựa trên context được cung cấp từ hệ thống.\n");
+        builder.append("- Nếu context không đủ, hãy nói rõ là chưa đủ thông tin và đưa ra hướng xử lý an toàn.\n\n");
+
+        builder.append("Giới hạn:\n");
+        builder.append("- Bạn không phải bác sĩ thú y.\n");
+        builder.append("- Không chẩn đoán chắc chắn bệnh.\n");
+        builder.append("- Không kê đơn thuốc.\n");
+        builder.append("- Không đưa liều lượng thuốc cụ thể.\n");
+        builder.append("- Nếu thú cưng có dấu hiệu nguy hiểm như bỏ ăn lâu, nôn nhiều, tiêu chảy nặng, khó thở, co giật, chảy máu, lờ đờ, mất nước, đau dữ dội hoặc nghi ngộ độc, hãy khuyên người dùng liên hệ bác sĩ thú y/cơ sở thú y ngay.\n\n");
+
+        builder.append("Phạm vi:\n");
+        builder.append("- Chỉ trả lời các câu hỏi liên quan đến thú cưng hoặc dịch vụ/sản phẩm trong hệ sinh thái PetPee.\n");
+        builder.append("- Nếu câu hỏi không liên quan, hãy từ chối lịch sự và hướng người dùng quay lại chủ đề thú cưng.\n\n");
+
+        builder.append("Yêu cầu định dạng:\n");
+        builder.append("- Kết quả phải là JSON hợp lệ với cấu trúc:\n");
+        builder.append("- Neu nguoi dung muon dat lich, grooming, tam, spa, cat mong, kham thu y hoac tim shop/dich vu, action.type phai la OPEN_BOOKING_FLOW.\n");
+        builder.append("- Khong duoc noi da dat lich thanh cong neu he thong chua tao booking that.\n");
+        builder.append("- MVP khong tu tao booking trong chat, chi dieu huong nguoi dung sang man dat lich de chon shop, dich vu, thoi gian va xac nhan.\n");
+        builder.append("{\"answer\":\"...\",\"riskLevel\":\"LOW|MEDIUM|HIGH|EMERGENCY\",\"shouldBookVet\":true,\"recommendedActions\":[\"...\"],\"action\":{\"type\":\"NONE|OPEN_BOOKING_FLOW\",\"toolName\":\"...\",\"arguments\":{},\"missingFields\":[]}}\n");
+        builder.append("- Trường answer phải là nội dung tiếng Việt tự nhiên gửi cho người dùng.\n");
+        builder.append("- riskLevel phản ánh mức độ rủi ro của tình huống.\n");
+        builder.append("- shouldBookVet = true nếu nên đưa thú cưng đi cơ sở thú y.\n");
+        builder.append("- recommendedActions là danh sách hành động an toàn, ngắn gọn, thực tế.\n");
+
         return builder.toString();
     }
 
@@ -47,21 +56,26 @@ public class AiPromptBuilder {
     ) {
         StringBuilder builder = new StringBuilder();
 
-        builder.append("Thong tin thu cung:\n");
-        builder.append("- Ten: ").append(safe(petContext == null ? null : petContext.getName())).append('\n');
-        builder.append("- Loai: ").append(safe(petContext == null ? null : petContext.getSpeciesName())).append('\n');
-        builder.append("- Giong: ").append(safe(petContext == null ? null : petContext.getBreed())).append('\n');
-        builder.append("- Tuoi: ").append(safe(petContext == null ? null : petContext.getAge())).append('\n');
-        builder.append("- Can nang: ").append(safe(petContext == null ? null : petContext.getWeight())).append('\n');
-        builder.append("- Ghi chu suc khoe: ")
-                .append("di ung: ").append(safe(petContext == null ? null : petContext.getAllergies()))
-                .append("; benh nen: ").append(safe(petContext == null ? null : petContext.getConditions()))
-                .append("; ghi chu: ").append(safe(petContext == null ? null : petContext.getHealthNotes()))
+        builder.append("Thông tin thú cưng:\n");
+        builder.append("- Tên: ").append(safe(petContext == null ? null : petContext.getName())).append('\n');
+        builder.append("- Loài: ").append(safe(petContext == null ? null : petContext.getSpeciesName())).append('\n');
+        builder.append("- Giống: ").append(safe(petContext == null ? null : petContext.getBreed())).append('\n');
+        builder.append("- Tuổi: ").append(safe(petContext == null ? null : petContext.getAge())).append('\n');
+        builder.append("- Cân nặng: ").append(safe(petContext == null ? null : petContext.getWeight())).append('\n');
+
+        builder.append("- Ghi chú sức khỏe: ")
+                .append("dị ứng: ").append(safe(petContext == null ? null : petContext.getAllergies()))
+                .append("; bệnh nền: ").append(safe(petContext == null ? null : petContext.getConditions()))
+                .append("; ghi chú: ").append(safe(petContext == null ? null : petContext.getHealthNotes()))
+                .append('\n');
+
+        builder.append("- Lịch sử tiêm phòng gần đây:\n")
+                .append(safeMultiline(petContext == null ? null : petContext.getVaccinationSummary()))
                 .append("\n\n");
 
-        builder.append("Lich su hoi dap gan day:\n");
+        builder.append("Lịch sử hỏi đáp gần đây:\n");
         if (recentMessages == null || recentMessages.isEmpty()) {
-            builder.append("- Chua co lich su\n");
+            builder.append("- Chưa có lịch sử\n");
         } else {
             recentMessages.forEach(message -> builder
                     .append("- ")
@@ -72,9 +86,9 @@ public class AiPromptBuilder {
         }
         builder.append('\n');
 
-        builder.append("Context tu he thong:\n");
+        builder.append("Context từ hệ thống:\n");
         if (knowledgeResults == null || knowledgeResults.isEmpty()) {
-            builder.append("- Chua co context phu hop\n");
+            builder.append("- Chưa có context phù hợp\n");
         } else {
             for (int i = 0; i < Math.min(5, knowledgeResults.size()); i++) {
                 AiKnowledgeSearchResult result = knowledgeResults.get(i);
@@ -86,12 +100,17 @@ public class AiPromptBuilder {
             }
         }
 
-        builder.append("Cau hoi nguoi dung:\n");
+        builder.append("Câu hỏi người dùng:\n");
         builder.append(userMessage == null ? "" : userMessage);
+
         return builder.toString();
     }
 
     private String safe(String value) {
-        return value == null || value.isBlank() ? "khong co" : value;
+        return value == null || value.isBlank() ? "không có" : value;
+    }
+
+    private String safeMultiline(String value) {
+        return value == null || value.isBlank() ? "- không có" : value;
     }
 }

@@ -1,19 +1,16 @@
 package com.exe101.ai.service;
 
-import com.exe101.ai.dto.AiKnowledgeSearchResult;
-import com.exe101.ai.dto.AiPetChatConversationDTO;
-import com.exe101.ai.dto.AiPetChatMessageDTO;
-import com.exe101.ai.dto.AiPetChatRequest;
-import com.exe101.ai.dto.AiPetChatResponse;
-import com.exe101.ai.dto.AiPetChatSocketEventDTO;
-import com.exe101.ai.dto.PetContext;
+import com.exe101.ai.dto.*;
 import com.exe101.ai.entity.AiPetChatConversation;
 import com.exe101.ai.entity.AiPetChatMessage;
 import com.exe101.ai.enums.AiChatRole;
 import com.exe101.ai.exception.AiAccessDenied;
 import com.exe101.ai.exception.AiNotFound;
+import com.exe101.ai.repository.AiPetChatConversationRepository;
+import com.exe101.ai.repository.AiPetChatMessageRepository;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.pet.entity.Pet;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
@@ -25,12 +22,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-
-import com.exe101.ai.repository.AiPetChatConversationRepository;
-import com.exe101.ai.repository.AiPetChatMessageRepository;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -109,7 +101,7 @@ public class AiPetHealthChatService {
         if (rawAnswer == null) {
             rawAnswer = "";
         }
-        AiResponsePayload payload = parseAiResponse(rawAnswer);
+        AiResponsePayload payload = parseAiResponse(rawAnswer, request);
 
         AiPetChatMessage assistantMessage = new AiPetChatMessage();
         assistantMessage.setConversationId(conversation.getId());
@@ -125,7 +117,8 @@ public class AiPetHealthChatService {
                 payload.answer(),
                 payload.riskLevel(),
                 payload.shouldBookVet(),
-                payload.recommendedActions()
+                payload.recommendedActions(),
+                payload.action()
         );
         AiPetChatMessageDTO userMessageDTO = toMessageDTO(userMessage);
         AiPetChatMessageDTO assistantMessageDTO = toMessageDTO(assistantMessage);
@@ -147,6 +140,13 @@ public class AiPetHealthChatService {
                 .toList();
     }
 
+    @Transactional
+    public AiPetChatConversationDTO getOrCreateConversation(Long petId) {
+        Long currentUserId = getCurrentUserId();
+        Pet pet = aiPetContextService.getAuthorizedPet(petId, currentUserId);
+        return toConversationDTO(getOrCreateConversationForPet(pet, currentUserId, pet.getName()));
+    }
+
     @Transactional(readOnly = true)
     public List<AiPetChatMessageDTO> getMessages(Long conversationId) {
         Long currentUserId = getCurrentUserId();
@@ -160,17 +160,28 @@ public class AiPetHealthChatService {
 
     private AiPetChatConversation resolveConversation(AiPetChatRequest request, Pet pet, Long currentUserId) {
         if (request.getConversationId() == null) {
-            AiPetChatConversation conversation = new AiPetChatConversation();
-            conversation.setPetId(pet.getId());
-            conversation.setUserId(currentUserId);
-            conversation.setTitle(buildTitle(request.getMessage()));
-            return conversationRepository.save(conversation);
+            return getOrCreateConversationForPet(pet, currentUserId, request.getMessage());
         }
 
         AiPetChatConversation conversation = conversationRepository.findByIdAndPetId(request.getConversationId(), pet.getId())
                 .orElseThrow(() -> new AiNotFound("AiConversationNotFound", "Không tìm thấy cuộc trò chuyện AI"));
         validateConversationOwnership(conversation, currentUserId);
         return conversation;
+    }
+
+    private AiPetChatConversation getOrCreateConversationForPet(Pet pet, Long currentUserId, String titleSource) {
+        return conversationRepository.findFirstByPetIdOrderByUpdatedAtDesc(pet.getId())
+                .map(conversation -> {
+                    validateConversationOwnership(conversation, currentUserId);
+                    return conversation;
+                })
+                .orElseGet(() -> {
+                    AiPetChatConversation conversation = new AiPetChatConversation();
+                    conversation.setPetId(pet.getId());
+                    conversation.setUserId(currentUserId);
+                    conversation.setTitle(buildTitle(titleSource));
+                    return conversationRepository.save(conversation);
+                });
     }
 
     private void validateConversationOwnership(AiPetChatConversation conversation, Long currentUserId) {
@@ -194,10 +205,11 @@ public class AiPetHealthChatService {
         metadata.put("shouldBookVet", payload.shouldBookVet());
         ArrayNode actions = metadata.putArray("recommendedActions");
         payload.recommendedActions().forEach(actions::add);
+        metadata.set("action", objectMapper.valueToTree(payload.action()));
         return metadata;
     }
 
-    private AiResponsePayload parseAiResponse(String rawAnswer) {
+    private AiResponsePayload parseAiResponse(String rawAnswer, AiPetChatRequest request) {
         try {
             String normalized = stripMarkdownCodeFence(rawAnswer);
             JsonNode json = objectMapper.readTree(normalized);
@@ -212,11 +224,163 @@ public class AiPetHealthChatService {
                     json.path("answer").asText(rawAnswer),
                     json.path("riskLevel").asText("MEDIUM"),
                     json.path("shouldBookVet").asBoolean(false),
-                    actions
+                    actions,
+                    normalizeAction(parseAction(json.path("action")), request)
             );
         } catch (Exception ex) {
-            return new AiResponsePayload(rawAnswer, "MEDIUM", false, List.of());
+            return new AiResponsePayload(rawAnswer, "MEDIUM", false, List.of(), normalizeAction(defaultNoneAction(), request));
         }
+    }
+
+    private AiAction parseAction(JsonNode actionNode) {
+        if (actionNode == null || actionNode.isMissingNode() || !actionNode.isObject()) {
+            return defaultNoneAction();
+        }
+
+        Map<String, Object> arguments = new LinkedHashMap<>();
+        JsonNode argumentsNode = actionNode.path("arguments");
+        if (argumentsNode.isObject()) {
+            arguments.putAll(objectMapper.convertValue(argumentsNode, new TypeReference<Map<String, Object>>() {
+            }));
+        }
+
+        List<String> missingFields = new ArrayList<>();
+        JsonNode missingFieldsNode = actionNode.path("missingFields");
+        if (missingFieldsNode.isArray()) {
+            for (JsonNode field : missingFieldsNode) {
+                missingFields.add(field.asText());
+            }
+        }
+
+        return AiAction.builder()
+                .type(actionNode.path("type").asText("NONE"))
+                .toolName(actionNode.path("toolName").isNull() ? null : actionNode.path("toolName").asText(null))
+                .arguments(arguments)
+                .missingFields(missingFields)
+                .build();
+    }
+
+    private AiAction normalizeAction(AiAction action, AiPetChatRequest request) {
+        AiAction safeAction = action == null ? defaultNoneAction() : action;
+        String type = safeAction.getType() == null ? "NONE" : safeAction.getType().trim();
+        if (!"OPEN_BOOKING_FLOW".equals(type) && looksLikeBookingIntent(request == null ? null : request.getMessage())) {
+            type = "OPEN_BOOKING_FLOW";
+        }
+
+        if (!"OPEN_BOOKING_FLOW".equals(type)) {
+            return defaultNoneAction();
+        }
+
+        Map<String, Object> arguments = safeAction.getArguments() == null
+                ? new LinkedHashMap<>()
+                : new LinkedHashMap<>(safeAction.getArguments());
+        if (request != null && request.getPetId() != null) {
+            arguments.put("petId", request.getPetId());
+        }
+
+        String message = request == null ? "" : request.getMessage();
+        arguments.putIfAbsent("keyword", inferKeyword(message));
+        arguments.putIfAbsent("serviceType", inferServiceType(message, String.valueOf(arguments.get("keyword"))));
+        String preferredDateText = inferPreferredDateText(message);
+        if (preferredDateText != null && !arguments.containsKey("preferredDateText")) {
+            arguments.put("preferredDateText", preferredDateText);
+        }
+
+        return AiAction.builder()
+                .type("OPEN_BOOKING_FLOW")
+                .toolName(isBlank(safeAction.getToolName()) ? "open_booking_flow" : safeAction.getToolName())
+                .arguments(arguments)
+                .missingFields(safeAction.getMissingFields() == null ? List.of() : safeAction.getMissingFields())
+                .build();
+    }
+
+    private AiAction defaultNoneAction() {
+        return AiAction.builder()
+                .type("NONE")
+                .toolName(null)
+                .arguments(Map.of())
+                .missingFields(List.of())
+                .build();
+    }
+
+    private boolean looksLikeBookingIntent(String message) {
+        String text = safeLower(message);
+        return containsAny(text,
+                "dat lich", "đặt lịch", "booking", "grooming", "spa",
+                "tam", "tắm", "cat mong", "cắt móng",
+                "kham", "khám", "bac si", "bác sĩ", "thu y", "thú y",
+                "dich vu", "dịch vụ", "shop");
+    }
+
+    private String inferKeyword(String message) {
+        String text = safeLower(message);
+        if (containsAny(text, "cat mong", "cắt móng")) {
+            return "cắt móng";
+        }
+        if (containsAny(text, "tam", "tắm")) {
+            return "tắm";
+        }
+        if (text.contains("spa")) {
+            return "spa";
+        }
+        if (text.contains("grooming")) {
+            return "grooming";
+        }
+        if (containsAny(text, "kham", "khám", "bac si", "bác sĩ", "thu y", "thú y")) {
+            return "khám thú y";
+        }
+        if (containsAny(text, "dich vu", "dịch vụ")) {
+            return "dịch vụ";
+        }
+        return "";
+    }
+
+    private String inferServiceType(String message, String keyword) {
+        String text = safeLower(message) + " " + safeLower(keyword);
+        if (containsAny(text, "tam", "tắm", "grooming", "spa", "cat mong", "cắt móng")) {
+            return "GROOMING";
+        }
+        if (containsAny(text, "kham", "khám", "bac si", "bác sĩ", "thu y", "thú y")) {
+            return "VET";
+        }
+        return "";
+    }
+
+    private String inferPreferredDateText(String message) {
+        String text = safeLower(message);
+        if (containsAny(text, "chieu mai", "chiều mai")) {
+            return "chiều mai";
+        }
+        if (containsAny(text, "sang mai", "sáng mai")) {
+            return "sáng mai";
+        }
+        if (containsAny(text, "toi mai", "tối mai")) {
+            return "tối mai";
+        }
+        if (containsAny(text, "ngay mai", "ngày mai", "mai")) {
+            return "ngày mai";
+        }
+        if (containsAny(text, "hom nay", "hôm nay")) {
+            return "hôm nay";
+        }
+        return null;
+    }
+
+    private boolean containsAny(String text, String... keywords) {
+        for (String keyword : keywords) {
+            if (text.contains(keyword)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private String safeLower(String value) {
+        return value == null ? "" : value.toLowerCase();
+    }
+
+    private boolean isBlank(String value) {
+        return value == null || value.isBlank();
     }
 
     private String stripMarkdownCodeFence(String value) {
@@ -263,7 +427,8 @@ public class AiPetHealthChatService {
             String answer,
             String riskLevel,
             Boolean shouldBookVet,
-            List<String> recommendedActions
+            List<String> recommendedActions,
+            AiAction action
     ) {
     }
 

@@ -6,6 +6,7 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -40,6 +41,9 @@ public class Pet {
     private String gender;
 
     private LocalDate dob;
+
+    @Column(name = "weight_kg")
+    private BigDecimal weightKg;
 
     private String note;
 
