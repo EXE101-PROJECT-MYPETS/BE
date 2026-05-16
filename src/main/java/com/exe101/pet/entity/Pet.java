@@ -1,6 +1,5 @@
 package com.exe101.pet.entity;
 
-import com.exe101.shop.entity.Shop;
 import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -19,9 +18,6 @@ public class Pet {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "shop_id", nullable = false)
-    private Long shopId;
 
     @Column(name = "user_id", nullable = false)
     private Long userId;
@@ -52,11 +48,6 @@ public class Pet {
 
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime updatedAt;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shop_id", insertable = false, updatable = false)
-    @JsonIgnore
-    private Shop shop;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "user_id", insertable = false, updatable = false)

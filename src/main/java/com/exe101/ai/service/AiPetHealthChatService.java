@@ -6,6 +6,7 @@ import com.exe101.ai.dto.AiPetChatMessageDTO;
 import com.exe101.ai.dto.AiPetChatRequest;
 import com.exe101.ai.dto.AiPetChatResponse;
 import com.exe101.ai.dto.AiPetChatSocketEventDTO;
+import com.exe101.ai.dto.PetContext;
 import com.exe101.ai.entity.AiPetChatConversation;
 import com.exe101.ai.entity.AiPetChatMessage;
 import com.exe101.ai.enums.AiChatRole;
@@ -18,6 +19,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -32,12 +34,16 @@ import com.exe101.ai.repository.AiPetChatMessageRepository;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AiPetHealthChatService {
 
     private final AiPetChatConversationRepository conversationRepository;
     private final AiPetChatMessageRepository messageRepository;
     private final AiPetContextService aiPetContextService;
     private final AiKnowledgeSearchService aiKnowledgeSearchService;
+    private final QueryRewriteService queryRewriteService;
+    private final AiEmbeddingService aiEmbeddingService;
+    private final RerankingService rerankingService;
     private final AiPromptBuilder aiPromptBuilder;
     private final GeminiClientService geminiClientService;
     private final ObjectMapper objectMapper;
@@ -63,10 +69,43 @@ public class AiPetHealthChatService {
         List<AiPetChatMessage> recentMessages = new ArrayList<>(messageRepository.findTop20ByConversationIdOrderByCreatedAtDesc(conversation.getId()));
         recentMessages.sort(Comparator.comparing(AiPetChatMessage::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        String petContext = aiPetContextService.buildPetContext(pet.getId(), currentUserId);
-        List<AiKnowledgeSearchResult> knowledgeResults = aiKnowledgeSearchService.search(request.getMessage(), 5);
-        String prompt = aiPromptBuilder.buildPetHealthPrompt(request.getMessage(), petContext, knowledgeResults, recentMessages);
-        String rawAnswer = geminiClientService.generateText(prompt);
+        PetContext petContext = aiPetContextService.loadPetContext(pet.getId(), currentUserId);
+        String rewrittenQuery = queryRewriteService.rewrite(request.getMessage(), petContext);
+        List<Double> embedding = aiEmbeddingService.embed(rewrittenQuery);
+        String embeddingText = aiEmbeddingService.toPgVectorString(embedding);
+        List<AiKnowledgeSearchResult> candidates = aiKnowledgeSearchService.hybridSearch(
+                rewrittenQuery,
+                embeddingText,
+                30,
+                20
+        );
+        List<AiKnowledgeSearchResult> finalContexts = rerankingService.rerank(
+                        request.getMessage(),
+                        rewrittenQuery,
+                        petContext,
+                        candidates
+                )
+                .stream()
+                .limit(5)
+                .toList();
+
+        log.info("AI original message: {}", request.getMessage());
+        log.info("AI rewritten query: {}", rewrittenQuery);
+        for (AiKnowledgeSearchResult item : finalContexts) {
+            log.info(
+                    "AI selected context: id={}, title={}, vectorScore={}, keywordScore={}, hybridScore={}, rerankScore={}",
+                    item.getId(),
+                    item.getTitle(),
+                    item.getVectorScore(),
+                    item.getKeywordScore(),
+                    item.getHybridScore(),
+                    item.getRerankScore()
+            );
+        }
+
+        String systemInstruction = aiPromptBuilder.buildPetHealthSystemInstruction();
+        String prompt = aiPromptBuilder.buildPetHealthPrompt(petContext, finalContexts, recentMessages, request.getMessage());
+        String rawAnswer = geminiClientService.generateText(systemInstruction, prompt);
         if (rawAnswer == null) {
             rawAnswer = "";
         }

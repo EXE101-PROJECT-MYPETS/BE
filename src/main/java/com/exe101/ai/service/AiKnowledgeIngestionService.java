@@ -18,14 +18,13 @@ import java.util.UUID;
 @RequiredArgsConstructor
 public class AiKnowledgeIngestionService {
 
-    private final GeminiClientService geminiClientService;
+    private final AiEmbeddingService aiEmbeddingService;
     private final JdbcTemplate jdbcTemplate;
     private final ObjectMapper objectMapper;
 
     @Transactional
     public AiKnowledgeCreateResponse createKnowledge(AiKnowledgeCreateRequest request) {
-        List<Double> embedding = geminiClientService.embedText(request.getContent());
-        String vectorLiteral = toVectorLiteral(embedding);
+        String vectorLiteral = aiEmbeddingService.toPgVectorString(aiEmbeddingService.embed(request.getContent()));
         String metadataJson = toJson(request.getMetadata());
 
         return jdbcTemplate.queryForObject(
@@ -39,7 +38,7 @@ public class AiKnowledgeIngestionService {
                     metadata,
                     embedding
                 )
-                VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS prod.vector))
+                VALUES (?, ?, ?, ?, ?, CAST(? AS jsonb), CAST(? AS vector))
                 RETURNING id, title, topic
                 """,
                 this::mapCreateResponse,
@@ -66,18 +65,6 @@ public class AiKnowledgeIngestionService {
                 rs.getString("title"),
                 rs.getString("topic")
         );
-    }
-
-    private String toVectorLiteral(List<Double> embedding) {
-        StringBuilder builder = new StringBuilder("[");
-        for (int i = 0; i < embedding.size(); i++) {
-            if (i > 0) {
-                builder.append(',');
-            }
-            builder.append(embedding.get(i));
-        }
-        builder.append(']');
-        return builder.toString();
     }
 
     private String toJson(JsonNode metadata) {

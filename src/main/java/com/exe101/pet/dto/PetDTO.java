@@ -14,7 +14,6 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class PetDTO {
     private Long id;
-    private Long shopId;
     private Long userId;
     private Long speciesId;
     private Long breedId;
