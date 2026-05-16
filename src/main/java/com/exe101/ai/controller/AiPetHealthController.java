@@ -1,21 +1,12 @@
 package com.exe101.ai.controller;
 
-import com.exe101.ai.dto.AiPetChatConversationDTO;
-import com.exe101.ai.dto.AiPetChatMessageDTO;
-import com.exe101.ai.dto.AiPetChatRequest;
-import com.exe101.ai.dto.AiPetChatResponse;
+import com.exe101.ai.dto.*;
 import com.exe101.ai.service.AiPetHealthChatService;
 import com.exe101.ai.service.AiPetHealthSocketPublisher;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -50,6 +41,13 @@ public class AiPetHealthController {
     @GetMapping("/conversations")
     public ResponseEntity<List<AiPetChatConversationDTO>> getConversations(@RequestParam Long petId) {
         return ResponseEntity.ok(aiPetHealthChatService.getConversations(petId));
+    }
+
+    @PostMapping("/conversations/get-or-create")
+    public ResponseEntity<AiPetChatConversationDTO> getOrCreateConversation(
+            @Valid @RequestBody AiPetConversationRequest request
+    ) {
+        return ResponseEntity.ok(aiPetHealthChatService.getOrCreateConversation(request.getPetId()));
     }
 
     @GetMapping("/conversations/{conversationId}/messages")

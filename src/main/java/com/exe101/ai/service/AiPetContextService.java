@@ -1,5 +1,6 @@
 package com.exe101.ai.service;
 
+import com.exe101.ai.dto.PetContext;
 import com.exe101.ai.exception.AiAccessDenied;
 import com.exe101.ai.exception.AiNotFound;
 import com.exe101.pet.entity.Pet;
@@ -12,7 +13,10 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.LocalDate;
+import java.time.Period;
 import java.util.List;
+import java.util.Locale;
 
 @Service
 @RequiredArgsConstructor
@@ -24,28 +28,54 @@ public class AiPetContextService {
 
     @Transactional(readOnly = true)
     public String buildPetContext(Long petId, Long currentUserId) {
+        return buildPetContext(loadPetContext(petId, currentUserId));
+    }
+
+    @Transactional(readOnly = true)
+    public PetContext loadPetContext(Long petId, Long currentUserId) {
         Pet pet = getAuthorizedPet(petId, currentUserId);
         PetHealthProfile healthProfile = petHealthProfileRepository.findById(petId).orElse(null);
         List<PetVaccination> vaccinations = petVaccinationRepository.findByPetIdOrderByVaccinatedAtDesc(petId);
 
+        return PetContext.builder()
+                .petId(pet.getId())
+                .name(defaultText(pet.getName()))
+                .species(resolveSpeciesCode(pet))
+                .speciesName(pet.getSpecies() == null ? "khong ro" : defaultText(pet.getSpecies().getName()))
+                .breed(resolveBreedName(pet))
+                .age(resolveAge(pet))
+                .weight(pet.getWeightKg() == null ? "khong co" : pet.getWeightKg() + " kg")
+                .gender(defaultText(pet.getGender()))
+                .generalNote(defaultText(pet.getNote()))
+                .allergies(healthProfile == null ? "khong co" : defaultText(healthProfile.getAllergies()))
+                .conditions(healthProfile == null ? "khong co" : defaultText(healthProfile.getConditions()))
+                .healthNotes(healthProfile == null ? "khong co" : defaultText(healthProfile.getNotes()))
+                .vaccinationSummary(buildVaccinationSummary(vaccinations))
+                .build();
+    }
+
+    public String buildPetContext(PetContext petContext) {
         StringBuilder builder = new StringBuilder();
         builder.append("Thong tin thu cung:\n");
-        builder.append("- Pet ID: ").append(pet.getId()).append('\n');
-        builder.append("- Ten: ").append(defaultText(pet.getName())).append('\n');
-        builder.append("- Gioi tinh: ").append(defaultText(pet.getGender())).append('\n');
-        builder.append("- Ngay sinh: ").append(pet.getDob() == null ? "khong ro" : pet.getDob()).append('\n');
-        builder.append("- Loai: ").append(pet.getSpecies() == null ? "khong ro" : defaultText(pet.getSpecies().getName())).append('\n');
-        builder.append("- Giong: ").append(resolveBreedName(pet)).append('\n');
-        builder.append("- Ghi chu chung: ").append(defaultText(pet.getNote())).append('\n');
-
-        if (healthProfile != null) {
-            builder.append("Ho so suc khoe:\n");
-            builder.append("- Di ung: ").append(defaultText(healthProfile.getAllergies())).append('\n');
-            builder.append("- Benh nen: ").append(defaultText(healthProfile.getConditions())).append('\n');
-            builder.append("- Ghi chu: ").append(defaultText(healthProfile.getNotes())).append('\n');
-        }
-
+        builder.append("- Ten: ").append(defaultText(petContext.getName())).append('\n');
+        builder.append("- Loai: ").append(defaultText(petContext.getSpeciesName())).append('\n');
+        builder.append("- Giong: ").append(defaultText(petContext.getBreed())).append('\n');
+        builder.append("- Tuoi: ").append(defaultText(petContext.getAge())).append('\n');
+        builder.append("- Can nang: ").append(defaultText(petContext.getWeight())).append('\n');
+        builder.append("- Gioi tinh: ").append(defaultText(petContext.getGender())).append('\n');
+        builder.append("- Ghi chu suc khoe: ")
+                .append("di ung: ").append(defaultText(petContext.getAllergies()))
+                .append("; benh nen: ").append(defaultText(petContext.getConditions()))
+                .append("; ghi chu: ").append(defaultText(petContext.getHealthNotes()))
+                .append('\n');
+        builder.append("- Ghi chu chung: ").append(defaultText(petContext.getGeneralNote())).append('\n');
         builder.append("Lich su tiem phong gan day:\n");
+        builder.append(defaultText(petContext.getVaccinationSummary()));
+        return builder.toString();
+    }
+
+    private String buildVaccinationSummary(List<PetVaccination> vaccinations) {
+        StringBuilder builder = new StringBuilder();
         if (vaccinations.isEmpty()) {
             builder.append("- Chua co du lieu tiem phong\n");
         } else {
@@ -56,7 +86,6 @@ public class AiPetContextService {
                     .append(", hen nhac lai: ").append(vaccination.getNextDueAt() == null ? "khong co" : vaccination.getNextDueAt())
                     .append('\n'));
         }
-
         return builder.toString();
     }
 
@@ -79,6 +108,31 @@ public class AiPetContextService {
             return pet.getBreed().getName();
         }
         return defaultText(pet.getBreedText());
+    }
+
+    private String resolveAge(Pet pet) {
+        if (pet.getDob() == null) {
+            return "khong ro";
+        }
+        Period age = Period.between(pet.getDob(), LocalDate.now());
+        if (age.getYears() > 0) {
+            return age.getYears() + " nam " + age.getMonths() + " thang";
+        }
+        return age.getMonths() + " thang";
+    }
+
+    private String resolveSpeciesCode(Pet pet) {
+        if (pet.getSpecies() == null || pet.getSpecies().getName() == null) {
+            return "UNKNOWN";
+        }
+        String name = pet.getSpecies().getName().toLowerCase(Locale.ROOT);
+        if (name.contains("dog") || name.contains("cho") || name.contains("chó")) {
+            return "DOG";
+        }
+        if (name.contains("cat") || name.contains("meo") || name.contains("mèo")) {
+            return "CAT";
+        }
+        return "OTHER";
     }
 
     private String defaultText(String value) {

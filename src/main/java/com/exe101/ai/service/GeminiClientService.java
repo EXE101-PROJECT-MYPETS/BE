@@ -29,8 +29,13 @@ public class GeminiClientService {
     @Value("${gemini.base-url}")
     private String baseUrl;
 
-    public String generateText(String prompt) {
+    public String generateText(String systemInstruction, String prompt) {
         Map<String, Object> body = Map.of(
+                "systemInstruction", Map.of(
+                        "parts", List.of(
+                                Map.of("text", systemInstruction)
+                        )
+                ),
                 "contents", List.of(
                         Map.of(
                                 "parts", List.of(
