@@ -15,6 +15,7 @@ public class ShopPublicDTO {
     private Long id;
     private String name;
     private String imageUrl;
+    private String coverImageUrl;
     private Double rating;
     private Long productCount;
     private List<String> badges;
