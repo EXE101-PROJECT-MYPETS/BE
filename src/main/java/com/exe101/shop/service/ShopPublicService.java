@@ -29,7 +29,6 @@ public class ShopPublicService {
     private final IReviewRepository reviewRepository;
     private final IServiceReviewRepository serviceReviewRepository;
     private final IShopMemberRepository shopMemberRepository;
-
     public List<ShopMarkerDTO> getAllMarkers() {
         List<Shop> shops = shopRepository.findAllByOrderByIdAsc();
         List<Long> shopIds = shops.stream()
@@ -95,6 +94,7 @@ public class ShopPublicService {
                 shop.getId(),
                 shop.getName(),
                 shop.getImageUrl() != null ? shop.getImageUrl() : (owner != null ? owner.getAvatarUrlPreview() : null),
+                shop.getCoverImageUrl(),
                 rating,
                 productCount,
                 List.of(),
@@ -117,4 +117,5 @@ public class ShopPublicService {
     private double calculateCombinedRating(double productAvgRating, double serviceAvgRating) {
         return (productAvgRating + serviceAvgRating) / 2D;
     }
+
 }

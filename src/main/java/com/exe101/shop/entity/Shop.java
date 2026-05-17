@@ -27,6 +27,27 @@ public class Shop {
     @Column(name = "image_url")
     private String imageUrl;
 
+    @Column(name = "cover_image_url")
+    private String coverImageUrl;
+
+    @Column(length = 50)
+    private String phone;
+
+    @Column(length = 255)
+    private String email;
+
+    @Column(columnDefinition = "text")
+    private String description;
+
+    @Column(name = "opening_hours", length = 20)
+    private String openingHours;
+
+    @Column(name = "closing_hours", length = 20)
+    private String closingHours;
+
+    @Column(name = "facebook_url", columnDefinition = "text")
+    private String facebookUrl;
+
     @Column(nullable = false)
     private Double lat;
 

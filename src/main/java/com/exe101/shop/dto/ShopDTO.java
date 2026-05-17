@@ -2,10 +2,9 @@ package com.exe101.shop.dto;
 
 import com.exe101.shop.entity.LocationSource;
 import com.exe101.shop.entity.ShopStatus;
-import jakarta.validation.constraints.PositiveOrZero;
+import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
-import jakarta.validation.constraints.*;
 
 import java.time.OffsetDateTime;
 
@@ -24,6 +23,28 @@ public class ShopDTO {
 
     @Size(max = 1000, message = "Ảnh đại diện shop không được vượt quá 1000 ký tự")
     private String imageUrl;
+
+    @Size(max = 1000)
+    private String coverImageUrl;
+
+    @Size(max = 50)
+    private String phone;
+
+    @Email
+    @Size(max = 255)
+    private String email;
+
+    @Size(max = 2000)
+    private String description;
+
+    @Size(max = 20)
+    private String openingHours;
+
+    @Size(max = 20)
+    private String closingHours;
+
+    @Size(max = 1000)
+    private String facebookUrl;
 
     @NotNull(message = "Vĩ độ không được để trống")
     @DecimalMin(value = "-90.0", message = "Vĩ độ phải lớn hơn hoặc bằng -90")

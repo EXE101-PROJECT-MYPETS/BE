@@ -18,6 +18,13 @@ public class ShopMapper {
         dto.setName(entity.getName());
         dto.setAddressText(entity.getAddressText());
         dto.setImageUrl(entity.getImageUrl());
+        dto.setCoverImageUrl(entity.getCoverImageUrl());
+        dto.setPhone(entity.getPhone());
+        dto.setEmail(entity.getEmail());
+        dto.setDescription(entity.getDescription());
+        dto.setOpeningHours(entity.getOpeningHours());
+        dto.setClosingHours(entity.getClosingHours());
+        dto.setFacebookUrl(entity.getFacebookUrl());
         dto.setLat(entity.getLat());
         dto.setLng(entity.getLng());
         dto.setLocationSource(entity.getLocationSource());
@@ -35,6 +42,13 @@ public class ShopMapper {
         entity.setName(req.getName());
         entity.setAddressText(req.getAddressText());
         entity.setImageUrl(req.getImageUrl());
+        entity.setCoverImageUrl(req.getCoverImageUrl());
+        entity.setPhone(req.getPhone());
+        entity.setEmail(req.getEmail());
+        entity.setDescription(req.getDescription());
+        entity.setOpeningHours(req.getOpeningHours());
+        entity.setClosingHours(req.getClosingHours());
+        entity.setFacebookUrl(req.getFacebookUrl());
         entity.setLat(req.getLat());
         entity.setLng(req.getLng());
         entity.setLocationSource(
@@ -47,5 +61,26 @@ public class ShopMapper {
         entity.setLocationUpdatedAt(OffsetDateTime.now());
 
         return entity;
+    }
+
+    public static void updateEntity(Shop entity, ShopDTO req) {
+        if (entity == null || req == null) {
+            return;
+        }
+        entity.setName(req.getName());
+        entity.setAddressText(req.getAddressText());
+        entity.setImageUrl(req.getImageUrl());
+        entity.setCoverImageUrl(req.getCoverImageUrl());
+        entity.setPhone(req.getPhone());
+        entity.setEmail(req.getEmail());
+        entity.setDescription(req.getDescription());
+        entity.setOpeningHours(req.getOpeningHours());
+        entity.setClosingHours(req.getClosingHours());
+        entity.setFacebookUrl(req.getFacebookUrl());
+        entity.setLat(req.getLat());
+        entity.setLng(req.getLng());
+        entity.setLocationSource(req.getLocationSource() != null ? req.getLocationSource() : LocationSource.MANUAL);
+        entity.setLocationAccuracyM(req.getLocationAccuracyM());
+        entity.setLocationUpdatedAt(OffsetDateTime.now());
     }
 }
