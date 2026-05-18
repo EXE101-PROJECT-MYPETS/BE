@@ -73,4 +73,47 @@ public class AuthenticationController {
         Long userId = ((User) auth.getPrincipal()).getId();
         refreshTokenService.revokeAllByUser(userId);
     }
+
+    // ── Forgot Password Flow ────────────────────────────────────────────
+
+    @PostMapping("/customer/forgot-password")
+    public ResponseEntity<ForgotPasswordResponse> forgotPassword(
+            @Valid @RequestBody ForgotPasswordRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.forgotPassword(request));
+    }
+
+    @PostMapping("/customer/verify-otp-forgot-password")
+    public ResponseEntity<?> verifyOtpForgotPassword(
+            @Valid @RequestBody VerifyOtpForgotPasswordRequest request
+    ) {
+        authenticationService.verifyOtpForgotPassword(request);
+        return ResponseEntity.ok().body(
+                java.util.Map.of("message", "Mã OTP hợp lệ. Bạn có thể tiếp tục đặt lại mật khẩu.")
+        );
+    }
+
+    @PostMapping("/customer/reset-password")
+    public ResponseEntity<?> resetPassword(
+            @Valid @RequestBody ResetPasswordRequest request
+    ) {
+        authenticationService.resetPassword(request);
+        return ResponseEntity.ok().body(
+                java.util.Map.of("message", "Mật khẩu đã được đặt lại thành công. Vui lòng đăng nhập lại.")
+        );
+    }
+
+    @PostMapping("/customer/google-login")
+    public ResponseEntity<AuthenticationResponse> googleLogin(
+            @Valid @RequestBody GoogleLoginRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.googleLogin(request));
+    }
+
+    @PostMapping("/customer/facebook-login")
+    public ResponseEntity<AuthenticationResponse> facebookLogin(
+            @Valid @RequestBody FacebookLoginRequest request
+    ) {
+        return ResponseEntity.ok(authenticationService.facebookLogin(request));
+    }
 }

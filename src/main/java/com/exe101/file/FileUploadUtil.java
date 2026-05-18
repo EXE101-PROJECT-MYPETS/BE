@@ -14,7 +14,7 @@ public class FileUploadUtil {
     }
 
     public String uploadUserAvatar(Long userId, MultipartFile avatarFile) {
-        return supabaseStorageService.uploadPublicPath(avatarFile, "users/" + userId + "/avatar");
+        return supabaseStorageService.uploadPublic(avatarFile, "users/" + userId + "/avatar");
     }
 
     public String uploadProductImage(Long shopId, Long productId, MultipartFile imageFile) {

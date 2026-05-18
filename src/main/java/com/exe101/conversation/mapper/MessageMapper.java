@@ -4,6 +4,8 @@ import com.exe101.conversation.dto.MessageDTO;
 import com.exe101.conversation.entity.Message;
 import org.springframework.stereotype.Component;
 
+import java.time.OffsetDateTime;
+
 @Component
 public class MessageMapper {
 
@@ -16,7 +18,7 @@ public class MessageMapper {
                 entity.getSenderType(),
                 entity.getSenderUserId(),
                 entity.getBody(),
-                entity.getCreatedAt()
+                entity.getCreatedAt() != null ? entity.getCreatedAt() : OffsetDateTime.now()
         );
     }
 

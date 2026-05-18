@@ -1,5 +1,6 @@
 package com.exe101.config;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
@@ -8,15 +9,10 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 
 @Configuration
 @EnableWebSocketMessageBroker
+@RequiredArgsConstructor
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    private static final String[] ALLOWED_ORIGIN_PATTERNS = {
-            "http://localhost:*",
-            "http://localhost:3000",
-            "http://localhost:5173",
-            "https://exe-fe-gold.vercel.app",
-            "https://*.vercel.app"
-    };
+    private final CorsOriginProperties corsOriginProperties;
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry registry) {
@@ -27,10 +23,10 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         registry.addEndpoint("/ws")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS);
+                .setAllowedOriginPatterns(corsOriginProperties.asArray());
 
         registry.addEndpoint("/ws-sockjs")
-                .setAllowedOriginPatterns(ALLOWED_ORIGIN_PATTERNS)
+                .setAllowedOriginPatterns(corsOriginProperties.asArray())
                 .withSockJS();
     }
 }
