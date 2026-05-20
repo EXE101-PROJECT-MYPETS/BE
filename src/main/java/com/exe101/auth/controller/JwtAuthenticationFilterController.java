@@ -1,8 +1,9 @@
 package com.exe101.auth.controller;
 
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.auth.service.JwtService;
 import com.exe101.auth.util.ResponseUtil;
-import io.jsonwebtoken.Claims;
+import com.exe101.user.entity.UserStatus;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -12,8 +13,6 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
@@ -22,8 +21,6 @@ import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
-import java.util.List;
-
 
 @Component
 public class JwtAuthenticationFilterController extends OncePerRequestFilter {
@@ -57,28 +54,30 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             filterChain.doFilter(request, response);
             return;
         }
+
         try {
             String jwt = authHeader.substring(7);
             String userEmail = jwtService.extractUserName(jwt);
-            if (SecurityContextHolder.getContext().getAuthentication() == null) {
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(userEmail);
+            if (SecurityContextHolder.getContext().getAuthentication() == null) {
+                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
 
                 if (jwtService.isTokenValid(jwt, userDetails)) {
-
-                    Claims claims = jwtService.extractAllClaims(jwt);
-                    String role = claims.get("role", String.class);
-
-                    // bị sai ở case admin đổi quyền nhưng token vẫn sống => sai quyền
-                    List<GrantedAuthority> authorities =
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                    if (userDetails instanceof UserPrincipal principal
+                            && principal.getUser().getStatus() != UserStatus.ACTIVE) {
+                        ResponseUtil.writeError(
+                                response,
+                                HttpServletResponse.SC_UNAUTHORIZED,
+                                "Tai khoan nay khong con hoat dong"
+                        );
+                        return;
+                    }
 
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
                                     null,
-                                    authorities
+                                    userDetails.getAuthorities()
                             );
 
                     authToken.setDetails(
@@ -90,19 +89,17 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             }
 
             filterChain.doFilter(request, response);
-
-        }
-        catch (ExpiredJwtException e) {
+        } catch (ExpiredJwtException e) {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "Phiên đăng nhập đã hết hạn"
+                    "Phien dang nhap da het han"
             );
         } catch (JwtException e) {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "Token không hợp lệ"
+                    "Token khong hop le"
             );
         }
     }

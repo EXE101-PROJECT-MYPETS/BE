@@ -39,7 +39,7 @@ public class Booking {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "booking_status")
     private BookingStatus status = BookingStatus.DRAFT;
 
     @Enumerated(EnumType.STRING)

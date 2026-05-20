@@ -2,6 +2,8 @@ package com.exe101.shop.dto;
 
 import com.exe101.shop.entity.LocationSource;
 import com.exe101.shop.entity.ShopStatus;
+import com.exe101.user.dto.UserDTO;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.validation.constraints.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -65,4 +67,7 @@ public class ShopDTO {
     private ShopStatus status;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    private UserDTO owner;
 }

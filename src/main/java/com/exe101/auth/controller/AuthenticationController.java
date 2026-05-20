@@ -47,7 +47,7 @@ public class AuthenticationController {
     public ResponseEntity<AuthenticationResponse> shopLogin(
             @Valid @RequestBody AuthenticationRequest request
     ) {
-        return ResponseEntity.ok(authenticationService.authenticateShop(request));
+        return ResponseEntity.ok(authenticationService.authenticateShopOrAdmin(request));
     }
 
     @PostMapping("/refreshToken")
