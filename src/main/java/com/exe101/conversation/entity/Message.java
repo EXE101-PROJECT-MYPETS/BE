@@ -4,10 +4,10 @@ import com.exe101.shop.entity.Shop;
 import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 
@@ -29,7 +29,7 @@ public class Message {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "sender_type", nullable = false)
+    @Column(name = "sender_type", nullable = false, columnDefinition = "message_sender_type")
     private MessageSenderType senderType;
 
     @Column(name = "sender_user_id")

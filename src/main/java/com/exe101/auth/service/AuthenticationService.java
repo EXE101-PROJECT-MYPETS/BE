@@ -9,6 +9,7 @@ import com.exe101.auth.exception.LoginException;
 import com.exe101.auth.model.RefreshToken;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.file.FileUploadUtil;
+import com.exe101.shop.entity.ShopStatus;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.user.entity.User;
@@ -123,6 +124,47 @@ public class AuthenticationService {
         );
     }
 
+    public AuthenticationResponse authenticateShopOrAdmin(AuthenticationRequest request) {
+        try {
+            var auth = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            request.getEmail(),
+                            request.getPassword()
+                    )
+            );
+
+            UserPrincipal principal = (UserPrincipal) auth.getPrincipal();
+            User user = principal.getUser();
+
+            if (user.getRole() == UserRole.ADMIN) {
+                validateActiveUser(user);
+            } else {
+                validateAuthenticatedUser(
+                        user,
+                        UserRole.SHOP,
+                        true,
+                        "ShopPortalOnly",
+                        "Tai khoan nay khong the dang nhap vao trang quan ly shop"
+                );
+            }
+
+            String accessToken = jwtService.generateToken(principal);
+            RefreshToken refreshToken = refreshTokenService.create(user.getId());
+            List<AuthenticatedShopDTO> shops = resolveAuthenticatedShops(user);
+
+            return new AuthenticationResponse(
+                    accessToken,
+                    user.getRole(),
+                    refreshToken.getToken(),
+                    userMapper.toDTO(user),
+                    shops,
+                    resolveCurrentShopId(shops)
+            );
+        } catch (BadCredentialsException ex) {
+            throw new LoginException("WrongPassOrEmail", "Email hoac mat khau khong dung");
+        }
+    }
+
     private AuthenticationResponse authenticateForRole(
             AuthenticationRequest request,
             UserRole expectedRole,
@@ -178,13 +220,55 @@ public class AuthenticationService {
             throw new AuthAccessDeniedException(accessDeniedCode, accessDeniedMessage);
         }
 
-        if (requireActiveShopMembership
-                && !shopMemberRepository.existsByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE)) {
+        validateActiveUser(user);
+
+        if (requireActiveShopMembership) {
+            validateActiveApprovedShopMembership(user);
+        }
+    }
+
+    private void validateActiveUser(User user) {
+        if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AuthAccessDeniedException(
-                    "ShopMembershipInactive",
-                    "Tài khoản shop này chưa có liên kết shop đang hoạt động"
+                    "AccountInactive",
+                    "Tai khoan nay khong con hoat dong"
             );
         }
+    }
+
+    private void validateActiveApprovedShopMembership(User user) {
+        if (shopMemberRepository.existsByUserIdAndMemberStatusAndShopStatus(
+                user.getId(),
+                MemberStatus.ACTIVE,
+                ShopStatus.ACTIVE
+        )) {
+            return;
+        }
+
+        if (shopMemberRepository.existsByUserIdAndShopStatus(
+                user.getId(),
+                ShopStatus.PENDING_APPROVAL
+        )) {
+            throw new AuthAccessDeniedException(
+                    "ShopPendingApproval",
+                    "Shop cua ban dang cho admin duyet"
+            );
+        }
+
+        if (shopMemberRepository.existsByUserIdAndShopStatus(
+                user.getId(),
+                ShopStatus.REJECTED
+        )) {
+            throw new AuthAccessDeniedException(
+                    "ShopRegistrationRejected",
+                    "Dang ky shop cua ban da bi tu choi"
+            );
+        }
+
+        throw new AuthAccessDeniedException(
+                "ShopMembershipInactive",
+                "Tai khoan shop nay chua co lien ket shop dang hoat dong"
+        );
     }
 
     public AuthenticationResponse refreshToken(String refreshToken) {
@@ -194,6 +278,23 @@ public class AuthenticationService {
         User user = userRepository
                 .findById(rotated.getUserId())
                 .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
+
+        if (user.getStatus() != UserStatus.ACTIVE) {
+            refreshTokenService.revokeByToken(rotated.getToken());
+            throw new AuthAccessDeniedException(
+                    "AccountInactive",
+                    "Tai khoan nay khong con hoat dong"
+            );
+        }
+
+        if (user.getRole() == UserRole.SHOP) {
+            try {
+                validateActiveApprovedShopMembership(user);
+            } catch (AuthAccessDeniedException ex) {
+                refreshTokenService.revokeByToken(rotated.getToken());
+                throw ex;
+            }
+        }
 
         var cred = credentialRepository
                 .findById(user.getId())
@@ -247,7 +348,11 @@ public class AuthenticationService {
         if (user.getRole() != UserRole.SHOP) {
             return List.of();
         }
-        return shopMemberRepository.findAuthenticatedShopsByUserIdAndStatus(user.getId(), MemberStatus.ACTIVE);
+        return shopMemberRepository.findAuthenticatedShopsByUserIdAndStatus(
+                user.getId(),
+                MemberStatus.ACTIVE,
+                ShopStatus.ACTIVE
+        );
     }
 
     private Long resolveCurrentShopId(List<AuthenticatedShopDTO> shops) {

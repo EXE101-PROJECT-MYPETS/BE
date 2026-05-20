@@ -25,6 +25,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -114,8 +115,7 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/ai/pet-health/chat",
-                                "/api/admin/ai/knowledge",
-                                "/api/admin/ai/knowledge/search-test"
+                                "/api/payments/sepay/ipn"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
@@ -131,6 +131,8 @@ public class SecurityConfig {
                                 "/uploads/**"
                         )
                         .permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/**").access(new WebExpressionAuthorizationManager("!hasRole('ADMIN')"))
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

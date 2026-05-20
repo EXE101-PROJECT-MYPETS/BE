@@ -66,7 +66,7 @@ public class Shop {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "shop_status")
     private ShopStatus status = ShopStatus.ACTIVE;
 
     @Column(name = "created_at", nullable = false, updatable = false, insertable = false)

@@ -1,6 +1,7 @@
 package com.exe101.shop.repository;
 
 import com.exe101.shop.entity.Shop;
+import com.exe101.shop.entity.ShopStatus;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -11,6 +12,10 @@ import java.util.Optional;
 public interface IShopRepository extends JpaRepository<Shop, Long> {
 
     List<Shop> findAllByOrderByIdAsc();
+
+    List<Shop> findAllByStatusOrderByIdAsc(ShopStatus status);
+
+    Optional<Shop> findByIdAndStatus(Long id, ShopStatus status);
 
     @Query(value = """
             SELECT s.id

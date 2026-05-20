@@ -16,4 +16,5 @@ public class ShopOwnerRegistrationResponse {
     private String refreshToken;
     private UserDTO user;
     private ShopDTO shop;
+    private String message;
 }

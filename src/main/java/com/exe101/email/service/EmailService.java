@@ -65,6 +65,40 @@ public class EmailService {
         sendMime(to, subject, htmlBody, true);
     }
 
+    public void sendShopRegistrationMessage(
+            String to,
+            String title,
+            String ownerName,
+            String shopName,
+            String content
+    ) {
+        String subject = title.trim();
+        sendHtml(to, subject, renderShopRegistrationEmail(
+                subject,
+                ownerName,
+                shopName,
+                renderPlainTextContent(content)
+        ));
+    }
+
+    public void sendShopRegistrationApproved(String to, String ownerName, String shopName) {
+        String subject = "Dang ky shop da duoc chap nhan";
+        String content = """
+                <p>Ho so dang ky shop cua ban da duoc chap nhan.</p>
+                <p>Ban co the dang nhap vao trang quan ly shop va bat dau cap nhat thong tin, dich vu, san pham cua shop.</p>
+                """;
+        sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
+    }
+
+    public void sendShopRegistrationRejected(String to, String ownerName, String shopName) {
+        String subject = "Dang ky shop chua duoc chap nhan";
+        String content = """
+                <p>Ho so dang ky shop cua ban chua duoc chap nhan.</p>
+                <p>Vui long kiem tra lai thong tin dang ky hoac lien he bo phan ho tro de duoc huong dan them.</p>
+                """;
+        sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
+    }
+
     @Transactional
     public EmailVerificationToken createAndSendRegisterVerificationCode(String email) {
         EmailVerificationToken token = createRegisterVerificationToken(email);
@@ -199,6 +233,35 @@ public class EmailService {
                 verificationCodeExpMinutes
         );
         return renderStandardEmail(content.title(), body);
+    }
+
+    private String renderShopRegistrationEmail(
+            String title,
+            String ownerName,
+            String shopName,
+            String contentHtml
+    ) {
+        String greetingName = StringUtils.hasText(ownerName) ? ownerName.trim() : "chu shop";
+        String displayShopName = StringUtils.hasText(shopName) ? shopName.trim() : "shop cua ban";
+        String body = """
+                <p>Xin chao <strong>%s</strong>,</p>
+                <p>Day la thong bao lien quan den ho so dang ky shop <strong>%s</strong>.</p>
+                <div style="margin:22px 0;padding:18px 20px;border:1px solid #d8e0ec;border-radius:8px;background:#f8fafc;">
+                  %s
+                </div>
+                <p>Tran trong,<br>%s</p>
+                """.formatted(
+                escapeHtml(greetingName),
+                escapeHtml(displayShopName),
+                contentHtml,
+                escapeHtml(brandName)
+        );
+        return renderStandardEmail(title, body);
+    }
+
+    private String renderPlainTextContent(String content) {
+        String escaped = escapeHtml(content == null ? "" : content.trim());
+        return "<p>" + escaped.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>") + "</p>";
     }
 
     private String renderStandardEmail(String title, String bodyHtml) {

@@ -44,7 +44,7 @@ public class Invoice {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(nullable = false)
+    @Column(nullable = false, columnDefinition = "invoice_status")
     private InvoiceStatus status = InvoiceStatus.DRAFT;
 
     @Enumerated(EnumType.STRING)

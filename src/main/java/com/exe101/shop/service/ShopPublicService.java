@@ -8,6 +8,7 @@ import com.exe101.shop.dto.ShopPublicContactDTO;
 import com.exe101.shop.dto.ShopPublicDTO;
 import com.exe101.shop.entity.Shop;
 import com.exe101.shop.entity.ShopRole;
+import com.exe101.shop.entity.ShopStatus;
 import com.exe101.shop.exception.ShopNotFound;
 import com.exe101.shop.repository.IShopRepository;
 import com.exe101.shopMember.dto.ShopMemberDTO;
@@ -30,7 +31,7 @@ public class ShopPublicService {
     private final IServiceReviewRepository serviceReviewRepository;
     private final IShopMemberRepository shopMemberRepository;
     public List<ShopMarkerDTO> getAllMarkers() {
-        List<Shop> shops = shopRepository.findAllByOrderByIdAsc();
+        List<Shop> shops = shopRepository.findAllByStatusOrderByIdAsc(ShopStatus.ACTIVE);
         List<Long> shopIds = shops.stream()
                 .map(Shop::getId)
                 .toList();
@@ -75,7 +76,7 @@ public class ShopPublicService {
     }
 
     public ShopPublicDTO getById(Long shopId) {
-        Shop shop = shopRepository.findById(shopId)
+        Shop shop = shopRepository.findByIdAndStatus(shopId, ShopStatus.ACTIVE)
                 .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
 
         long productCount = productRepository.countByShopIdAndActiveTrue(shopId);
