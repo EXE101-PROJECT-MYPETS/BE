@@ -409,24 +409,85 @@ public class SubscriptionService {
         boolean expired = subscription.getExpiredAt() == null || !subscription.getExpiredAt().isAfter(now);
         String status = expired ? "EXPIRED" : toApiSubscriptionStatus(subscription.getStatus());
         long remainingDays = expired ? 0 : Duration.between(now, subscription.getExpiredAt()).toDays();
-        long totalDays = Math.max(1, Duration.between(subscription.getStartedAt(), subscription.getExpiredAt()).toDays());
-        long usedDays = Math.max(0, totalDays - remainingDays);
         String planType = StringUtils.hasText(subscription.getPlanType()) ? subscription.getPlanType() : "TRIAL";
+        OffsetDateTime currentPlanStart = resolveCurrentPlanStart(subscription, planType);
+        OffsetDateTime currentPlanEnd = resolveCurrentPlanEnd(subscription, planType);
+        long planTotalDays = daysBetween(currentPlanStart, currentPlanEnd);
+        long usedDays = resolveUsedDays(now, currentPlanStart, currentPlanEnd, planTotalDays);
+        long currentPeriodRemainingDays = resolveCurrentPeriodRemainingDays(now, currentPlanStart, currentPlanEnd);
 
         return new SubscriptionOverviewResponse(
                 subscription.getShopId(),
                 planType,
                 status,
-                subscription.getStartedAt(),
+                currentPlanStart,
                 subscription.getExpiredAt(),
                 remainingDays,
-                "TRIAL".equals(planType) ? properties.getSubscriptionTrialDays() : null,
+                properties.getSubscriptionTrialDays(),
                 usedDays,
+                planTotalDays,
+                subscription.getStartedAt(),
+                subscription.getTrialEndsAt(),
+                subscription.getCurrentPeriodStart(),
+                subscription.getCurrentPeriodEnd(),
+                currentPeriodRemainingDays,
                 properties.getSubscriptionMonthlyPrice(),
                 CURRENCY,
                 true,
                 buildOverviewMessage(planType, status, remainingDays)
         );
+    }
+
+    private OffsetDateTime resolveCurrentPlanStart(ShopSubscription subscription, String planType) {
+        if ("TRIAL".equals(planType)) {
+            return subscription.getStartedAt();
+        }
+        return subscription.getCurrentPeriodStart() != null
+                ? subscription.getCurrentPeriodStart()
+                : subscription.getStartedAt();
+    }
+
+    private OffsetDateTime resolveCurrentPlanEnd(ShopSubscription subscription, String planType) {
+        if ("TRIAL".equals(planType) && subscription.getTrialEndsAt() != null) {
+            return subscription.getTrialEndsAt();
+        }
+        return subscription.getCurrentPeriodEnd() != null
+                ? subscription.getCurrentPeriodEnd()
+                : subscription.getExpiredAt();
+    }
+
+    private long resolveUsedDays(
+            OffsetDateTime now,
+            OffsetDateTime currentPlanStart,
+            OffsetDateTime currentPlanEnd,
+            long planTotalDays
+    ) {
+        if (currentPlanStart == null || currentPlanEnd == null || now.isBefore(currentPlanStart)) {
+            return 0;
+        }
+        OffsetDateTime usageEnd = now.isAfter(currentPlanEnd) ? currentPlanEnd : now;
+        return Math.min(planTotalDays, Math.max(0, Duration.between(currentPlanStart, usageEnd).toDays()));
+    }
+
+    private long resolveCurrentPeriodRemainingDays(
+            OffsetDateTime now,
+            OffsetDateTime currentPlanStart,
+            OffsetDateTime currentPlanEnd
+    ) {
+        if (currentPlanStart == null || currentPlanEnd == null || !currentPlanEnd.isAfter(now)) {
+            return 0;
+        }
+        if (now.isBefore(currentPlanStart)) {
+            return daysBetween(currentPlanStart, currentPlanEnd);
+        }
+        return Duration.between(now, currentPlanEnd).toDays();
+    }
+
+    private long daysBetween(OffsetDateTime start, OffsetDateTime end) {
+        if (start == null || end == null || !end.isAfter(start)) {
+            return 0;
+        }
+        return Math.max(1, Duration.between(start, end).toDays());
     }
 
     private SubscriptionPlanResponse toPlanResponse(SubscriptionPlan plan) {

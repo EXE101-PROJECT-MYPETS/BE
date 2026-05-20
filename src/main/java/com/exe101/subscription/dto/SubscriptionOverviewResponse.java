@@ -20,6 +20,12 @@ public class SubscriptionOverviewResponse {
     private long remainingDays;
     private Integer trialTotalDays;
     private long usedDays;
+    private long planTotalDays;
+    private OffsetDateTime subscriptionStartedAt;
+    private OffsetDateTime trialEndsAt;
+    private OffsetDateTime currentPeriodStart;
+    private OffsetDateTime currentPeriodEnd;
+    private long currentPeriodRemainingDays;
     private Long monthlyPrice;
     private String currency;
     private boolean canRenew;
