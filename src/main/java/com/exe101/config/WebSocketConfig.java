@@ -20,6 +20,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             "http://10.*.*.*:*",
             "http://localhost:3000",
             "http://localhost:5173",
+            "https://pawply.site",
+            "https://www.pawply.site",
+            "https://exe-fe-pink.vercel.app",
             "https://exe-fe-gold.vercel.app",
             "https://*.vercel.app",
             "https://*.ngrok-free.dev"
