@@ -5,6 +5,7 @@ public enum SubscriptionPaymentStatus {
     SUCCESS,
     FAILED,
     CANCELED,
+    PAID_AFTER_CANCEL,
     EXPIRED,
     SUCCESS_LATE
 }
