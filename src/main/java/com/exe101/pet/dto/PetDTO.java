@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -14,8 +15,7 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class PetDTO {
     private Long id;
-    private Long shopId;
-    private Long customerId;
+    private Long userId;
     private Long speciesId;
     private Long breedId;
     private String breedText;
@@ -23,6 +23,7 @@ public class PetDTO {
     private String name;
     private String gender;
     private LocalDate dob;
+    private BigDecimal weightKg;
     private String note;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;

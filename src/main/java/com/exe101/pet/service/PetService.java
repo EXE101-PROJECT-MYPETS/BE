@@ -22,14 +22,8 @@ public class PetService implements IService<Pet, PetDTO, Long> {
         return petRepository.findAll().stream().map(PetMapper::toDTO).toList();
     }
 
-    public List<PetDTO> getAllByShopId(Long shopId) {
-        return petRepository.findByShopIdOrderByIdDesc(shopId).stream()
-                .map(PetMapper::toDTO)
-                .toList();
-    }
-
-    public List<PetDTO> getAllByCustomerId(Long shopId, Long customerId) {
-        return petRepository.findByShopIdAndCustomerIdOrderByIdDesc(shopId, customerId).stream()
+    public List<PetDTO> getAllByUserId(Long userId) {
+        return petRepository.findByUserIdOrderByIdDesc(userId).stream()
                 .map(PetMapper::toDTO)
                 .toList();
     }
@@ -41,9 +35,18 @@ public class PetService implements IService<Pet, PetDTO, Long> {
                 .orElseThrow(() -> new PetNotFound("PetNotFound", "Không tìm thấy thú cưng"));
     }
 
+    public PetDTO getByIdForUser(Long id, Long userId) {
+        return findByIdAndUserId(id, userId);
+    }
+
     @Override
     public PetDTO create(PetDTO dto) {
         return PetMapper.toDTO(petRepository.save(PetMapper.toEntity(dto)));
+    }
+
+    public PetDTO createForUser(PetDTO dto, Long userId) {
+        dto.setUserId(userId);
+        return create(dto);
     }
 
     @Override
@@ -54,11 +57,28 @@ public class PetService implements IService<Pet, PetDTO, Long> {
         return PetMapper.toDTO(petRepository.save(entity));
     }
 
+    public PetDTO updateForUser(Long id, PetDTO dto, Long userId) {
+        findByIdAndUserId(id, userId);
+        dto.setUserId(userId);
+        return update(id, dto);
+    }
+
     @Override
     public void delete(Long id) {
         if (!petRepository.existsById(id)) {
             throw new PetNotFound("PetNotFound", "Không tìm thấy thú cưng");
         }
         petRepository.deleteById(id);
+    }
+
+    public void deleteForUser(Long id, Long userId) {
+        findByIdAndUserId(id, userId);
+        delete(id);
+    }
+
+    private PetDTO findByIdAndUserId(Long id, Long userId) {
+        return petRepository.findByIdAndUserId(id, userId)
+                .map(PetMapper::toDTO)
+                .orElseThrow(() -> new PetNotFound("PetNotFound", "Không tìm thấy thú cưng"));
     }
 }

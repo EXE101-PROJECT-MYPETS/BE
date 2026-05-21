@@ -2,8 +2,6 @@ package com.exe101.auth.service;
 
 import com.exe101.auth.dto.ShopOwnerRegisterRequest;
 import com.exe101.auth.dto.ShopOwnerRegistrationResponse;
-import com.exe101.auth.model.RefreshToken;
-import com.exe101.auth.model.UserPrincipal;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.shop.dto.ShopDTO;
 import com.exe101.shop.entity.LocationSource;
@@ -43,8 +41,6 @@ public class ShopOwnerRegistrationService {
     private final IShopRepository shopRepository;
     private final IShopMemberRepository shopMemberRepository;
     private final PasswordEncoder passwordEncoder;
-    private final JwtService jwtService;
-    private final RefreshTokenService refreshTokenService;
     private final UserMapper userMapper;
     private final FileUploadUtil fileUploadUtil;
 
@@ -55,21 +51,19 @@ public class ShopOwnerRegistrationService {
         User user = createShopUser(request);
         user = uploadAvatarIfPresent(user, request.getAvatarUrlPreview());
 
-        UserCredential credential = createCredential(user, request.getPassword());
+        createCredential(user, request.getPassword());
         Shop shop = createShop(request);
         createOwnerMembership(shop.getId(), user.getId());
 
-        UserPrincipal principal = new UserPrincipal(user, credential);
-        String accessToken = jwtService.generateToken(principal);
-        RefreshToken refreshToken = refreshTokenService.create(user.getId());
         ShopDTO shopDto = ShopMapper.toDTO(shop);
 
         return new ShopOwnerRegistrationResponse(
-                accessToken,
+                null,
                 user.getRole(),
-                refreshToken.getToken(),
+                null,
                 userMapper.toDTO(user),
-                shopDto
+                shopDto,
+                "Dang ky shop thanh cong, vui long cho admin duyet"
         );
     }
 
@@ -138,7 +132,7 @@ public class ShopOwnerRegistrationService {
         );
         shop.setLocationAccuracyM(request.getLocationAccuracyM());
         shop.setLocationUpdatedAt(now);
-        shop.setStatus(ShopStatus.ACTIVE);
+        shop.setStatus(ShopStatus.PENDING_APPROVAL);
 
         return shopRepository.save(shop);
     }
@@ -148,7 +142,7 @@ public class ShopOwnerRegistrationService {
 
         member.setId(new ShopMemberId(shopId, userId));
         member.setRole(ShopRole.OWNER);
-        member.setStatus(MemberStatus.ACTIVE);
+        member.setStatus(MemberStatus.INACTIVE);
 
         shopMemberRepository.save(member);
     }

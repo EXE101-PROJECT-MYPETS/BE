@@ -25,6 +25,7 @@ import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.access.expression.WebExpressionAuthorizationManager;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -108,20 +109,31 @@ public class SecurityConfig {
                                 HttpMethod.GET,
                                 "/api/search",
                                 "/api/search/initial",
-                                "/api/search/suggestions"
+                                "/api/search/suggestions",
+                                "/api/ai/pet-health/conversations",
+                                "/api/ai/pet-health/conversations/*/messages"
+                        ).permitAll()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/ai/pet-health/chat",
+                                "/api/payments/sepay/ipn"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",
                                 "/api/public/**",
                                 "/error",
                                 "/graphql",
+                                "/ws",
                                 "/ws/**",
+                                "/ws-sockjs",
                                 "/ws-sockjs/**",
                                 "/chat/**",
                                 "/api/test/**",
                                 "/uploads/**"
                         )
                         .permitAll()
+                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
+                        .requestMatchers("/api/**").access(new WebExpressionAuthorizationManager("!hasRole('ADMIN')"))
                         .anyRequest().authenticated()
                 )
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
