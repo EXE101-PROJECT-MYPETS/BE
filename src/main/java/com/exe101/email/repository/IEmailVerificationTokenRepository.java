@@ -19,6 +19,12 @@ public interface IEmailVerificationTokenRepository extends JpaRepository<EmailVe
             String code
     );
 
+    Optional<EmailVerificationToken> findFirstByEmailAndPurposeAndCodeAndUsedAtIsNullAndInvalidatedAtIsNullOrderByCreatedAtDesc(
+            String email,
+            EmailVerificationPurpose purpose,
+            String code
+    );
+
     @Modifying
     @Query("""
             update EmailVerificationToken token

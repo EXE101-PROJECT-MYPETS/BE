@@ -386,6 +386,49 @@ public class EmailService {
                 .replace("'", "&#39;");
     }
 
+    /**
+     * Tìm token hợp lệ mà không thay đổi trạng thái
+     */
+    public EmailVerificationToken findValidToken(
+            String email,
+            String code,
+            EmailVerificationPurpose purpose
+    ) {
+        if (!StringUtils.hasText(email) || !StringUtils.hasText(code) || purpose == null) {
+            return null;
+        }
+
+        return tokenRepository
+                .findFirstByEmailAndPurposeAndCodeAndUsedAtIsNullAndInvalidatedAtIsNullOrderByCreatedAtDesc(
+                        email.trim().toLowerCase(),
+                        purpose,
+                        code.trim()
+                )
+                .orElse(null);
+    }
+
+    /**
+     * Lưu token
+     */
+    public EmailVerificationToken saveToken(EmailVerificationToken token) {
+        return tokenRepository.save(token);
+    }
+
+    /**
+     * Gửi email xác nhận thay đổi mật khẩu thành công
+     */
+    public void sendResetPasswordConfirmationEmail(String email, String fullName) {
+        String subject = "Mật khẩu của bạn đã được thay đổi";
+        String body = """
+                <p>Xin chào %s,</p>
+                <p>Mật khẩu của bạn đã được thay đổi thành công. Nếu bạn không thực hiện hành động này, vui lòng liên hệ với chúng tôi ngay lập tức.</p>
+                <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với đội hỗ trợ của chúng tôi.</p>
+                <p>Trân trọng,<br>Đội ngũ %s</p>
+                """.formatted(escapeHtml(fullName), escapeHtml(brandName));
+        
+        sendHtml(email, subject, renderStandardEmail(subject, body));
+    }
+
     private record EmailTemplateContent(
             String subject,
             String title,

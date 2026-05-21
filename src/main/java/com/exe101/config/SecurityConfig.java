@@ -43,6 +43,7 @@ public class SecurityConfig {
     private final CustomAccessDeniedHandler accessDeniedHandler;
     private final CustomAuthenticationEntryPoint authenticationEntryPoint;
     private final IUserCredentialRepository credentialRepository;
+    private final CorsOriginProperties corsOriginProperties;
 
     @Bean
     public PasswordEncoder passwordEncoder() {
@@ -148,20 +149,7 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
 
-        config.setAllowedOriginPatterns(List.of(
-                "http://localhost:*",
-                "http://127.0.0.1:*",
-                "http://192.168.*.*:*",
-                "http://10.*.*.*:*",
-                "http://localhost:3000",
-                "http://localhost:5173",
-                "https://pawply.site",
-                "https://www.pawply.site",
-                "https://exe-fe-pink.vercel.app",
-                "https://exe-fe-gold.vercel.app",
-                "https://*.vercel.app",
-                "https://*.ngrok-free.dev"
-        ));
+        config.setAllowedOriginPatterns(corsOriginProperties.asList());
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);

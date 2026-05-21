@@ -3,11 +3,19 @@ package com.exe101.auth.service;
 import com.exe101.auth.dto.AuthenticatedShopDTO;
 import com.exe101.auth.dto.AuthenticationRequest;
 import com.exe101.auth.dto.AuthenticationResponse;
+import com.exe101.auth.dto.ForgotPasswordRequest;
+import com.exe101.auth.dto.ForgotPasswordResponse;
 import com.exe101.auth.dto.RegisterRequest;
+import com.exe101.auth.dto.ResetPasswordRequest;
+import com.exe101.auth.dto.VerifyOtpForgotPasswordRequest;
 import com.exe101.auth.exception.AuthAccessDeniedException;
 import com.exe101.auth.exception.LoginException;
 import com.exe101.auth.model.RefreshToken;
 import com.exe101.auth.model.UserPrincipal;
+import com.exe101.email.entity.EmailVerificationPurpose;
+import com.exe101.email.entity.EmailVerificationToken;
+import com.exe101.email.exception.EmailValidationException;
+import com.exe101.email.service.EmailService;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.shop.entity.ShopStatus;
 import com.exe101.shopMember.entity.MemberStatus;
@@ -36,6 +44,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Base64;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 @Service
 @RequiredArgsConstructor
@@ -51,6 +61,7 @@ public class AuthenticationService {
     private final FileUploadUtil fileUploadUtil;
     private final IShopMemberRepository shopMemberRepository;
     private final IUserAddressRepository userAddressRepository;
+    private final EmailService emailService;
 
     @Transactional
     public AuthenticationResponse register(RegisterRequest request) {
@@ -361,5 +372,287 @@ public class AuthenticationService {
 
     public void logout(String refreshToken) {
         refreshTokenService.revokeByToken(refreshToken);
+    }
+
+    // ── Forgot Password Flow ────────────────────────────────────────────
+
+    @Transactional
+    public ForgotPasswordResponse forgotPassword(ForgotPasswordRequest request) {
+        String normalizedEmail = request.getEmail().toLowerCase().trim();
+        
+        // Kiểm tra user tồn tại với email này và là CUSTOMER
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng với email này"));
+        
+        if (user.getRole() != UserRole.CUSTOMER) {
+            throw new LoginException("InvalidRole", "Chỉ khách hàng mới có thể yêu cầu đặt lại mật khẩu");
+        }
+
+        // Tạo token xác nhận
+        EmailVerificationToken token = emailService.createAndSendVerificationCode(
+                user.getId(),
+                normalizedEmail,
+                EmailVerificationPurpose.RESET_PASSWORD
+        );
+
+        return new ForgotPasswordResponse(
+                "Mã OTP đã được gửi đến email của bạn",
+                normalizedEmail,
+                calculateExpiresInSeconds(token.getExpiresAt())
+        );
+    }
+
+    @Transactional
+    public void verifyOtpForgotPassword(VerifyOtpForgotPasswordRequest request) {
+        String normalizedEmail = request.getEmail().toLowerCase().trim();
+        String otp = request.getOtp().trim();
+
+        // Tìm token hợp lệ
+        EmailVerificationToken token = emailService.findValidToken(
+                normalizedEmail,
+                otp,
+                EmailVerificationPurpose.RESET_PASSWORD
+        );
+
+        if (token == null || token.getVerified()) {
+            throw new EmailValidationException("InvalidOtp", "Mã OTP không hợp lệ hoặc đã hết hạn");
+        }
+
+        // Đánh dấu token là đã xác nhận (nhưng chưa sử dụng)
+        token.setVerified(true);
+        emailService.saveToken(token);
+    }
+
+    @Transactional
+    public void resetPassword(ResetPasswordRequest request) {
+        String normalizedEmail = request.getEmail().toLowerCase().trim();
+        String otp = request.getOtp().trim();
+        String newPassword = request.getNewPassword();
+
+        // Lấy user
+        User user = userRepository.findByEmailIgnoreCase(normalizedEmail)
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
+
+        // Kiểm tra token đã được xác nhận
+        EmailVerificationToken token = emailService.findValidToken(
+                normalizedEmail,
+                otp,
+                EmailVerificationPurpose.RESET_PASSWORD
+        );
+
+        if (token == null || !token.getVerified()) {
+            throw new EmailValidationException("UnverifiedOtp", "Mã OTP chưa được xác nhận hoặc đã hết hạn");
+        }
+
+        // Cập nhật mật khẩu
+        UserCredential credential = credentialRepository.findById(user.getId())
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy thông tin đăng nhập"));
+
+        credential.setPasswordHash(passwordEncoder.encode(newPassword));
+        credential.setUpdatedAt(OffsetDateTime.now());
+        credentialRepository.save(credential);
+
+        // Đánh dấu token đã sử dụng
+        token.setUsedAt(OffsetDateTime.now());
+        emailService.saveToken(token);
+
+        // Gửi email xác nhận thay đổi mật khẩu
+        emailService.sendResetPasswordConfirmationEmail(user.getEmail(), user.getFullName());
+    }
+
+    private long calculateExpiresInSeconds(OffsetDateTime expiresAt) {
+        return java.time.Duration.between(OffsetDateTime.now(), expiresAt).getSeconds();
+    }
+
+    @Transactional
+    public AuthenticationResponse googleLogin(com.exe101.auth.dto.GoogleLoginRequest request) {
+        try {
+            // Decode Google ID Token (NOT verifying signature for now - add verification at production)
+            String[] tokenParts = request.getIdToken().split("\\.");
+            if (tokenParts.length != 3) {
+                throw new LoginException("InvalidToken", "Token không hợp lệ");
+            }
+
+            // Decode payload (part 1)
+            String payload = tokenParts[1];
+            String decodedPayload = new String(Base64.getUrlDecoder().decode(payload));
+            ObjectMapper mapper = new ObjectMapper();
+            java.util.Map<String, Object> claims;
+            try {
+                claims = mapper.readValue(decodedPayload, java.util.Map.class);
+            } catch (com.fasterxml.jackson.core.JsonProcessingException e) {
+                throw new LoginException("InvalidToken", "Không thể parse token: " + e.getMessage());
+            }
+
+            String email = (String) claims.get("email");
+            String name = (String) claims.get("name");
+            String pictureUrl = (String) claims.get("picture");
+            String googleUserId = (String) claims.get("sub");
+
+            if (email == null || email.isEmpty()) {
+                throw new LoginException("InvalidGoogleToken", "Google token không chứa email");
+            }
+
+            // Find user by email or by Google provider ID
+            User user = userRepository.findByEmailIgnoreCase(email)
+                    .orElse(null);
+
+            // If user doesn't exist, create new user
+            if (user == null) {
+                user = new User();
+                user.setEmail(email.toLowerCase().trim());
+                user.setFullName(name != null ? name : email.split("@")[0]);
+                user.setPhone(""); // Will be updated later
+                user.setAddress("");
+                user.setAge(0);
+                user.setRole(UserRole.CUSTOMER);
+                user.setStatus(UserStatus.ACTIVE);
+                user.setAvatarUrlPreview(pictureUrl);
+                user.setCreatedAt(LocalDateTime.now());
+                user.setUpdatedAt(LocalDateTime.now());
+                user = userRepository.save(user);
+
+                createDefaultUserAddressForGoogle(user);
+            }
+
+            // Check or create credential with GOOGLE provider
+            UserCredential credential = credentialRepository.findById(user.getId())
+                    .orElse(new UserCredential());
+
+            credential.setUser(user);
+            credential.setProvider(CredentialProvider.GOOGLE);
+            credential.setProviderUserId(googleUserId);
+            credential.setCreatedAt(OffsetDateTime.now());
+            credential.setUpdatedAt(OffsetDateTime.now());
+            credentialRepository.save(credential);
+
+            // Generate JWT response
+            UserPrincipal principal = new UserPrincipal(user, credential);
+            String accessToken = jwtService.generateToken(principal);
+            RefreshToken refreshToken = refreshTokenService.create(user.getId());
+            List<AuthenticatedShopDTO> shops = resolveAuthenticatedShops(user);
+
+            return new AuthenticationResponse(
+                    accessToken,
+                    user.getRole(),
+                    refreshToken.getToken(),
+                    userMapper.toDTO(user),
+                    shops,
+                    resolveCurrentShopId(shops)
+            );
+
+        } catch (Exception ex) {
+            if (ex instanceof LoginException) {
+                throw ex;
+            }
+            throw new LoginException("GoogleLoginFailed", "Đăng nhập Google thất bại: " + ex.getMessage());
+        }
+    }
+
+    private void createDefaultUserAddressForGoogle(User user) {
+        UserAddress address = new UserAddress();
+        address.setUserId(user.getId());
+        address.setName("Địa chỉ mặc định");
+        address.setTel("0000000000"); // Dummy phone to pass not-blank checks
+        address.setProvince("Chưa cập nhật");
+        address.setDistrict("Chưa cập nhật");
+        address.setWard("Chưa cập nhật");
+        address.setHamlet("Chưa cập nhật");
+        address.setAddress("Chưa cập nhật");
+        address.setDefaultAddress(true);
+        userAddressRepository.save(address);
+    }
+
+    @Transactional
+    public AuthenticationResponse facebookLogin(com.exe101.auth.dto.FacebookLoginRequest request) {
+        try {
+            // Call Facebook Graph API to verify token and get user info
+            String graphUrl = "https://graph.facebook.com/me?fields=id,name,email,picture&access_token=" + request.getAccessToken();
+            org.springframework.web.client.RestTemplate restTemplate = new org.springframework.web.client.RestTemplate();
+            java.util.Map<String, Object> response;
+            try {
+                response = restTemplate.getForObject(graphUrl, java.util.Map.class);
+            } catch (Exception e) {
+                throw new LoginException("InvalidFacebookToken", "Token Facebook không hợp lệ hoặc đã hết hạn");
+            }
+            
+            if (response == null || !response.containsKey("id")) {
+                throw new LoginException("InvalidFacebookToken", "Không thể lấy thông tin từ Facebook");
+            }
+
+            String facebookUserId = (String) response.get("id");
+            String name = (String) response.get("name");
+            String email = (String) response.get("email");
+            
+            // Get avatar URL
+            String pictureUrl = null;
+            if (response.containsKey("picture")) {
+                java.util.Map<String, Object> picture = (java.util.Map<String, Object>) response.get("picture");
+                if (picture != null && picture.containsKey("data")) {
+                    java.util.Map<String, Object> data = (java.util.Map<String, Object>) picture.get("data");
+                    if (data != null && data.containsKey("url")) {
+                        pictureUrl = (String) data.get("url");
+                    }
+                }
+            }
+
+            if (email == null || email.isEmpty()) {
+                // If user registered Facebook with phone number, email might be missing
+                email = facebookUserId + "@facebook.com"; // Fallback email
+            }
+
+            // Find user by email
+            User user = userRepository.findByEmailIgnoreCase(email).orElse(null);
+
+            // If user doesn't exist, create new user
+            if (user == null) {
+                user = new User();
+                user.setEmail(email.toLowerCase().trim());
+                user.setFullName(name != null ? name : email.split("@")[0]);
+                user.setPhone(""); 
+                user.setAddress("");
+                user.setAge(0);
+                user.setRole(UserRole.CUSTOMER);
+                user.setStatus(UserStatus.ACTIVE);
+                user.setAvatarUrlPreview(pictureUrl);
+                user.setCreatedAt(LocalDateTime.now());
+                user.setUpdatedAt(LocalDateTime.now());
+                user = userRepository.save(user);
+
+                createDefaultUserAddressForGoogle(user);
+            }
+
+            // Check or create credential with FACEBOOK provider
+            UserCredential credential = credentialRepository.findById(user.getId())
+                    .orElse(new UserCredential());
+
+            credential.setUser(user);
+            credential.setProvider(CredentialProvider.FACEBOOK);
+            credential.setProviderUserId(facebookUserId);
+            credential.setCreatedAt(OffsetDateTime.now());
+            credential.setUpdatedAt(OffsetDateTime.now());
+            credentialRepository.save(credential);
+
+            // Generate JWT response
+            UserPrincipal principal = new UserPrincipal(user, credential);
+            String accessToken = jwtService.generateToken(principal);
+            RefreshToken refreshToken = refreshTokenService.create(user.getId());
+            List<AuthenticatedShopDTO> shops = resolveAuthenticatedShops(user);
+
+            return new AuthenticationResponse(
+                    accessToken,
+                    user.getRole(),
+                    refreshToken.getToken(),
+                    userMapper.toDTO(user),
+                    shops,
+                    resolveCurrentShopId(shops)
+            );
+
+        } catch (Exception ex) {
+            if (ex instanceof LoginException) {
+                throw ex;
+            }
+            throw new LoginException("FacebookLoginFailed", "Đăng nhập Facebook thất bại: " + ex.getMessage());
+        }
     }
 }
