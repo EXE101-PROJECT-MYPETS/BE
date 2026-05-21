@@ -300,7 +300,7 @@ public class SubscriptionService {
             log.warn("SePay payment received after cancel. paymentId={}, referenceCode={}",
                     payment.getId(),
                     maskSensitiveValue(transactionId));
-            recordIgnoredIpn(payment, transactionId, request);
+            markPaidAfterCancel(payment, transactionId, request);
             return;
         }
         if (status == SubscriptionPaymentStatus.EXPIRED && !isExpiredPaymentWithinLateGrace(payment)) {
@@ -361,6 +361,16 @@ public class SubscriptionService {
 
     private void recordIgnoredIpn(SubscriptionPayment payment, String transactionId, SepayWebhookRequest request) {
         if (StringUtils.hasText(transactionId) && !StringUtils.hasText(payment.getProviderTransactionId())) {
+            payment.setProviderTransactionId(transactionId.trim());
+        }
+        payment.setRawPayload(toRawPayload(request));
+        paymentRepository.save(payment);
+    }
+
+    private void markPaidAfterCancel(SubscriptionPayment payment, String transactionId, SepayWebhookRequest request) {
+        payment.setStatus(SubscriptionPaymentStatus.PAID_AFTER_CANCEL);
+        payment.setPaidAt(OffsetDateTime.now());
+        if (StringUtils.hasText(transactionId)) {
             payment.setProviderTransactionId(transactionId.trim());
         }
         payment.setRawPayload(toRawPayload(request));
