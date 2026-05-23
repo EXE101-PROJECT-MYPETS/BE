@@ -7,6 +7,9 @@ import jakarta.validation.constraints.PositiveOrZero;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.time.LocalDate;
+import java.time.OffsetDateTime;
+
 @Getter
 @Setter
 public class BookingCheckoutItemRequest {
@@ -24,4 +27,16 @@ public class BookingCheckoutItemRequest {
 
     @PositiveOrZero(message = "Đơn giá phải lớn hơn hoặc bằng 0")
     private Long unitPrice;
+
+    private Long veterinarianUserId;
+    private String symptoms;
+    private String diagnosis;
+    private String treatment;
+    private String medicalNote;
+    private OffsetDateTime followUpAt;
+    private LocalDate vaccinatedAt;
+    private LocalDate nextDueAt;
+    private String clinicName;
+    private String vetName;
+    private String batchNo;
 }

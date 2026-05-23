@@ -1,6 +1,8 @@
 package com.exe101.service_shop.repository;
 
 import com.exe101.service_shop.entity.Service;
+import com.exe101.service_shop.entity.ServiceType;
+import com.exe101.service_shop.entity.VeterinaryServiceType;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -16,6 +18,8 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             WHERE (:shopId IS NULL OR s.shopId = :shopId)
               AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
               AND (:categoryId IS NULL OR s.categoryId = :categoryId)
+              AND (:serviceType IS NULL OR s.serviceType = :serviceType)
+              AND (:veterinaryServiceType IS NULL OR s.veterinaryServiceType = :veterinaryServiceType)
               AND (:active IS NULL OR s.active = :active)
               AND (:cursor IS NULL OR s.id < :cursor)
             ORDER BY s.id DESC
@@ -24,6 +28,8 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             @Param("shopId") Long shopId,
             @Param("search") String search,
             @Param("categoryId") Long categoryId,
+            @Param("serviceType") ServiceType serviceType,
+            @Param("veterinaryServiceType") VeterinaryServiceType veterinaryServiceType,
             @Param("active") Boolean active,
             @Param("cursor") Long cursor,
             Pageable pageable
@@ -120,4 +126,6 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
     boolean existsByShopIdAndName(Long shopId, String name);
 
     boolean existsByShopIdAndNameAndIdNot(Long shopId, String name, Long id);
+
+    boolean existsByShopIdAndCategoryId(Long shopId, Long categoryId);
 }

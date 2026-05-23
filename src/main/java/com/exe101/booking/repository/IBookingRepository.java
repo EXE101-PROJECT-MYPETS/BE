@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
+import java.util.List;
 import java.util.Optional;
 
 public interface IBookingRepository extends JpaRepository<Booking, Long> {
@@ -87,5 +88,35 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
             @Param("appointmentFrom") OffsetDateTime appointmentFrom,
             @Param("appointmentTo") OffsetDateTime appointmentTo,
             Pageable pageable
+    );
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            WHERE b.shopId = :shopId
+              AND b.startAt >= :appointmentFrom
+              AND b.startAt < :appointmentTo
+            ORDER BY
+              CASE CAST(b.status AS string)
+                WHEN 'DRAFT' THEN 1
+                WHEN 'CONFIRMED' THEN 2
+                WHEN 'IN_PROGRESS' THEN 3
+                WHEN 'COMPLETED' THEN 4
+                WHEN 'REJECTED' THEN 5
+                WHEN 'CANCELLED' THEN 6
+                ELSE 99
+              END ASC,
+              CASE
+                WHEN CAST(b.status AS string) IN ('DRAFT', 'CONFIRMED', 'IN_PROGRESS') THEN b.startAt
+              END ASC,
+              CASE
+                WHEN CAST(b.status AS string) IN ('COMPLETED', 'REJECTED', 'CANCELLED') THEN b.startAt
+              END DESC,
+              b.id DESC
+            """)
+    List<Booking> findByShopIdAndAppointmentDate(
+            @Param("shopId") Long shopId,
+            @Param("appointmentFrom") OffsetDateTime appointmentFrom,
+            @Param("appointmentTo") OffsetDateTime appointmentTo
     );
 }

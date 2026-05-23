@@ -1,11 +1,6 @@
 package com.exe101.booking.controller;
 
-import com.exe101.booking.dto.BookingCheckoutRequest;
-import com.exe101.booking.dto.BookingCheckoutResponse;
-import com.exe101.booking.dto.BookingDTO;
-import com.exe101.booking.dto.BookingListItemDTO;
-import com.exe101.booking.dto.BookingStaffAssignmentDTO;
-import com.exe101.booking.dto.BookingStatusUpdateDTO;
+import com.exe101.booking.dto.*;
 import com.exe101.booking.entity.BookingSource;
 import com.exe101.booking.entity.BookingStatus;
 import com.exe101.booking.service.BookingService;
@@ -18,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/bookings")
@@ -57,6 +53,16 @@ public class BookingController {
         ));
     }
 
+    @GetMapping("/by-day")
+    public ResponseEntity<List<BookingListItemDTO>> getByCurrentDate(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam
+            @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
+            LocalDate currentDate
+    ) {
+        return ResponseEntity.ok(bookingService.getByCurrentDate(shopId, currentDate));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<BookingListItemDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(bookingService.getById(id));
@@ -68,15 +74,6 @@ public class BookingController {
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(bookingService.getInvoice(shopId, id));
-    }
-
-    @PostMapping
-    public ResponseEntity<BookingListItemDTO> create(
-            @RequestHeader("X-Shop-Id") Long shopId,
-            @Valid @RequestBody BookingDTO dto
-    ) {
-        dto.setShopId(shopId);
-        return ResponseEntity.ok(bookingService.create(dto));
     }
 
     @PostMapping("/{id}/checkout")
@@ -106,15 +103,6 @@ public class BookingController {
     ) {
         BookingStatus targetStatus = status != null ? status : dto != null ? dto.getStatus() : null;
         return ResponseEntity.ok(bookingService.updateStatus(id, targetStatus));
-    }
-
-    @PutMapping("/{id}/staff")
-    public ResponseEntity<BookingListItemDTO> updateAssignedStaffs(
-            @RequestHeader("X-Shop-Id") Long shopId,
-            @PathVariable Long id,
-            @RequestBody BookingStaffAssignmentDTO dto
-    ) {
-        return ResponseEntity.ok(bookingService.updateAssignedStaffs(id, shopId, dto.getStaffUserIds()));
     }
 
     @DeleteMapping("/{id}")

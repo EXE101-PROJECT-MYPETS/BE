@@ -1,6 +1,7 @@
 package com.exe101.service_shop.controller;
 
 import com.exe101.service_shop.dto.ServiceCategoryDTO;
+import com.exe101.service_shop.entity.ServiceType;
 import com.exe101.service_shop.service.ServiceCategoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,9 +20,10 @@ public class ServiceCategoryController {
     @GetMapping
     public ResponseEntity<List<ServiceCategoryDTO>> getAllByShop(
             @RequestHeader("X-Shop-Id") Long shopId,
+            @RequestParam(required = false) ServiceType serviceType,
             @RequestParam(defaultValue = "true") Boolean active
     ) {
-        return ResponseEntity.ok(serviceCategoryService.getAllByShop(shopId, active));
+        return ResponseEntity.ok(serviceCategoryService.getAllByShop(shopId, serviceType, active));
     }
 
     @GetMapping("/{id}")

@@ -3,11 +3,14 @@ package com.exe101.service_shop.service;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.service_shop.dto.ServiceCategoryDTO;
 import com.exe101.service_shop.entity.ServiceCategory;
+import com.exe101.service_shop.entity.ServiceType;
 import com.exe101.service_shop.exception.ServiceAccessDenied;
 import com.exe101.service_shop.exception.ServiceCategoryDuplicate;
 import com.exe101.service_shop.exception.ServiceCategoryNotFound;
+import com.exe101.service_shop.exception.ServiceValidationException;
 import com.exe101.service_shop.mapper.ServiceCategoryMapper;
 import com.exe101.service_shop.repository.IServiceCategoryRepository;
+import com.exe101.service_shop.repository.IServiceRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,12 +25,20 @@ import java.util.List;
 public class ServiceCategoryService {
 
     private final IServiceCategoryRepository serviceCategoryRepository;
+    private final IServiceRepository serviceRepository;
     private final IShopMemberRepository shopMemberRepository;
 
-    public List<ServiceCategoryDTO> getAllByShop(Long shopId, Boolean active) {
-        List<ServiceCategory> categories = active == null
-                ? serviceCategoryRepository.findByShopIdOrderBySortOrderAscNameAsc(shopId)
-                : serviceCategoryRepository.findByShopIdAndActiveOrderBySortOrderAscNameAsc(shopId, active);
+    public List<ServiceCategoryDTO> getAllByShop(Long shopId, ServiceType serviceType, Boolean active) {
+        List<ServiceCategory> categories;
+        if (serviceType == null) {
+            categories = active == null
+                    ? serviceCategoryRepository.findByShopIdOrderBySortOrderAscNameAsc(shopId)
+                    : serviceCategoryRepository.findByShopIdAndActiveOrderBySortOrderAscNameAsc(shopId, active);
+        } else {
+            categories = active == null
+                    ? serviceCategoryRepository.findByShopIdAndServiceTypeOrderBySortOrderAscNameAsc(shopId, serviceType)
+                    : serviceCategoryRepository.findByShopIdAndServiceTypeAndActiveOrderBySortOrderAscNameAsc(shopId, serviceType, active);
+        }
 
         return categories.stream().map(ServiceCategoryMapper::toDTO).toList();
     }
@@ -40,7 +51,9 @@ public class ServiceCategoryService {
 
     public ServiceCategoryDTO create(Long shopId, ServiceCategoryDTO dto) {
         assertCanManageCategory(shopId);
-        assertCategoryNameNotDuplicated(shopId, dto.getName(), null);
+        ServiceType normalizedType = dto.getServiceType() != null ? dto.getServiceType() : ServiceType.GENERAL;
+        dto.setServiceType(normalizedType);
+        assertCategoryNameNotDuplicated(shopId, dto.getName(), normalizedType, null);
 
         ServiceCategory entity = ServiceCategoryMapper.toEntity(dto);
         entity.setShopId(shopId);
@@ -52,7 +65,9 @@ public class ServiceCategoryService {
 
         ServiceCategory entity = serviceCategoryRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Không tìm thấy nhóm dịch vụ"));
-        assertCategoryNameNotDuplicated(shopId, dto.getName(), id);
+        ServiceType normalizedType = dto.getServiceType() != null ? dto.getServiceType() : entity.getServiceType();
+        dto.setServiceType(normalizedType);
+        assertCategoryNameNotDuplicated(shopId, dto.getName(), normalizedType, id);
         ServiceCategoryMapper.updateEntity(entity, dto);
         return ServiceCategoryMapper.toDTO(serviceCategoryRepository.save(entity));
     }
@@ -62,6 +77,12 @@ public class ServiceCategoryService {
 
         ServiceCategory entity = serviceCategoryRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ServiceCategoryNotFound("ServiceCategoryNotFound", "Không tìm thấy nhóm dịch vụ"));
+        if (serviceRepository.existsByShopIdAndCategoryId(shopId, id)) {
+            throw new ServiceValidationException(
+                    "ServiceCategoryInUse",
+                    "Không thể xóa nhóm dịch vụ vì đang có dịch vụ liên kết"
+            );
+        }
         entity.setActive(false);
         serviceCategoryRepository.save(entity);
     }
@@ -93,10 +114,10 @@ public class ServiceCategoryService {
         return userPrincipal.getUser().getId();
     }
 
-    private void assertCategoryNameNotDuplicated(Long shopId, String name, Long excludedId) {
+    private void assertCategoryNameNotDuplicated(Long shopId, String name, ServiceType serviceType, Long excludedId) {
         boolean duplicated = excludedId == null
-                ? serviceCategoryRepository.existsByShopIdAndName(shopId, name)
-                : serviceCategoryRepository.existsByShopIdAndNameAndIdNot(shopId, name, excludedId);
+                ? serviceCategoryRepository.existsByShopIdAndNameAndServiceType(shopId, name, serviceType)
+                : serviceCategoryRepository.existsByShopIdAndNameAndServiceTypeAndIdNot(shopId, name, serviceType, excludedId);
 
         if (duplicated) {
             throw new ServiceCategoryDuplicate(

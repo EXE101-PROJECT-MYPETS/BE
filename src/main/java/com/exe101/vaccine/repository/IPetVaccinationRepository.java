@@ -7,4 +7,6 @@ import java.util.List;
 
 public interface IPetVaccinationRepository extends JpaRepository<PetVaccination, Long> {
     List<PetVaccination> findByPetIdOrderByVaccinatedAtDesc(Long petId);
+
+    void deleteByBookingId(Long bookingId);
 }

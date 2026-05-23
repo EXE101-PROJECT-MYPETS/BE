@@ -1,6 +1,7 @@
 package com.exe101.booking.entity;
 
 import com.exe101.customer.entity.Customer;
+import com.exe101.pet.entity.Pet;
 import com.exe101.shop.entity.Shop;
 import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
@@ -30,6 +31,9 @@ public class Booking {
 
     @Column(name = "customer_id")
     private Long customerId;
+
+    @Column(name = "pet_id")
+    private Long petId;
 
     @Column(name = "start_at", nullable = false)
     private OffsetDateTime startAt;
@@ -74,6 +78,11 @@ public class Booking {
     })
     @JsonIgnore
     private Customer customer;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "pet_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private Pet pet;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "created_by", insertable = false, updatable = false)

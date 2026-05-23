@@ -16,6 +16,7 @@ public class BookingMapper {
                 entity.getShopId(),
                 entity.getUserId(),
                 entity.getCustomerId(),
+                entity.getPetId(),
                 entity.getStartAt(),
                 entity.getEndAt(),
                 entity.getStatus(),
@@ -23,9 +24,7 @@ public class BookingMapper {
                 entity.getNote(),
                 entity.getCreatedBy(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt(),
-                null,
-                null
+                entity.getUpdatedAt()
         );
     }
 
@@ -40,6 +39,7 @@ public class BookingMapper {
         entity.setShopId(dto.getShopId());
         entity.setUserId(dto.getUserId());
         entity.setCustomerId(dto.getCustomerId());
+        entity.setPetId(dto.getPetId());
         entity.setStartAt(dto.getStartAt());
         entity.setEndAt(dto.getEndAt());
         entity.setStatus(dto.getStatus() != null ? dto.getStatus() : BookingStatus.DRAFT);

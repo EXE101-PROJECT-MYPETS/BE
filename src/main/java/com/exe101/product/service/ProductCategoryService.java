@@ -6,8 +6,10 @@ import com.exe101.product.entity.ProductCategory;
 import com.exe101.product.exception.ProductAccessDenied;
 import com.exe101.product.exception.ProductCategoryDuplicate;
 import com.exe101.product.exception.ProductCategoryNotFound;
+import com.exe101.product.exception.ProductValidationException;
 import com.exe101.product.mapper.ProductCategoryMapper;
 import com.exe101.product.repository.IProductCategoryRepository;
+import com.exe101.product.repository.IProductRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,7 @@ import java.util.List;
 public class ProductCategoryService {
 
     private final IProductCategoryRepository productCategoryRepository;
+    private final IProductRepository productRepository;
     private final IShopMemberRepository shopMemberRepository;
 
     public List<ProductCategoryDTO> getAllByShop(Long shopId, Boolean active) {
@@ -62,6 +65,12 @@ public class ProductCategoryService {
 
         ProductCategory entity = productCategoryRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new ProductCategoryNotFound("ProductCategoryNotFound", "Không tìm thấy danh mục sản phẩm"));
+        if (productRepository.existsByShopIdAndCategoryId(shopId, id)) {
+            throw new ProductValidationException(
+                    "ProductCategoryInUse",
+                    "Không thể xóa danh mục sản phẩm vì đang có sản phẩm liên kết"
+            );
+        }
         entity.setActive(false);
         productCategoryRepository.save(entity);
     }

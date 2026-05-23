@@ -1,6 +1,7 @@
 package com.exe101.service_shop.dto;
 
-
+import com.exe101.service_shop.entity.ServiceType;
+import com.exe101.service_shop.entity.VeterinaryServiceType;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -36,6 +37,10 @@ public class ServiceDTO {
     private Long basePrice;
 
     private Long categoryId;
+    private ServiceType serviceType;
+    private VeterinaryServiceType veterinaryServiceType;
+    private Long vaccineId;
+    private String vaccineName;
 
     @Size(max = 1000, message = "Đường dẫn ảnh không được vượt quá 1000 ký tự")
     private String imageUrl;

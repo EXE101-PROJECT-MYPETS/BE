@@ -4,18 +4,14 @@ import com.exe101.auth.model.UserPrincipal;
 import com.exe101.pet.dto.PetDTO;
 import com.exe101.pet.exception.PetAccessDenied;
 import com.exe101.pet.service.PetService;
+import com.exe101.vaccine.dto.PetVaccinationDTO;
+import com.exe101.veterinary.dto.PetMedicalRecordDTO;
+import com.exe101.veterinary.service.PetHistoryService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
-import org.springframework.web.bind.annotation.DeleteMapping;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -25,6 +21,7 @@ import java.util.List;
 public class PetController {
 
     private final PetService petService;
+    private final PetHistoryService petHistoryService;
 
     @GetMapping
     public ResponseEntity<List<PetDTO>> getAll(@AuthenticationPrincipal UserPrincipal principal) {
@@ -42,6 +39,22 @@ public class PetController {
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(petService.getByIdForUser(id, getCurrentUserId(principal)));
+    }
+
+    @GetMapping("/{id}/medical-records")
+    public ResponseEntity<List<PetMedicalRecordDTO>> getMedicalRecords(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(petHistoryService.getMedicalRecordsForUser(id, getCurrentUserId(principal)));
+    }
+
+    @GetMapping("/{id}/vaccinations")
+    public ResponseEntity<List<PetVaccinationDTO>> getVaccinations(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(petHistoryService.getVaccinationsForUser(id, getCurrentUserId(principal)));
     }
 
     @PostMapping
