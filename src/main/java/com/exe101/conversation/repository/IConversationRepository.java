@@ -2,6 +2,7 @@ package com.exe101.conversation.repository;
 
 import com.exe101.conversation.dto.ConversationDTO;
 import com.exe101.conversation.entity.Conversation;
+import com.exe101.conversation.entity.MessageSenderType;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -35,7 +36,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
                                         WHERE unreadMessage.conversationId = conversation.id
-                                            AND CAST(unreadMessage.senderType AS string) = 'USER'
+                                            AND unreadMessage.senderType = :unreadSenderType
                       AND (
                           conversation.shopLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.shopLastReadMessageId
@@ -58,7 +59,10 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
             WHERE conversation.shopId = :shopId
             ORDER BY COALESCE(lastMessage.createdAt, conversation.createdAt) DESC, conversation.id DESC
             """)
-    List<ConversationDTO> findSummariesByShopId(@Param("shopId") Long shopId);
+            List<ConversationDTO> findSummariesByShopId(
+                @Param("shopId") Long shopId,
+                @Param("unreadSenderType") MessageSenderType unreadSenderType
+            );
 
     @Query("""
             SELECT new com.exe101.conversation.dto.ConversationDTO(
@@ -77,7 +81,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
                                         WHERE unreadMessage.conversationId = conversation.id
-                                            AND CAST(unreadMessage.senderType AS string) = 'USER'
+                                            AND unreadMessage.senderType = :unreadSenderType
                       AND (
                           conversation.shopLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.shopLastReadMessageId
@@ -102,7 +106,8 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
             """)
     Optional<ConversationDTO> findSummaryByIdAndShopId(
             @Param("id") Long id,
-            @Param("shopId") Long shopId
+                @Param("shopId") Long shopId,
+                @Param("unreadSenderType") MessageSenderType unreadSenderType
     );
 
     @Query("""
@@ -120,7 +125,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
                                         WHERE unreadMessage.conversationId = conversation.id
-                                            AND CAST(unreadMessage.senderType AS string) = 'SHOP'
+                                            AND unreadMessage.senderType = :unreadSenderType
                       AND (
                           conversation.userLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.userLastReadMessageId
@@ -140,7 +145,10 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
             WHERE conversation.userId = :userId
             ORDER BY COALESCE(lastMessage.createdAt, conversation.createdAt) DESC, conversation.id DESC
             """)
-    List<com.exe101.conversation.dto.CustomerConversationDTO> findSummariesByUserId(@Param("userId") Long userId);
+            List<com.exe101.conversation.dto.CustomerConversationDTO> findSummariesByUserId(
+                @Param("userId") Long userId,
+                @Param("unreadSenderType") MessageSenderType unreadSenderType
+            );
 
     @Query("""
             SELECT new com.exe101.conversation.dto.CustomerConversationDTO(
@@ -157,7 +165,7 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
                     SELECT COUNT(unreadMessage.id)
                     FROM Message unreadMessage
                                         WHERE unreadMessage.conversationId = conversation.id
-                                            AND CAST(unreadMessage.senderType AS string) = 'SHOP'
+                                            AND unreadMessage.senderType = :unreadSenderType
                       AND (
                           conversation.userLastReadMessageId IS NULL
                           OR unreadMessage.id > conversation.userLastReadMessageId
@@ -179,7 +187,8 @@ public interface IConversationRepository extends JpaRepository<Conversation, Lon
             """)
     Optional<com.exe101.conversation.dto.CustomerConversationDTO> findSummaryByIdAndUserId(
             @Param("id") Long id,
-            @Param("userId") Long userId
+                @Param("userId") Long userId,
+                @Param("unreadSenderType") MessageSenderType unreadSenderType
     );
 }
 

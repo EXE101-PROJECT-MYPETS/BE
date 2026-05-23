@@ -2,18 +2,18 @@ package com.exe101.pet.controller;
 
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.pet.dto.PetDTO;
-import com.exe101.pet.exception.PetAccessDenied;
 import com.exe101.pet.service.PetService;
-import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.Authentication;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.ModelAttribute;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
-import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -27,52 +27,77 @@ public class PetController {
     private final PetService petService;
 
     @GetMapping
-    public ResponseEntity<List<PetDTO>> getAll(@AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(petService.getAllByUserId(getCurrentUserId(principal)));
+    public ResponseEntity<List<PetDTO>> getAll() {
+        return ResponseEntity.ok(petService.getAll());
     }
 
-    @GetMapping("/user")
-    public ResponseEntity<List<PetDTO>> getAllByUser(@AuthenticationPrincipal UserPrincipal principal) {
-        return ResponseEntity.ok(petService.getAllByUserId(getCurrentUserId(principal)));
+    @GetMapping("/my")
+    public ResponseEntity<List<PetDTO>> getMyPets(Authentication authentication) {
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petService.getAllByUserId(userId));
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<PetDTO> getById(
-            @AuthenticationPrincipal UserPrincipal principal,
+    @GetMapping("/customer")
+    public ResponseEntity<List<PetDTO>> getAllByCustomer(Authentication authentication) {
+        // Alias for backward compatibility with old mobile route.
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petService.getAllByUserId(userId));
+    }
+
+    @GetMapping("/my/{id}")
+    public ResponseEntity<PetDTO> getMyPetById(
+            Authentication authentication,
             @PathVariable Long id
     ) {
-        return ResponseEntity.ok(petService.getByIdForUser(id, getCurrentUserId(principal)));
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petService.getByIdForUser(id, userId));
     }
 
-    @PostMapping
+    @PostMapping(value = {"", "/my"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PetDTO> create(
-            @AuthenticationPrincipal UserPrincipal principal,
-            @Valid @RequestBody PetDTO dto
+            Authentication authentication,
+            @RequestHeader(value = "X-Shop-Id", required = false) Long shopId,
+            @ModelAttribute PetDTO dto
     ) {
-        return ResponseEntity.ok(petService.createForUser(dto, getCurrentUserId(principal)));
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petService.createForUser(userId, shopId, dto));
     }
 
-    @PutMapping("/{id}")
+    @PutMapping(value = {"/{id}", "/my/{id}"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<PetDTO> update(
-            @AuthenticationPrincipal UserPrincipal principal,
+            Authentication authentication,
+            @RequestHeader(value = "X-Shop-Id", required = false) Long shopId,
             @PathVariable Long id,
-            @Valid @RequestBody PetDTO dto
+            @ModelAttribute PetDTO dto
     ) {
-        return ResponseEntity.ok(petService.updateForUser(id, dto, getCurrentUserId(principal)));
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petService.updateForUser(id, userId, shopId, dto));
     }
 
-    @DeleteMapping("/{id}")
+    @DeleteMapping({"/{id}", "/my/{id}"})
     public ResponseEntity<Void> delete(
-            @AuthenticationPrincipal UserPrincipal principal,
+            Authentication authentication,
             @PathVariable Long id
     ) {
-        petService.deleteForUser(id, getCurrentUserId(principal));
+        Long userId = resolveUserId(authentication);
+        petService.deleteForUser(id, userId);
         return ResponseEntity.noContent().build();
     }
 
-    private Long getCurrentUserId(UserPrincipal principal) {
-        if (principal == null || principal.getUser() == null || principal.getUser().getId() == null) {
-            throw new PetAccessDenied("AuthenticatedUserRequired", "Cần đăng nhập để thực hiện chức năng này");
+    @PostMapping("/my/{id}/shops/{shopId}")
+    public ResponseEntity<Void> linkPetToShop(
+            Authentication authentication,
+            @PathVariable Long id,
+            @PathVariable Long shopId
+    ) {
+        Long userId = resolveUserId(authentication);
+        petService.linkPetToShop(userId, id, shopId);
+        return ResponseEntity.noContent().build();
+    }
+
+    private Long resolveUserId(Authentication authentication) {
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal principal)) {
+            throw new IllegalStateException("Không xác định được người dùng hiện tại");
         }
         return principal.getUser().getId();
     }

@@ -31,6 +31,17 @@ public class FileUploadUtil {
         );
     }
 
+    public String uploadPetAvatar(Long userId, Long petId, MultipartFile avatarFile) {
+        return supabaseStorageService.uploadPublic(
+                avatarFile,
+                "users/" + userId + "/pets/" + petId + "/avatar"
+        );
+    }
+
+    public String normalizePetAvatarPath(String imageUrl) {
+        return supabaseStorageService.toPublicUrl(imageUrl);
+    }
+
     public String uploadShopImage(Long shopId, MultipartFile imageFile) {
         return toUploadsPath(supabaseStorageService.uploadPublicPath(
                 imageFile,

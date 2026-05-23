@@ -3,7 +3,11 @@ package com.exe101.auth.controller;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.auth.service.JwtService;
 import com.exe101.auth.util.ResponseUtil;
-import com.exe101.user.entity.UserStatus;
+import com.exe101.user.entity.User;
+import com.exe101.user.repository.IUserRepository;
+import com.exe101.userCredential.entity.UserCredential;
+import com.exe101.userCredential.repository.IUserCredentialRepository;
+import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.ExpiredJwtException;
 import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
@@ -11,27 +15,33 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
-import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+import org.springframework.security.core.GrantedAuthority;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 import java.io.IOException;
+import java.util.List;
 
 @Component
 public class JwtAuthenticationFilterController extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+    private final IUserRepository userRepository;
+    private final IUserCredentialRepository credentialRepository;
 
-    @Autowired
-    public JwtAuthenticationFilterController(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilterController(
+            JwtService jwtService,
+            IUserRepository userRepository,
+            IUserCredentialRepository credentialRepository
+    ) {
         this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
+        this.credentialRepository = credentialRepository;
     }
 
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -60,24 +70,30 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             String userEmail = jwtService.extractUserName(jwt);
 
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                User user = userRepository.findByEmail(userEmail)
+                        .orElseThrow(() -> new JwtException("Người dùng không tồn tại"));
 
-                if (jwtService.isTokenValid(jwt, userDetails)) {
-                    if (userDetails instanceof UserPrincipal principal
-                            && principal.getUser().getStatus() != UserStatus.ACTIVE) {
-                        ResponseUtil.writeError(
-                                response,
-                                HttpServletResponse.SC_UNAUTHORIZED,
-                                "Tai khoan nay khong con hoat dong"
-                        );
-                        return;
+                UserCredential credential = credentialRepository.findById(user.getId())
+                        .orElseThrow(() -> new JwtException("Không tìm thấy thông tin đăng nhập"));
+
+                UserPrincipal userPrincipal = new UserPrincipal(user, credential);
+
+                if (jwtService.isTokenValid(jwt, userPrincipal)) {
+                    Claims claims = jwtService.extractAllClaims(jwt);
+                    String role = claims.get("role", String.class);
+                    if (role == null || role.isBlank()) {
+                        role = user.getRole().name();
                     }
+
+                    // Giữ quyền theo claim trong token để không bị lệch khi role thay đổi
+                    List<GrantedAuthority> authorities =
+                            List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
                     UsernamePasswordAuthenticationToken authToken =
                             new UsernamePasswordAuthenticationToken(
-                                    userDetails,
+                                    userPrincipal,
                                     null,
-                                    userDetails.getAuthorities()
+                                    authorities
                             );
 
                     authToken.setDetails(
@@ -100,6 +116,12 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
                     "Token khong hop le"
+            );
+        } catch (Exception e) {
+            ResponseUtil.writeError(
+                response,
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Token không hợp lệ"
             );
         }
     }

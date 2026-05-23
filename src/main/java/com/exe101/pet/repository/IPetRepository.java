@@ -10,4 +10,6 @@ public interface IPetRepository extends JpaRepository<Pet, Long> {
     List<Pet> findByUserIdOrderByIdDesc(Long userId);
 
     Optional<Pet> findByIdAndUserId(Long id, Long userId);
+
+    boolean existsByIdAndUserId(Long id, Long userId);
 }

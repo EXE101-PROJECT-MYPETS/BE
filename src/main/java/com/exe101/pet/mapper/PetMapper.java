@@ -22,7 +22,8 @@ public class PetMapper {
                 entity.getWeightKg(),
                 entity.getNote(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                null
         );
     }
 
