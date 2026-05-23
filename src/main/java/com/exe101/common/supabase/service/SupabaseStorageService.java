@@ -150,7 +150,9 @@ public class SupabaseStorageService {
 
     private String resolveContentType(MultipartFile file) {
         String ct = file.getContentType();
-        if (ct != null && !ct.isBlank()) return ct;
+        if (ct != null && !ct.isBlank() && !ct.equals("application/octet-stream")) {
+            return ct;
+        }
 
         String name = file.getOriginalFilename();
         if (name == null) return "image/jpeg";
@@ -161,7 +163,7 @@ public class SupabaseStorageService {
         if (lower.endsWith(".gif")) return "image/gif";
         if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) return "image/jpeg";
 
-        throw new IllegalArgumentException("Tệp không phải ảnh hợp lệ: " + name);
+        return "image/jpeg";
     }
 
     private String encodePath(String path) {

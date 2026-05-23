@@ -46,6 +46,33 @@ public class OrderController {
         ));
     }
 
+    @GetMapping("/customer")
+    public ResponseEntity<ScrollResponse<OrderListItemDTO>> getCustomerOrders(
+            @RequestHeader("X-Customer-Id") Long customerIdHeader,
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(orderService.getAllForScroll(
+                null,
+                customerIdHeader,
+                null,
+                status,
+                null,
+                null,
+                cursor,
+                size
+        ));
+    }
+
+    @GetMapping("/customer/{id}")
+    public ResponseEntity<OrderListItemDTO> getCustomerOrderDetail(
+            @RequestHeader("X-Customer-Id") Long customerIdHeader,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.getCustomerOrderDetail(customerIdHeader, id));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<OrderListItemDTO> getById(
             @RequestHeader("X-Shop-Id") Long shopId,

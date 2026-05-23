@@ -59,10 +59,7 @@ public class PetVaccination {
     private Shop shop;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumns({
-            @JoinColumn(name = "shop_id", referencedColumnName = "shop_id", insertable = false, updatable = false),
-            @JoinColumn(name = "pet_id", referencedColumnName = "id", insertable = false, updatable = false)
-    })
+        @JoinColumn(name = "pet_id", referencedColumnName = "id", insertable = false, updatable = false)
     @JsonIgnore
     private Pet pet;
 

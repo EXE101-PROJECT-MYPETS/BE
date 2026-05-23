@@ -57,6 +57,7 @@ public class OrderMapper {
                 entity.getId(),
                 entity.getOrderCode(),
                 entity.getShopId(),
+                entity.getShop() != null ? entity.getShop().getName() : "Cửa hàng PetPee",
                 entity.getUserId(),
                 user != null ? user.getFullName() : null,
                 user != null ? user.getPhone() : null,

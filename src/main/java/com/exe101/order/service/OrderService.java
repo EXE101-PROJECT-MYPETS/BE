@@ -129,6 +129,15 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         return toListItemDTOs(List.of(order)).get(0);
     }
 
+    public OrderListItemDTO getCustomerOrderDetail(Long userId, Long id) {
+        CustomerOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        if (order.getUserId() == null || !order.getUserId().equals(userId)) {
+            throw new OrderValidationException("OrderAccessDenied", "Bạn không có quyền xem đơn hàng này");
+        }
+        return toListItemDTOs(List.of(order)).get(0);
+    }
+
     @Override
     @Transactional
     public OrderDTO create(OrderDTO dto) {

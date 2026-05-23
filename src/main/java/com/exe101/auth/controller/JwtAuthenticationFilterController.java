@@ -1,5 +1,6 @@
 package com.exe101.auth.controller;
 
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.auth.service.JwtService;
 import com.exe101.auth.util.ResponseUtil;
 import io.jsonwebtoken.Claims;
@@ -10,16 +11,18 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.NonNull;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.UserDetails;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+
+import com.exe101.user.entity.User;
+import com.exe101.user.repository.IUserRepository;
+import com.exe101.userCredential.entity.UserCredential;
+import com.exe101.userCredential.repository.IUserCredentialRepository;
 
 import java.io.IOException;
 import java.util.List;
@@ -29,12 +32,17 @@ import java.util.List;
 public class JwtAuthenticationFilterController extends OncePerRequestFilter {
 
     private final JwtService jwtService;
-    private final UserDetailsService userDetailsService;
+    private final IUserRepository userRepository;
+    private final IUserCredentialRepository credentialRepository;
 
-    @Autowired
-    public JwtAuthenticationFilterController(JwtService jwtService, UserDetailsService userDetailsService) {
+    public JwtAuthenticationFilterController(
+            JwtService jwtService,
+            IUserRepository userRepository,
+            IUserCredentialRepository credentialRepository
+    ) {
         this.jwtService = jwtService;
-        this.userDetailsService = userDetailsService;
+        this.userRepository = userRepository;
+        this.credentialRepository = credentialRepository;
     }
 
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -61,31 +69,37 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             String jwt = authHeader.substring(7);
             String userEmail = jwtService.extractUserName(jwt);
             if (SecurityContextHolder.getContext().getAuthentication() == null) {
+            User user = userRepository.findByEmail(userEmail)
+                .orElseThrow(() -> new JwtException("Người dùng không tồn tại"));
 
-                UserDetails userDetails =
-                        userDetailsService.loadUserByUsername(userEmail);
+            UserCredential credential = credentialRepository.findById(user.getId())
+                .orElseThrow(() -> new JwtException("Không tìm thấy thông tin đăng nhập"));
 
-                if (jwtService.isTokenValid(jwt, userDetails)) {
+            UserPrincipal userPrincipal = new UserPrincipal(user, credential);
 
-                    Claims claims = jwtService.extractAllClaims(jwt);
-                    String role = claims.get("role", String.class);
+            if (jwtService.isTokenValid(jwt, userPrincipal)) {
+                Claims claims = jwtService.extractAllClaims(jwt);
+                String role = claims.get("role", String.class);
+                if (role == null || role.isBlank()) {
+                role = user.getRole().name();
+                }
 
-                    // bị sai ở case admin đổi quyền nhưng token vẫn sống => sai quyền
-                    List<GrantedAuthority> authorities =
-                            List.of(new SimpleGrantedAuthority("ROLE_" + role));
+                // Giữ quyền theo claim trong token để không bị lệch khi role thay đổi
+                List<GrantedAuthority> authorities =
+                    List.of(new SimpleGrantedAuthority("ROLE_" + role));
 
-                    UsernamePasswordAuthenticationToken authToken =
-                            new UsernamePasswordAuthenticationToken(
-                                    userDetails,
-                                    null,
-                                    authorities
-                            );
-
-                    authToken.setDetails(
-                            new WebAuthenticationDetailsSource().buildDetails(request)
+                UsernamePasswordAuthenticationToken authToken =
+                    new UsernamePasswordAuthenticationToken(
+                        userPrincipal,
+                        null,
+                        authorities
                     );
 
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
+                authToken.setDetails(
+                    new WebAuthenticationDetailsSource().buildDetails(request)
+                );
+
+                SecurityContextHolder.getContext().setAuthentication(authToken);
                 }
             }
 
@@ -103,6 +117,12 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
                     "Token không hợp lệ"
+            );
+        } catch (Exception e) {
+            ResponseUtil.writeError(
+                response,
+                HttpServletResponse.SC_UNAUTHORIZED,
+                "Token không hợp lệ"
             );
         }
     }

@@ -11,8 +11,7 @@ public class PetMapper {
         if (entity == null) return null;
         return new PetDTO(
                 entity.getId(),
-                entity.getShopId(),
-                entity.getCustomerId(),
+                entity.getUserId(),
                 entity.getSpeciesId(),
                 entity.getBreedId(),
                 entity.getBreedText(),
@@ -22,7 +21,8 @@ public class PetMapper {
                 entity.getDob(),
                 entity.getNote(),
                 entity.getCreatedAt(),
-                entity.getUpdatedAt()
+                entity.getUpdatedAt(),
+                null
         );
     }
 
@@ -34,8 +34,7 @@ public class PetMapper {
     }
 
     public static void updateEntity(Pet entity, PetDTO dto) {
-        entity.setShopId(dto.getShopId());
-        entity.setCustomerId(dto.getCustomerId());
+        entity.setUserId(dto.getUserId());
         entity.setSpeciesId(dto.getSpeciesId());
         entity.setBreedId(dto.getBreedId());
         entity.setBreedText(dto.getBreedText());

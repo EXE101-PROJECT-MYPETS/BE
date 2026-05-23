@@ -29,7 +29,7 @@ public class Message {
 
     @Enumerated(EnumType.STRING)
     @JdbcTypeCode(SqlTypes.NAMED_ENUM)
-    @Column(name = "sender_type", nullable = false)
+    @Column(name = "sender_type", nullable = false, columnDefinition = "message_sender_type")
     private MessageSenderType senderType;
 
     @Column(name = "sender_user_id")

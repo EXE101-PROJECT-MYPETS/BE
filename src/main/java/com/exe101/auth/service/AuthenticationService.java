@@ -174,6 +174,13 @@ public class AuthenticationService {
             );
 
         } catch (BadCredentialsException ex) {
+            User user = userRepository.findByEmailIgnoreCase(request.getEmail()).orElse(null);
+            if (user != null) {
+                UserCredential cred = credentialRepository.findById(user.getId()).orElse(null);
+                if (cred != null && cred.getProvider() != CredentialProvider.LOCAL && (cred.getPasswordHash() == null || cred.getPasswordHash().isEmpty())) {
+                    throw new LoginException("WrongProvider", "Tài khoản chưa thiết lập mật khẩu. Vui lòng đăng nhập bằng " + cred.getProvider());
+                }
+            }
             throw new LoginException("WrongPassOrEmail", "Email hoặc mật khẩu không đúng");
         }
     }
