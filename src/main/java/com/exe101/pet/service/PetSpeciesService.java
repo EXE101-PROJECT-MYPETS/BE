@@ -1,7 +1,6 @@
 package com.exe101.pet.service;
 
 import com.exe101.pet.dto.PetSpeciesDTO;
-import com.exe101.pet.entity.PetSpecies;
 import com.exe101.pet.repository.IPetSpeciesRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

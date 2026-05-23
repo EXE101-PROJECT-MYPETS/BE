@@ -1,7 +1,6 @@
 package com.exe101.vaccine.entity;
 
 import com.exe101.pet.entity.Pet;
-import com.exe101.shop.entity.Shop;
 import com.exe101.user.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
@@ -20,9 +19,6 @@ public class PetVaccination {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-
-    @Column(name = "shop_id", nullable = false)
-    private Long shopId;
 
     @Column(name = "pet_id", nullable = false)
     private Long petId;
@@ -54,12 +50,7 @@ public class PetVaccination {
     private OffsetDateTime createdAt;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "shop_id", insertable = false, updatable = false)
-    @JsonIgnore
-    private Shop shop;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-        @JoinColumn(name = "pet_id", referencedColumnName = "id", insertable = false, updatable = false)
+    @JoinColumn(name = "pet_id", insertable = false, updatable = false)
     @JsonIgnore
     private Pet pet;
 

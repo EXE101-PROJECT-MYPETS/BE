@@ -48,6 +48,7 @@ public class OrderMapper {
 
     public static OrderListItemDTO toListItemDTO(
             CustomerOrder entity,
+            String shopName,
             User user,
             List<OrderItemDTO> items,
             String statusLabel
@@ -57,7 +58,9 @@ public class OrderMapper {
                 entity.getId(),
                 entity.getOrderCode(),
                 entity.getShopId(),
-                entity.getShop() != null ? entity.getShop().getName() : "Cửa hàng PetPee",
+            shopName != null && !shopName.isBlank()
+                ? shopName
+                : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng PetPee"),
                 entity.getUserId(),
                 user != null ? user.getFullName() : null,
                 user != null ? user.getPhone() : null,

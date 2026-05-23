@@ -19,6 +19,7 @@ public class PetMapper {
                 entity.getName(),
                 entity.getGender(),
                 entity.getDob(),
+                entity.getWeightKg(),
                 entity.getNote(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt(),
@@ -42,6 +43,7 @@ public class PetMapper {
         entity.setName(dto.getName());
         entity.setGender(dto.getGender());
         entity.setDob(dto.getDob());
+        entity.setWeightKg(dto.getWeightKg());
         entity.setNote(dto.getNote());
     }
 }

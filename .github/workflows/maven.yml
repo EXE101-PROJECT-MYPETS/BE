@@ -7,7 +7,7 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
@@ -39,3 +39,27 @@ jobs:
           context: .
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/exe101-be:latest
+
+      - name: Deploy to VPS
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          script: |
+            set -e
+
+            docker pull ${{ secrets.DOCKERHUB_USERNAME }}/exe101-be:latest
+
+            docker stop exe101-be || true
+            docker rm exe101-be || true
+
+            docker run -d \
+              --name exe101-be \
+              --env-file /apps/BE/.env \
+              -p 8080:8080 \
+              --restart unless-stopped \
+              ${{ secrets.DOCKERHUB_USERNAME }}/exe101-be:latest
+
+            docker image prune -f

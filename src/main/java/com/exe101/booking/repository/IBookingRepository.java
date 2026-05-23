@@ -37,28 +37,20 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
                       AND (:appointmentFrom IS NULL OR b.startAt >= :appointmentFrom)
                       AND (:appointmentTo IS NULL OR b.startAt < :appointmentTo)
                     ORDER BY
-                      CASE b.status
-                        WHEN com.exe101.booking.entity.BookingStatus.DRAFT THEN 1
-                        WHEN com.exe101.booking.entity.BookingStatus.CONFIRMED THEN 2
-                        WHEN com.exe101.booking.entity.BookingStatus.IN_PROGRESS THEN 3
-                        WHEN com.exe101.booking.entity.BookingStatus.COMPLETED THEN 4
-                        WHEN com.exe101.booking.entity.BookingStatus.REJECTED THEN 5
-                        WHEN com.exe101.booking.entity.BookingStatus.CANCELLED THEN 6
+                      CASE CAST(b.status AS string)
+                        WHEN 'DRAFT' THEN 1
+                        WHEN 'CONFIRMED' THEN 2
+                        WHEN 'IN_PROGRESS' THEN 3
+                        WHEN 'COMPLETED' THEN 4
+                        WHEN 'REJECTED' THEN 5
+                        WHEN 'CANCELLED' THEN 6
                         ELSE 99
                       END ASC,
                       CASE
-                        WHEN b.status IN (
-                          com.exe101.booking.entity.BookingStatus.DRAFT,
-                          com.exe101.booking.entity.BookingStatus.CONFIRMED,
-                          com.exe101.booking.entity.BookingStatus.IN_PROGRESS
-                        ) THEN b.startAt
+                        WHEN CAST(b.status AS string) IN ('DRAFT', 'CONFIRMED', 'IN_PROGRESS') THEN b.startAt
                       END ASC,
                       CASE
-                        WHEN b.status IN (
-                          com.exe101.booking.entity.BookingStatus.COMPLETED,
-                          com.exe101.booking.entity.BookingStatus.REJECTED,
-                          com.exe101.booking.entity.BookingStatus.CANCELLED
-                        ) THEN b.startAt
+                        WHEN CAST(b.status AS string) IN ('COMPLETED', 'REJECTED', 'CANCELLED') THEN b.startAt
                       END DESC,
                       b.id DESC
                     """,
