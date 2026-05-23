@@ -50,26 +50,6 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    @Bean
-    public UserDetailsService userDetailsService() {
-        return email -> {
-            User user = userRepository.findByEmail(email)
-                    .orElseThrow(() ->
-                            new UsernameNotFoundException("Không tìm thấy người dùng với email " + email)
-                    );
-
-            UserCredential cred = credentialRepository.findById(user.getId())
-                    .orElseThrow(() ->
-                            new UsernameNotFoundException("Không tìm thấy thông tin đăng nhập của người dùng " + email)
-                    );
-
-            if (cred.getProvider() != CredentialProvider.LOCAL) {
-                throw new UsernameNotFoundException("Vui lòng đăng nhập bằng phương thức " + cred.getProvider());
-            }
-
-            return new UserPrincipal(user, cred);
-        };
-    }
 
     @Bean
     public DaoAuthenticationProvider authenticationProvider(

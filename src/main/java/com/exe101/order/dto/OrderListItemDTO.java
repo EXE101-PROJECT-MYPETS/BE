@@ -18,6 +18,7 @@ public class OrderListItemDTO {
     private Long id;
     private String orderCode;
     private Long shopId;
+    private String shopName;
     private Long userId;
     private String userFullName;
     private String userPhone;

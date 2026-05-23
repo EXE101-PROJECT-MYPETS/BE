@@ -1,5 +1,6 @@
 package com.exe101.order.controller;
 
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.ScrollResponse;
 import com.exe101.order.dto.OrderDTO;
 import com.exe101.order.dto.OrderListItemDTO;
@@ -10,6 +11,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -46,6 +48,33 @@ public class OrderController {
         ));
     }
 
+    @GetMapping("/customer")
+    public ResponseEntity<ScrollResponse<OrderListItemDTO>> getCustomerOrders(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) OrderStatus status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        return ResponseEntity.ok(orderService.getAllForScroll(
+                null,
+            getCurrentUserId(principal),
+                null,
+                status,
+                null,
+                null,
+                cursor,
+                size
+        ));
+    }
+
+    @GetMapping("/customer/{id}")
+    public ResponseEntity<OrderListItemDTO> getCustomerOrderDetail(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.getCustomerOrderDetail(getCurrentUserId(principal), id));
+    }
+
     @GetMapping("/{id}")
     public ResponseEntity<OrderListItemDTO> getById(
             @RequestHeader("X-Shop-Id") Long shopId,
@@ -77,5 +106,12 @@ public class OrderController {
     public ResponseEntity<Void> delete(@PathVariable Long id) {
         orderService.delete(id);
         return ResponseEntity.noContent().build();
+    }
+
+    private Long getCurrentUserId(UserPrincipal principal) {
+        if (principal == null || principal.getUser() == null || principal.getUser().getId() == null) {
+            throw new IllegalStateException("Cần đăng nhập để thực hiện chức năng này");
+        }
+        return principal.getUser().getId();
     }
 }

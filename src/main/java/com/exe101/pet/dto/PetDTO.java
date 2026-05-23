@@ -1,5 +1,9 @@
 package com.exe101.pet.dto;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.web.multipart.MultipartFile;
+
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -22,9 +26,13 @@ public class PetDTO {
     private String avatarUrl;
     private String name;
     private String gender;
+    @DateTimeFormat(iso = DateTimeFormat.ISO.DATE)
     private LocalDate dob;
     private BigDecimal weightKg;
     private String note;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+
+    @JsonIgnore
+    private MultipartFile avatarUrlPreview;
 }

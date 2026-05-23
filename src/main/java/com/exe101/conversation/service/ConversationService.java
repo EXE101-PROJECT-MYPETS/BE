@@ -50,7 +50,7 @@ public class ConversationService implements IService<Conversation, ConversationD
 
     @Transactional(readOnly = true)
     public List<ConversationDTO> getAllByShopId(Long shopId) {
-        return conversationRepository.findSummariesByShopId(shopId);
+        return conversationRepository.findSummariesByShopId(shopId, MessageSenderType.USER);
     }
 
     @Override
@@ -63,7 +63,7 @@ public class ConversationService implements IService<Conversation, ConversationD
 
     @Transactional(readOnly = true)
     public ConversationDTO getById(Long shopId, Long id) {
-        return conversationRepository.findSummaryByIdAndShopId(id, shopId)
+        return conversationRepository.findSummaryByIdAndShopId(id, shopId, MessageSenderType.USER)
                 .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
     }
 
@@ -333,14 +333,14 @@ public class ConversationService implements IService<Conversation, ConversationD
 
     @Transactional(readOnly = true)
     public List<CustomerConversationDTO> getAllByUserId(Long userId) {
-        return conversationRepository.findSummariesByUserId(userId).stream()
+        return conversationRepository.findSummariesByUserId(userId, MessageSenderType.SHOP).stream()
             .map(this::sanitizeShopAvatar)
             .toList();
     }
 
     @Transactional(readOnly = true)
     public CustomerConversationDTO getByIdForUser(Long userId, Long id) {
-        return conversationRepository.findSummaryByIdAndUserId(id, userId)
+        return conversationRepository.findSummaryByIdAndUserId(id, userId, MessageSenderType.SHOP)
             .map(this::sanitizeShopAvatar)
                 .orElseThrow(() -> new ConversationNotFound("ConversationNotFound", "Không tìm thấy cuộc trò chuyện"));
     }

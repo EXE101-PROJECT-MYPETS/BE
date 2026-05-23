@@ -23,6 +23,8 @@ import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
+import com.exe101.shop.entity.Shop;
+import com.exe101.shop.repository.IShopRepository;
 import com.exe101.user.entity.User;
 import com.exe101.user.entity.UserStatus;
 import com.exe101.user.repository.IUserRepository;
@@ -55,6 +57,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     private final IOrderItemRepository orderItemRepository;
     private final ICustomerRepository customerRepository;
     private final IProductRepository productRepository;
+    private final IShopRepository shopRepository;
     private final ICustomerAddressRepository customerAddressRepository;
     private final NotificationService notificationService;
     private final IUserRepository userRepository;
@@ -126,6 +129,15 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     public OrderListItemDTO getDetail(Long shopId, Long id) {
         CustomerOrder order = orderRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        return toListItemDTOs(List.of(order)).get(0);
+    }
+
+    public OrderListItemDTO getCustomerOrderDetail(Long userId, Long id) {
+        CustomerOrder order = orderRepository.findById(id)
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        if (order.getUserId() == null || !order.getUserId().equals(userId)) {
+            throw new OrderValidationException("OrderAccessDenied", "Bạn không có quyền xem đơn hàng này");
+        }
         return toListItemDTOs(List.of(order)).get(0);
     }
 
@@ -225,12 +237,19 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
 
         List<Long> orderIds = orders.stream().map(CustomerOrder::getId).toList();
+        List<Long> shopIds = orders.stream()
+            .map(CustomerOrder::getShopId)
+            .filter(Objects::nonNull)
+            .distinct()
+            .toList();
         List<Long> userIds = orders.stream()
                 .map(CustomerOrder::getUserId)
                 .filter(Objects::nonNull)
                 .distinct()
                 .toList();
 
+        Map<Long, String> shopNamesById = shopRepository.findAllById(shopIds).stream()
+            .collect(Collectors.toMap(Shop::getId, Shop::getName));
         Map<Long, User> usersById = userRepository.findAllById(userIds).stream()
                 .collect(Collectors.toMap(User::getId, Function.identity()));
         Map<Long, List<OrderItem>> itemsByOrderId = orderItemRepository.findByOrderIdIn(orderIds).stream()
@@ -242,6 +261,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         return orders.stream()
                 .map(order -> OrderMapper.toListItemDTO(
                         order,
+                shopNamesById.get(order.getShopId()),
                         usersById.get(order.getUserId()),
                         toItemDTOs(itemsByOrderId.getOrDefault(order.getId(), Collections.emptyList()), productsById),
                         toStatusLabel(order.getStatus())

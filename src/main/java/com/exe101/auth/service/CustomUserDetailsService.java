@@ -25,13 +25,13 @@ public class CustomUserDetailsService implements UserDetailsService {
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
 
-        User user = userRepository.findByEmail(email)
+        User user = userRepository.findByEmailIgnoreCase(email)
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy người dùng"));
 
         UserCredential cred = credentialRepository.findById(user.getId())
                 .orElseThrow(() -> new UsernameNotFoundException("Không tìm thấy thông tin đăng nhập"));
 
-        if (cred.getProvider() != CredentialProvider.LOCAL) {
+        if (cred.getProvider() != CredentialProvider.LOCAL && (cred.getPasswordHash() == null || cred.getPasswordHash().isEmpty())) {
             throw new UsernameNotFoundException("Vui lòng đăng nhập bằng phương thức " + cred.getProvider());
         }
 
