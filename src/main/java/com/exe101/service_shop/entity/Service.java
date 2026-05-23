@@ -1,6 +1,7 @@
 package com.exe101.service_shop.entity;
 
 import com.exe101.shop.entity.Shop;
+import com.exe101.vaccine.entity.Vaccine;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
@@ -38,6 +39,17 @@ public class Service {
     @Column(name = "category_id")
     private Long categoryId;
 
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_type", nullable = false, length = 50)
+    private ServiceType serviceType = ServiceType.GENERAL;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "veterinary_service_type", length = 50)
+    private VeterinaryServiceType veterinaryServiceType;
+
+    @Column(name = "vaccine_id")
+    private Long vaccineId;
+
     @Column(name = "image_url")
     private String imageUrl;
 
@@ -56,4 +68,9 @@ public class Service {
     })
     @JsonIgnore
     private ServiceCategory category;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "vaccine_id", insertable = false, updatable = false)
+    @JsonIgnore
+    private Vaccine vaccine;
 }

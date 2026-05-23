@@ -17,6 +17,7 @@ public class ServiceCategoryMapper {
                 entity.getDescription(),
                 entity.getActive(),
                 entity.getSortOrder(),
+                entity.getServiceType(),
                 entity.getCreatedAt(),
                 entity.getUpdatedAt()
         );
@@ -31,6 +32,7 @@ public class ServiceCategoryMapper {
         entity.setDescription(dto.getDescription());
         entity.setActive(dto.getActive() != null ? dto.getActive() : Boolean.TRUE);
         entity.setSortOrder(dto.getSortOrder() != null ? dto.getSortOrder() : 0);
+        entity.setServiceType(dto.getServiceType() != null ? dto.getServiceType() : com.exe101.service_shop.entity.ServiceType.GENERAL);
         return entity;
     }
 
@@ -42,6 +44,9 @@ public class ServiceCategoryMapper {
         }
         if (dto.getSortOrder() != null) {
             entity.setSortOrder(dto.getSortOrder());
+        }
+        if (dto.getServiceType() != null) {
+            entity.setServiceType(dto.getServiceType());
         }
     }
 }

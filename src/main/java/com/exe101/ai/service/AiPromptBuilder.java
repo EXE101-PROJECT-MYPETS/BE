@@ -71,6 +71,10 @@ public class AiPromptBuilder {
 
         builder.append("- Lịch sử tiêm phòng gần đây:\n")
                 .append(safeMultiline(petContext == null ? null : petContext.getVaccinationSummary()))
+                .append('\n');
+
+        builder.append("- Lich su kham/dieu tri gan day:\n")
+                .append(safeMultiline(petContext == null ? null : petContext.getMedicalRecordSummary()))
                 .append("\n\n");
 
         builder.append("Lịch sử hỏi đáp gần đây:\n");

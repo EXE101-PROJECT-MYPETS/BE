@@ -3,6 +3,8 @@ package com.exe101.service_shop.controller;
 import com.exe101.common.ScrollResponse;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDTO;
+import com.exe101.service_shop.entity.ServiceType;
+import com.exe101.service_shop.entity.VeterinaryServiceType;
 import com.exe101.service_shop.service.ServiceService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -22,6 +24,8 @@ public class ServiceController {
             @RequestHeader("X-Shop-Id") Long shopId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long categoryId,
+            @RequestParam(required = false) ServiceType serviceType,
+            @RequestParam(required = false) VeterinaryServiceType veterinaryServiceType,
             @RequestParam(required = false) Boolean active,
             @RequestParam(required = false) Long cursor,
             @RequestParam(defaultValue = "10") int size
@@ -30,6 +34,8 @@ public class ServiceController {
                 shopId,
                 search,
                 categoryId,
+                serviceType,
+                veterinaryServiceType,
                 active,
                 cursor,
                 size

@@ -1,5 +1,7 @@
 package com.exe101.service_shop.dto;
 
+import com.exe101.service_shop.entity.ServiceType;
+import com.exe101.service_shop.entity.VeterinaryServiceType;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
@@ -24,6 +26,10 @@ public class ServicePublicDTO {
         private Integer durationMin;
         private Long basePrice;
         private Long categoryId;
+        private ServiceType serviceType;
+        private VeterinaryServiceType veterinaryServiceType;
+        private Long vaccineId;
+        private String vaccineName;
         private String imageUrl;
         private Boolean active;
         private Double rating;

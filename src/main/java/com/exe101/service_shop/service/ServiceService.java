@@ -7,13 +7,19 @@ import com.exe101.file.FileUploadUtil;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDTO;
 import com.exe101.service_shop.entity.Service;
+import com.exe101.service_shop.entity.ServiceCategory;
+import com.exe101.service_shop.entity.ServiceType;
+import com.exe101.service_shop.entity.VeterinaryServiceType;
 import com.exe101.service_shop.exception.ServiceAccessDenied;
 import com.exe101.service_shop.exception.ServiceDuplicate;
 import com.exe101.service_shop.exception.ServiceNotFound;
+import com.exe101.service_shop.exception.ServiceValidationException;
 import com.exe101.service_shop.mapper.ServiceMapper;
+import com.exe101.service_shop.repository.IServiceCategoryRepository;
 import com.exe101.service_shop.repository.IServiceRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
+import com.exe101.vaccine.repository.IVaccineRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.security.core.Authentication;
@@ -30,8 +36,10 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
     private static final int MAX_SCROLL_SIZE = 50;
 
     private final IServiceRepository serviceRepository;
+    private final IServiceCategoryRepository serviceCategoryRepository;
     private final IShopMemberRepository shopMemberRepository;
     private final FileUploadUtil fileUploadUtil;
+    private final IVaccineRepository vaccineRepository;
 
     @Override
     public List<ServiceDTO> getAll() {
@@ -42,6 +50,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             Long shopId,
             String search,
             Long categoryId,
+            ServiceType serviceType,
+            VeterinaryServiceType veterinaryServiceType,
             Boolean active,
             Long cursor,
             int size
@@ -54,6 +64,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
                 shopId,
                 normalizedSearch,
                 categoryId,
+                serviceType,
+                veterinaryServiceType,
                 active,
                 normalizedCursor,
                 PageRequest.of(0, normalizedSize + 1)
@@ -82,6 +94,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
     public ServiceDTO create(ServiceDTO dto) {
         assertCanCreateService(dto.getShopId());
         assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), null);
+        validateVeterinaryService(dto.getServiceType(), dto.getVeterinaryServiceType(), dto.getVaccineId());
+        validateCategoryType(dto.getShopId(), dto.getCategoryId(), dto.getServiceType());
         Service entity = ServiceMapper.toEntity(dto);
         entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
         return toDTO(serviceRepository.save(entity));
@@ -90,6 +104,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
     public ServiceDTO create(Long shopId, ServiceCreateRequest request) {
         assertCanCreateService(shopId);
         assertServiceNameNotDuplicated(shopId, request.getName(), null);
+        validateVeterinaryService(request.getServiceType(), request.getVeterinaryServiceType(), request.getVaccineId());
+        validateCategoryType(shopId, request.getCategoryId(), request.getServiceType());
 
         Service entity = new Service();
         entity.setShopId(shopId);
@@ -110,7 +126,20 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         Service entity = serviceRepository.findById(id)
                 .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), id);
-        applyWriteData(entity, dto.getShopId(), dto.getName(), dto.getDurationMin(), dto.getBasePrice(), dto.getCategoryId(), dto.getActive());
+        validateVeterinaryService(dto.getServiceType(), dto.getVeterinaryServiceType(), dto.getVaccineId());
+        validateCategoryType(dto.getShopId(), dto.getCategoryId(), dto.getServiceType());
+        applyWriteData(
+                entity,
+                dto.getShopId(),
+                dto.getName(),
+                dto.getDurationMin(),
+                dto.getBasePrice(),
+                dto.getCategoryId(),
+                dto.getServiceType(),
+                dto.getVeterinaryServiceType(),
+                dto.getVaccineId(),
+                dto.getActive()
+        );
         entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
         return toDTO(serviceRepository.save(entity));
     }
@@ -119,6 +148,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         Service entity = serviceRepository.findById(id)
                 .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(shopId, request.getName(), id);
+        validateVeterinaryService(request.getServiceType(), request.getVeterinaryServiceType(), request.getVaccineId());
+        validateCategoryType(shopId, request.getCategoryId(), request.getServiceType());
 
         applyWriteData(
                 entity,
@@ -127,6 +158,9 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
                 request.getDurationMin(),
                 request.getBasePrice(),
                 request.getCategoryId(),
+                request.getServiceType(),
+                request.getVeterinaryServiceType(),
+                request.getVaccineId(),
                 request.getActive()
         );
 
@@ -148,6 +182,9 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
                 request.getDurationMin(),
                 request.getBasePrice(),
                 request.getCategoryId(),
+                request.getServiceType(),
+                request.getVeterinaryServiceType(),
+                request.getVaccineId(),
                 request.getActive()
         );
     }
@@ -159,6 +196,9 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             Integer durationMin,
             Long basePrice,
             Long categoryId,
+            ServiceType serviceType,
+            VeterinaryServiceType veterinaryServiceType,
+            Long vaccineId,
             Boolean active
     ) {
         entity.setShopId(shopId);
@@ -166,7 +206,79 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         entity.setDurationMin(durationMin);
         entity.setBasePrice(basePrice);
         entity.setCategoryId(categoryId);
+        entity.setServiceType(serviceType != null ? serviceType : ServiceType.GENERAL);
+        entity.setVeterinaryServiceType(veterinaryServiceType);
+        entity.setVaccineId(vaccineId);
         entity.setActive(active != null ? active : Boolean.TRUE);
+    }
+
+    private void validateVeterinaryService(
+            ServiceType serviceType,
+            VeterinaryServiceType veterinaryServiceType,
+            Long vaccineId
+    ) {
+        ServiceType normalizedType = serviceType != null ? serviceType : ServiceType.GENERAL;
+        if (normalizedType == ServiceType.GENERAL) {
+            if (veterinaryServiceType != null || vaccineId != null) {
+                throw new ServiceValidationException(
+                        "ServiceTypeInvalid",
+                        "Dịch vụ thường không được có thông tin thú y hoặc vaccine"
+                );
+            }
+            return;
+        }
+
+        if (veterinaryServiceType == null) {
+            throw new ServiceValidationException(
+                    "VeterinaryServiceTypeRequired",
+                    "Dịch vụ thú y phải có loại dịch vụ thú y"
+            );
+        }
+
+        if (veterinaryServiceType == VeterinaryServiceType.VACCINATION) {
+            if (vaccineId == null) {
+                throw new ServiceValidationException(
+                        "VaccineRequired",
+                        "Dịch vụ tiêm vaccine phải gắn vaccine"
+                );
+            }
+            if (!vaccineRepository.existsById(vaccineId)) {
+                throw new ServiceValidationException(
+                        "VaccineNotFound",
+                        "Không tìm thấy vaccine được gắn cho dịch vụ"
+                );
+            }
+            return;
+        }
+
+        if (vaccineId != null) {
+            throw new ServiceValidationException(
+                    "VaccineOnlyForVaccination",
+                    "Chỉ dịch vụ tiêm vaccine mới được gắn vaccine"
+            );
+        }
+    }
+
+    private void validateCategoryType(Long shopId, Long categoryId, ServiceType serviceType) {
+        if (categoryId == null) {
+            return;
+        }
+
+        ServiceType normalizedType = serviceType != null ? serviceType : ServiceType.GENERAL;
+        ServiceCategory category = serviceCategoryRepository.findByIdAndShopId(categoryId, shopId)
+                .orElseThrow(() -> new ServiceValidationException(
+                        "ServiceCategoryNotFound",
+                        "Không tìm thấy nhóm dịch vụ trong shop hiện tại"
+                ));
+
+        if (category.getServiceType() != normalizedType) {
+            throw new ServiceValidationException(
+                    "ServiceCategoryTypeMismatch",
+                    normalizedType == ServiceType.VETERINARY
+                            ? "Dịch vụ thú y phải dùng nhóm dịch vụ thú y"
+                            : "Dịch vụ spa phải dùng nhóm dịch vụ spa"
+            );
+        }
     }
 
     private String normalizeImageUrl(String imageUrl) {

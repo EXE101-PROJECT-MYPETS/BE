@@ -16,6 +16,10 @@ public class ServiceMapper {
         dto.setDurationMin(e.getDurationMin());
         dto.setBasePrice(e.getBasePrice());
         dto.setCategoryId(e.getCategoryId());
+        dto.setServiceType(e.getServiceType());
+        dto.setVeterinaryServiceType(e.getVeterinaryServiceType());
+        dto.setVaccineId(e.getVaccineId());
+        dto.setVaccineName(e.getVaccine() != null ? e.getVaccine().getName() : null);
         dto.setImageUrl(e.getImageUrl());
         dto.setActive(e.getActive());
         return dto;
@@ -30,6 +34,9 @@ public class ServiceMapper {
         e.setDurationMin(dto.getDurationMin());
         e.setBasePrice(dto.getBasePrice());
         e.setCategoryId(dto.getCategoryId());
+        e.setServiceType(dto.getServiceType());
+        e.setVeterinaryServiceType(dto.getVeterinaryServiceType());
+        e.setVaccineId(dto.getVaccineId());
         e.setImageUrl(dto.getImageUrl());
         e.setActive(dto.getActive() != null ? dto.getActive() : Boolean.TRUE);
         return e;

@@ -14,12 +14,13 @@ import java.time.OffsetDateTime;
 @Table(
         name = "service_categories",
         uniqueConstraints = {
-                @UniqueConstraint(name = "uq_service_categories_shop_name", columnNames = {"shop_id", "name"}),
+                @UniqueConstraint(name = "uq_service_categories_shop_name_type", columnNames = {"shop_id", "name", "service_type"}),
                 @UniqueConstraint(name = "uq_service_categories_shop_id", columnNames = {"shop_id", "id"})
         },
         indexes = {
                 @Index(name = "idx_service_categories_shop_active", columnList = "shop_id, active"),
-                @Index(name = "idx_service_categories_shop_sort_order", columnList = "shop_id, sort_order")
+                @Index(name = "idx_service_categories_shop_sort_order", columnList = "shop_id, sort_order"),
+                @Index(name = "idx_service_categories_shop_type_active", columnList = "shop_id, service_type, active")
         }
 )
 public class ServiceCategory {
@@ -42,6 +43,10 @@ public class ServiceCategory {
 
     @Column(name = "sort_order", nullable = false)
     private Integer sortOrder = 0;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "service_type", nullable = false, length = 50)
+    private ServiceType serviceType = ServiceType.GENERAL;
 
     @Column(name = "created_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime createdAt;

@@ -71,4 +71,6 @@ public interface IProductRepository extends JpaRepository<Product, Long> {
             @Param("cursor") Long cursor,
             Pageable pageable
     );
+
+    boolean existsByShopIdAndCategoryId(Long shopId, Long categoryId);
 }

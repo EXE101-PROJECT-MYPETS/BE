@@ -11,8 +11,14 @@ public class PetVaccinationMapper {
         if (entity == null) return null;
         return new PetVaccinationDTO(
                 entity.getId(),
+                entity.getShopId(),
                 entity.getPetId(),
                 entity.getVaccineId(),
+                entity.getVaccine() != null ? entity.getVaccine().getName() : null,
+                entity.getBookingId(),
+                entity.getBookingItemId(),
+                entity.getServiceId(),
+                entity.getMedicalRecordId(),
                 entity.getVaccinatedAt(),
                 entity.getNextDueAt(),
                 entity.getClinicName(),
@@ -27,8 +33,13 @@ public class PetVaccinationMapper {
     public static PetVaccination toEntity(PetVaccinationDTO dto) {
         if (dto == null) return null;
         PetVaccination entity = new PetVaccination();
+        entity.setShopId(dto.getShopId());
         entity.setPetId(dto.getPetId());
         entity.setVaccineId(dto.getVaccineId());
+        entity.setBookingId(dto.getBookingId());
+        entity.setBookingItemId(dto.getBookingItemId());
+        entity.setServiceId(dto.getServiceId());
+        entity.setMedicalRecordId(dto.getMedicalRecordId());
         entity.setVaccinatedAt(dto.getVaccinatedAt());
         entity.setNextDueAt(dto.getNextDueAt());
         entity.setClinicName(dto.getClinicName());

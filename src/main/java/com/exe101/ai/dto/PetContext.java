@@ -1,10 +1,6 @@
 package com.exe101.ai.dto;
 
-import lombok.AllArgsConstructor;
-import lombok.Builder;
-import lombok.Getter;
-import lombok.NoArgsConstructor;
-import lombok.Setter;
+import lombok.*;
 
 @Getter
 @Setter
@@ -25,4 +21,5 @@ public class PetContext {
     private String conditions;
     private String healthNotes;
     private String vaccinationSummary;
+    private String medicalRecordSummary;
 }

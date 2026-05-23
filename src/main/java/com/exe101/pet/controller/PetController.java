@@ -3,10 +3,13 @@ package com.exe101.pet.controller;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.pet.dto.PetDTO;
 import com.exe101.pet.service.PetService;
+import com.exe101.vaccine.dto.PetVaccinationDTO;
+import com.exe101.veterinary.dto.PetMedicalRecordDTO;
+import com.exe101.veterinary.service.PetHistoryService;
 import lombok.RequiredArgsConstructor;
-import org.springframework.security.core.Authentication;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.ModelAttribute;
@@ -25,6 +28,7 @@ import java.util.List;
 public class PetController {
 
     private final PetService petService;
+    private final PetHistoryService petHistoryService;
 
     @GetMapping
     public ResponseEntity<List<PetDTO>> getAll() {
@@ -39,7 +43,6 @@ public class PetController {
 
     @GetMapping("/customer")
     public ResponseEntity<List<PetDTO>> getAllByCustomer(Authentication authentication) {
-        // Alias for backward compatibility with old mobile route.
         Long userId = resolveUserId(authentication);
         return ResponseEntity.ok(petService.getAllByUserId(userId));
     }
@@ -51,6 +54,24 @@ public class PetController {
     ) {
         Long userId = resolveUserId(authentication);
         return ResponseEntity.ok(petService.getByIdForUser(id, userId));
+    }
+
+    @GetMapping("/{id}/medical-records")
+    public ResponseEntity<List<PetMedicalRecordDTO>> getMedicalRecords(
+            Authentication authentication,
+            @PathVariable Long id
+    ) {
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petHistoryService.getMedicalRecordsForUser(id, userId));
+    }
+
+    @GetMapping("/{id}/vaccinations")
+    public ResponseEntity<List<PetVaccinationDTO>> getVaccinations(
+            Authentication authentication,
+            @PathVariable Long id
+    ) {
+        Long userId = resolveUserId(authentication);
+        return ResponseEntity.ok(petHistoryService.getVaccinationsForUser(id, userId));
     }
 
     @PostMapping(value = {"", "/my"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)

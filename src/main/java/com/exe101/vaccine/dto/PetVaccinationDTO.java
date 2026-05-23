@@ -14,8 +14,14 @@ import java.time.OffsetDateTime;
 @AllArgsConstructor
 public class PetVaccinationDTO {
     private Long id;
+    private Long shopId;
     private Long petId;
     private Long vaccineId;
+    private String vaccineName;
+    private Long bookingId;
+    private Long bookingItemId;
+    private Long serviceId;
+    private Long medicalRecordId;
     private LocalDate vaccinatedAt;
     private LocalDate nextDueAt;
     private String clinicName;

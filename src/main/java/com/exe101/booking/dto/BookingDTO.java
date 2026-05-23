@@ -8,7 +8,6 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.OffsetDateTime;
-import java.util.List;
 
 @Getter
 @Setter
@@ -19,6 +18,7 @@ public class BookingDTO {
     private Long shopId;
     private Long userId;
     private Long customerId;
+    private Long petId;
     private OffsetDateTime startAt;
     private OffsetDateTime endAt;
     private BookingStatus status;
@@ -27,6 +27,4 @@ public class BookingDTO {
     private Long createdBy;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
-    private List<Long> assignedStaffIds;
-    private List<BookingStaffDTO> assignedStaffs;
 }
