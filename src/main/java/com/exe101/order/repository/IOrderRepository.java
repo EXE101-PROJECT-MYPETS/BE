@@ -33,15 +33,15 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
     @Query("""
             SELECT o
             FROM CustomerOrder o
-            WHERE (:shopId IS NULL OR o.shopId = :shopId)
-              AND (:userId IS NULL OR o.userId = :userId)
-              AND (:customerId IS NULL OR o.customerId = :customerId)
-              AND (:status IS NULL OR o.status = :status)
-              AND (:source IS NULL OR o.source = :source)
-              AND (:createdFrom IS NULL OR o.createdAt >= :createdFrom)
-              AND (:createdTo IS NULL OR o.createdAt < :createdTo)
+            WHERE (cast(:shopId as string) IS NULL OR o.shopId = :shopId)
+              AND (cast(:userId as string) IS NULL OR o.userId = :userId)
+              AND (cast(:customerId as string) IS NULL OR o.customerId = :customerId)
+              AND (cast(:status as string) IS NULL OR o.status = :status)
+              AND (cast(:source as string) IS NULL OR o.source = :source)
+              AND (cast(:createdFrom as string) IS NULL OR o.createdAt >= :createdFrom)
+              AND (cast(:createdTo as string) IS NULL OR o.createdAt < :createdTo)
               AND (
-                :cursorId IS NULL
+                cast(:cursorId as string) IS NULL
                 OR (
                   CASE
                     WHEN o.status = :pendingStatus THEN 0
