@@ -25,4 +25,26 @@ public class UserAddressMapper {
                 entity.getUpdatedAt()
         );
     }
+
+    public static UserAddress toEntity(UserAddressDTO dto) {
+        if (dto == null) return null;
+        UserAddress entity = new UserAddress();
+        updateEntity(entity, dto);
+        return entity;
+    }
+
+    public static void updateEntity(UserAddress entity, UserAddressDTO dto) {
+        entity.setName(trim(dto.getName()));
+        entity.setTel(trim(dto.getTel()));
+        entity.setAddress(trim(dto.getAddress()));
+        entity.setProvince(trim(dto.getProvince()));
+        entity.setDistrict(trim(dto.getDistrict()));
+        entity.setWard(trim(dto.getWard()));
+        entity.setHamlet(trim(dto.getHamlet()));
+        entity.setDefaultAddress(Boolean.TRUE.equals(dto.getDefaultAddress()));
+    }
+
+    private static String trim(String value) {
+        return value != null ? value.trim() : null;
+    }
 }

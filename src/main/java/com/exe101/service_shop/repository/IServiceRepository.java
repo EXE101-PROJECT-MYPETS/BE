@@ -43,6 +43,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             WHERE (:shopId IS NULL OR s.shopId = :shopId)
               AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
               AND (:categoryId IS NULL OR s.categoryId = :categoryId)
+              AND (:serviceType IS NULL OR s.serviceType = :serviceType)
               AND (:active IS NULL OR s.active = :active)
               AND (:cursor IS NULL OR s.id < :cursor)
             GROUP BY s
@@ -53,6 +54,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             @Param("shopId") Long shopId,
             @Param("search") String search,
             @Param("categoryId") Long categoryId,
+            @Param("serviceType") ServiceType serviceType,
             @Param("active") Boolean active,
             @Param("minRating") Double minRating,
             @Param("cursor") Long cursor,
@@ -87,6 +89,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
                 WHERE (:shopId IS NULL OR s.shop_id = :shopId)
                   AND (:search IS NULL OR LOWER(s.name) LIKE CONCAT('%', LOWER(:search), '%'))
                   AND (:categoryId IS NULL OR s.category_id = :categoryId)
+                  AND (:serviceType IS NULL OR s.service_type = :serviceType)
                   AND (:active IS NULL OR s.active = :active)
                   AND (:cursor IS NULL OR s.id < :cursor)
                 GROUP BY s.id, s.shop_id, sh.lat, sh.lng
@@ -114,6 +117,7 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             @Param("shopId") Long shopId,
             @Param("search") String search,
             @Param("categoryId") Long categoryId,
+            @Param("serviceType") String serviceType,
             @Param("active") Boolean active,
             @Param("minRating") Double minRating,
             @Param("cursor") Long cursor,

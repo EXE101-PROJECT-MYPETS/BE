@@ -5,6 +5,7 @@ import com.exe101.file.FileUploadUtil;
 import com.exe101.serviceReview.repository.IServiceReviewRepository;
 import com.exe101.service_shop.dto.ServicePublicDTO;
 import com.exe101.service_shop.entity.Service;
+import com.exe101.service_shop.entity.ServiceType;
 import com.exe101.service_shop.repository.IServiceRepository;
 import com.exe101.shop.entity.Shop;
 import com.exe101.shop.repository.IShopRepository;
@@ -42,6 +43,65 @@ public class ServicePublicService {
             Long cursor,
             int size
     ) {
+        return getAllForScrollByServiceType(
+                ServiceType.GENERAL,
+                shopId,
+                search,
+                categoryId,
+                active,
+                minRating,
+                lat,
+                lng,
+                radiusKm,
+                perShopLimit,
+                cursor,
+                size
+        );
+    }
+
+    public ScrollResponse<ServicePublicDTO> getVeterinaryServicesForScroll(
+            Long shopId,
+            String search,
+            Long categoryId,
+            Boolean active,
+            Double minRating,
+            Double lat,
+            Double lng,
+            Double radiusKm,
+            int perShopLimit,
+            Long cursor,
+            int size
+    ) {
+        return getAllForScrollByServiceType(
+                ServiceType.VETERINARY,
+                shopId,
+                search,
+                categoryId,
+                active,
+                minRating,
+                lat,
+                lng,
+                radiusKm,
+                perShopLimit,
+                cursor,
+                size
+        );
+    }
+
+    private ScrollResponse<ServicePublicDTO> getAllForScrollByServiceType(
+            ServiceType serviceType,
+            Long shopId,
+            String search,
+            Long categoryId,
+            Boolean active,
+            Double minRating,
+            Double lat,
+            Double lng,
+            Double radiusKm,
+            int perShopLimit,
+            Long cursor,
+            int size
+    ) {
         int normalizedSize = Math.min(Math.max(size, 1), MAX_SCROLL_SIZE);
         int normalizedPerShopLimit = Math.min(Math.max(perShopLimit, 1), MAX_PER_SHOP_LIMIT);
         Long normalizedCursor = cursor != null && cursor > 0 ? cursor : null;
@@ -53,6 +113,7 @@ public class ServicePublicService {
                     shopId,
                     normalizedSearch,
                     categoryId,
+                    serviceType == null ? null : serviceType.name(),
                     active,
                     minRating,
                     normalizedCursor,
@@ -81,6 +142,7 @@ public class ServicePublicService {
                     shopId,
                     normalizedSearch,
                     categoryId,
+                    serviceType,
                     active,
                     minRating,
                     normalizedCursor,

@@ -4,6 +4,7 @@ import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.IService;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.user.dto.UserDTO;
+import com.exe101.user.dto.UserProfileDTO;
 import com.exe101.user.dto.UserProfileUpdateRequest;
 import com.exe101.user.entity.User;
 import com.exe101.user.exception.UserDuplicate;
@@ -61,6 +62,13 @@ public class UserService implements IService<User, UserDTO, Long> {
 
     public UserDTO getCurrentUser(UserPrincipal principal) {
         return getById(getCurrentUserId(principal));
+    }
+
+    public UserProfileDTO getCurrentUserProfile(UserPrincipal principal) {
+        Long currentUserId = getCurrentUserId(principal);
+        User user = userRepository.findById(currentUserId)
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng"));
+        return userMapper.toProfileDTO(user);
     }
 
     @Transactional

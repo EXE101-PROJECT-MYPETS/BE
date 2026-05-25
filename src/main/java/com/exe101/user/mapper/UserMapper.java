@@ -1,6 +1,7 @@
 package com.exe101.user.mapper;
 
 import com.exe101.user.dto.UserDTO;
+import com.exe101.user.dto.UserProfileDTO;
 import com.exe101.user.entity.User;
 import org.springframework.stereotype.Component;
 
@@ -28,5 +29,17 @@ public class UserMapper {
         user.setFullName(dto.getFullName());
         user.setRole(dto.getRole());
         return user;
+    }
+
+    public UserProfileDTO toProfileDTO(User user) {
+        return new UserProfileDTO(
+                user.getId(),
+                user.getEmail(),
+                user.getFullName(),
+                user.getPhone(),
+                user.getAge(),
+                user.getAvatarUrlPreview(),
+                user.getStatus()
+        );
     }
 }
