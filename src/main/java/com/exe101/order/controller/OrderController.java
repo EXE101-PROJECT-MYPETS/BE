@@ -83,7 +83,14 @@ public class OrderController {
         return ResponseEntity.ok(orderService.getDetail(shopId, id));
     }
 
-
+    @PostMapping
+    public ResponseEntity<OrderDTO> create(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @Valid @RequestBody OrderDTO dto
+    ) {
+        dto.setShopId(shopId);
+        return ResponseEntity.ok(orderService.create(dto));
+    }
 
     @PutMapping("/{id}")
     public ResponseEntity<OrderDTO> update(
