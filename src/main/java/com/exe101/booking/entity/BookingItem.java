@@ -6,6 +6,8 @@ import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.OffsetDateTime;
 
@@ -29,7 +31,8 @@ public class BookingItem {
     private Long petId;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "item_type", nullable = false)
+    @JdbcTypeCode(SqlTypes.NAMED_ENUM)
+    @Column(name = "item_type", nullable = false, columnDefinition = "booking_item_type")
     private BookingItemType itemType;
 
     @Column(name = "ref_id")
