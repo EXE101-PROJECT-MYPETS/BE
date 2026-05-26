@@ -9,12 +9,16 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
 import java.util.List;
+import java.util.Optional;
 
 public interface IServiceRepository extends JpaRepository<Service, Long> {
 
     @Query("""
             SELECT s
             FROM Service s
+            LEFT JOIN FETCH s.shop
+            LEFT JOIN FETCH s.category
+            LEFT JOIN FETCH s.vaccine
             WHERE (:shopId IS NULL OR s.shopId = :shopId)
               AND (:search IS NULL OR LOWER(s.name) LIKE LOWER(CONCAT('%', CAST(:search AS string), '%')))
               AND (:categoryId IS NULL OR s.categoryId = :categoryId)
@@ -34,6 +38,16 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             @Param("cursor") Long cursor,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT s
+            FROM Service s
+            LEFT JOIN FETCH s.shop
+            LEFT JOIN FETCH s.category
+            LEFT JOIN FETCH s.vaccine
+            WHERE s.id = :id
+            """)
+    Optional<Service> findDetailById(@Param("id") Long id);
 
     @Query("""
             SELECT s

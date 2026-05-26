@@ -1,11 +1,11 @@
 package com.exe101.service_shop.service;
 
 import com.exe101.auth.model.UserPrincipal;
-import com.exe101.common.IService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
-import com.exe101.service_shop.dto.ServiceDTO;
+import com.exe101.service_shop.dto.ServiceDetailDTO;
+import com.exe101.service_shop.dto.ServiceWriteDTO;
 import com.exe101.service_shop.entity.Service;
 import com.exe101.service_shop.entity.ServiceCategory;
 import com.exe101.service_shop.entity.ServiceType;
@@ -31,7 +31,7 @@ import java.util.List;
 
 @org.springframework.stereotype.Service
 @RequiredArgsConstructor
-public class ServiceService implements IService<Service, ServiceDTO, Long> {
+public class ServiceService {
 
     private static final int MAX_SCROLL_SIZE = 50;
 
@@ -41,12 +41,11 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
     private final FileUploadUtil fileUploadUtil;
     private final IVaccineRepository vaccineRepository;
 
-    @Override
-    public List<ServiceDTO> getAll() {
-        return serviceRepository.findAll().stream().map(this::toDTO).toList();
+    public List<ServiceDetailDTO> getAll() {
+        return serviceRepository.findAll().stream().map(this::toDetailDTO).toList();
     }
 
-    public ScrollResponse<ServiceDTO> getAllForScroll(
+    public ScrollResponse<ServiceDetailDTO> getAllForScroll(
             Long shopId,
             String search,
             Long categoryId,
@@ -72,9 +71,9 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         );
 
         boolean hasNext = services.size() > normalizedSize;
-        List<ServiceDTO> content = services.stream()
+        List<ServiceDetailDTO> content = services.stream()
                 .limit(normalizedSize)
-                .map(this::toDTO)
+                .map(this::toDetailDTO)
                 .toList();
         Long nextCursor = hasNext && !content.isEmpty()
                 ? content.get(content.size() - 1).getId()
@@ -83,25 +82,26 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         return ScrollResponse.of(content, normalizedSize, nextCursor, hasNext);
     }
 
-    @Override
-    public ServiceDTO getById(Long id) {
-        return serviceRepository.findById(id)
-                .map(this::toDTO)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
+    public ServiceDetailDTO getById(Long id) {
+        return serviceRepository.findDetailById(id)
+                .map(this::toDetailDTO)
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
     }
 
-    @Override
-    public ServiceDTO create(ServiceDTO dto) {
-        assertCanCreateService(dto.getShopId());
-        assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), null);
+    public ServiceDetailDTO create(Long shopId, ServiceWriteDTO dto) {
+        assertCanCreateService(shopId);
+        assertServiceNameNotDuplicated(shopId, dto.getName(), null);
         validateVeterinaryService(dto.getServiceType(), dto.getVeterinaryServiceType(), dto.getVaccineId());
-        validateCategoryType(dto.getShopId(), dto.getCategoryId(), dto.getServiceType());
-        Service entity = ServiceMapper.toEntity(dto);
+        validateCategoryType(shopId, dto.getCategoryId(), dto.getServiceType());
+
+        Service entity = ServiceMapper.toEntity(shopId, dto);
         entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
-        return toDTO(serviceRepository.save(entity));
+
+        Service saved = serviceRepository.save(entity);
+        return getById(saved.getId());
     }
 
-    public ServiceDTO create(Long shopId, ServiceCreateRequest request) {
+    public ServiceDetailDTO create(Long shopId, ServiceCreateRequest request) {
         assertCanCreateService(shopId);
         assertServiceNameNotDuplicated(shopId, request.getName(), null);
         validateVeterinaryService(request.getServiceType(), request.getVeterinaryServiceType(), request.getVaccineId());
@@ -118,19 +118,19 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             saved = serviceRepository.save(saved);
         }
 
-        return toDTO(saved);
+        return getById(saved.getId());
     }
 
-    @Override
-    public ServiceDTO update(Long id, ServiceDTO dto) {
+    public ServiceDetailDTO update(Long id, Long shopId, ServiceWriteDTO dto) {
         Service entity = serviceRepository.findById(id)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
-        assertServiceNameNotDuplicated(dto.getShopId(), dto.getName(), id);
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
+        assertServiceNameNotDuplicated(shopId, dto.getName(), id);
         validateVeterinaryService(dto.getServiceType(), dto.getVeterinaryServiceType(), dto.getVaccineId());
-        validateCategoryType(dto.getShopId(), dto.getCategoryId(), dto.getServiceType());
+        validateCategoryType(shopId, dto.getCategoryId(), dto.getServiceType());
+
         applyWriteData(
                 entity,
-                dto.getShopId(),
+                shopId,
                 dto.getName(),
                 dto.getDurationMin(),
                 dto.getBasePrice(),
@@ -141,12 +141,14 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
                 dto.getActive()
         );
         entity.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
-        return toDTO(serviceRepository.save(entity));
+
+        Service saved = serviceRepository.save(entity);
+        return getById(saved.getId());
     }
 
-    public ServiceDTO update(Long id, Long shopId, ServiceCreateRequest request) {
+    public ServiceDetailDTO update(Long id, Long shopId, ServiceCreateRequest request) {
         Service entity = serviceRepository.findById(id)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
         assertServiceNameNotDuplicated(shopId, request.getName(), id);
         validateVeterinaryService(request.getServiceType(), request.getVeterinaryServiceType(), request.getVaccineId());
         validateCategoryType(shopId, request.getCategoryId(), request.getServiceType());
@@ -171,7 +173,8 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             entity.setImageUrl(normalizeImageUrl(request.getImageUrl()));
         }
 
-        return toDTO(serviceRepository.save(entity));
+        Service saved = serviceRepository.save(entity);
+        return getById(saved.getId());
     }
 
     private void applyWriteData(Service entity, ServiceCreateRequest request) {
@@ -222,7 +225,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             if (veterinaryServiceType != null || vaccineId != null) {
                 throw new ServiceValidationException(
                         "ServiceTypeInvalid",
-                        "Dịch vụ thường không được có thông tin thú y hoặc vaccine"
+                        "Dá»‹ch vá»¥ thÆ°á»ng khÃ´ng Ä‘Æ°á»£c cÃ³ thÃ´ng tin thÃº y hoáº·c vaccine"
                 );
             }
             return;
@@ -231,7 +234,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         if (veterinaryServiceType == null) {
             throw new ServiceValidationException(
                     "VeterinaryServiceTypeRequired",
-                    "Dịch vụ thú y phải có loại dịch vụ thú y"
+                    "Dá»‹ch vá»¥ thÃº y pháº£i cÃ³ loáº¡i dá»‹ch vá»¥ thÃº y"
             );
         }
 
@@ -239,13 +242,13 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
             if (vaccineId == null) {
                 throw new ServiceValidationException(
                         "VaccineRequired",
-                        "Dịch vụ tiêm vaccine phải gắn vaccine"
+                        "Dá»‹ch vá»¥ tiÃªm vaccine pháº£i gáº¯n vaccine"
                 );
             }
             if (!vaccineRepository.existsById(vaccineId)) {
                 throw new ServiceValidationException(
                         "VaccineNotFound",
-                        "Không tìm thấy vaccine được gắn cho dịch vụ"
+                        "KhÃ´ng tÃ¬m tháº¥y vaccine Ä‘Æ°á»£c gáº¯n cho dá»‹ch vá»¥"
                 );
             }
             return;
@@ -254,7 +257,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         if (vaccineId != null) {
             throw new ServiceValidationException(
                     "VaccineOnlyForVaccination",
-                    "Chỉ dịch vụ tiêm vaccine mới được gắn vaccine"
+                    "Chá»‰ dá»‹ch vá»¥ tiÃªm vaccine má»›i Ä‘Æ°á»£c gáº¯n vaccine"
             );
         }
     }
@@ -268,15 +271,15 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         ServiceCategory category = serviceCategoryRepository.findByIdAndShopId(categoryId, shopId)
                 .orElseThrow(() -> new ServiceValidationException(
                         "ServiceCategoryNotFound",
-                        "Không tìm thấy nhóm dịch vụ trong shop hiện tại"
+                        "KhÃ´ng tÃ¬m tháº¥y nhÃ³m dá»‹ch vá»¥ trong shop hiá»‡n táº¡i"
                 ));
 
         if (category.getServiceType() != normalizedType) {
             throw new ServiceValidationException(
                     "ServiceCategoryTypeMismatch",
                     normalizedType == ServiceType.VETERINARY
-                            ? "Dịch vụ thú y phải dùng nhóm dịch vụ thú y"
-                            : "Dịch vụ spa phải dùng nhóm dịch vụ spa"
+                            ? "Dá»‹ch vá»¥ thÃº y pháº£i dÃ¹ng nhÃ³m dá»‹ch vá»¥ thÃº y"
+                            : "Dá»‹ch vá»¥ spa pháº£i dÃ¹ng nhÃ³m dá»‹ch vá»¥ spa"
             );
         }
     }
@@ -288,16 +291,16 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         return fileUploadUtil.normalizeServiceImagePath(imageUrl.trim());
     }
 
-    private ServiceDTO toDTO(Service service) {
-        ServiceDTO dto = ServiceMapper.toDTO(service);
+    private ServiceDetailDTO toDetailDTO(Service service) {
+        ServiceDetailDTO dto = ServiceMapper.toDetailDTO(service);
         dto.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
+        dto.setShopImageUrl(fileUploadUtil.normalizeShopImagePath(dto.getShopImageUrl()));
         return dto;
     }
 
-    @Override
     public void delete(Long id) {
         if (!serviceRepository.existsById(id)) {
-            throw new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ");
+            throw new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥");
         }
         serviceRepository.deleteById(id);
     }
@@ -313,7 +316,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         if (!allowed) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Chỉ chủ shop hoặc quản lý mới được tạo dịch vụ"
+                    "Chá»‰ chá»§ shop hoáº·c quáº£n lÃ½ má»›i Ä‘Æ°á»£c táº¡o dá»‹ch vá»¥"
             );
         }
     }
@@ -323,7 +326,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Yêu cầu người dùng đã đăng nhập"
+                    "YÃªu cáº§u ngÆ°á»i dÃ¹ng Ä‘Ã£ Ä‘Äƒng nháº­p"
             );
         }
         return userPrincipal.getUser().getId();
@@ -337,7 +340,7 @@ public class ServiceService implements IService<Service, ServiceDTO, Long> {
         if (duplicated) {
             throw new ServiceDuplicate(
                     "ServiceDuplicate",
-                    "Tên dịch vụ đã tồn tại trong shop"
+                    "TÃªn dá»‹ch vá»¥ Ä‘Ã£ tá»“n táº¡i trong shop"
             );
         }
     }

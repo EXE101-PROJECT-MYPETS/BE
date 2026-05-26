@@ -2,7 +2,8 @@ package com.exe101.service_shop.controller;
 
 import com.exe101.common.ScrollResponse;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
-import com.exe101.service_shop.dto.ServiceDTO;
+import com.exe101.service_shop.dto.ServiceDetailDTO;
+import com.exe101.service_shop.dto.ServiceWriteDTO;
 import com.exe101.service_shop.entity.ServiceType;
 import com.exe101.service_shop.entity.VeterinaryServiceType;
 import com.exe101.service_shop.service.ServiceService;
@@ -20,7 +21,7 @@ public class ServiceController {
     private final ServiceService serviceService;
 
     @GetMapping("/services")
-    public ResponseEntity<ScrollResponse<ServiceDTO>> getAll(
+    public ResponseEntity<ScrollResponse<ServiceDetailDTO>> getAll(
             @RequestHeader("X-Shop-Id") Long shopId,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) Long categoryId,
@@ -43,21 +44,20 @@ public class ServiceController {
     }
 
     @GetMapping("/services/{id}")
-    public ResponseEntity<ServiceDTO> getById(@PathVariable Long id) {
+    public ResponseEntity<ServiceDetailDTO> getById(@PathVariable Long id) {
         return ResponseEntity.ok(serviceService.getById(id));
     }
 
     @PostMapping(value = "/services", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ServiceDTO> create(
+    public ResponseEntity<ServiceDetailDTO> create(
             @RequestHeader("X-Shop-Id") Long shopId,
-            @Valid @RequestBody ServiceDTO dto
+            @Valid @RequestBody ServiceWriteDTO dto
     ) {
-        dto.setShopId(shopId);
-        return ResponseEntity.ok(serviceService.create(dto));
+        return ResponseEntity.ok(serviceService.create(shopId, dto));
     }
 
     @PostMapping(value = "/services", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ServiceDTO> createMultipart(
+    public ResponseEntity<ServiceDetailDTO> createMultipart(
             @RequestHeader("X-Shop-Id") Long shopId,
             @ModelAttribute @Valid ServiceCreateRequest request
     ) {
@@ -65,17 +65,16 @@ public class ServiceController {
     }
 
     @PutMapping(value = "/services/{id}", consumes = MediaType.APPLICATION_JSON_VALUE)
-    public ResponseEntity<ServiceDTO> update(
+    public ResponseEntity<ServiceDetailDTO> update(
             @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
-            @Valid @RequestBody ServiceDTO dto
+            @Valid @RequestBody ServiceWriteDTO dto
     ) {
-        dto.setShopId(shopId);
-        return ResponseEntity.ok(serviceService.update(id, dto));
+        return ResponseEntity.ok(serviceService.update(id, shopId, dto));
     }
 
     @PutMapping(value = "/services/{id}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-    public ResponseEntity<ServiceDTO> updateMultipart(
+    public ResponseEntity<ServiceDetailDTO> updateMultipart(
             @RequestHeader("X-Shop-Id") Long shopId,
             @PathVariable Long id,
             @ModelAttribute @Valid ServiceCreateRequest request
