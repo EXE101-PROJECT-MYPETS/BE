@@ -45,4 +45,33 @@ public class ServicePublicController {
                 size
         ));
     }
+
+    @GetMapping("/veterinary")
+    public ResponseEntity<ScrollResponse<ServicePublicDTO>> getVeterinaryServices(
+            @RequestParam(required = false) Long shopId,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long categoryId,
+            @RequestParam(defaultValue = "true") Boolean active,
+            @RequestParam(required = false) Double minRating,
+            @RequestParam(required = false) Double lat,
+            @RequestParam(required = false) Double lng,
+            @RequestParam(required = false) Double radiusKm,
+            @RequestParam(defaultValue = "5") int perShopLimit,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(servicePublicService.getVeterinaryServicesForScroll(
+                shopId,
+                search,
+                categoryId,
+                active,
+                minRating,
+                lat,
+                lng,
+                radiusKm,
+                perShopLimit,
+                cursor,
+                size
+        ));
+    }
 }

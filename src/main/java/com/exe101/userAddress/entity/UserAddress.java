@@ -36,10 +36,10 @@ public class UserAddress {
     @Column(nullable = false)
     private String district;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String ward;
 
-    @Column(nullable = false)
+    @Column(nullable = true)
     private String hamlet;
 
     @Column(name = "is_default", nullable = false)
