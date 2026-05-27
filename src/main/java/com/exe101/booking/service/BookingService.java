@@ -119,7 +119,7 @@ public class BookingService {
         if (shopId == null) {
             throw new BookingValidationException(
                     "BookingShopRequired",
-                    "ThiÃ¡ÂºÂ¿u shopId Ã„â€˜Ã¡Â»Æ’ lÃ¡ÂºÂ¥y danh sÃƒÂ¡ch lÃ¡Â»â€¹ch hÃ¡ÂºÂ¹n theo ngÃƒÂ y"
+                    "Thiếu shopId để lấy danh sách lịch hẹn theo ngày"
             );
         }
         if (currentDate == null) {
@@ -1038,7 +1038,7 @@ public class BookingService {
         if (productId == null) {
             throw new BookingValidationException(
                     "BookingCheckoutProductRequired",
-                    "DÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â²ng sÃƒÆ’Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â£n phÃƒÆ’Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â©m cÃƒÆ’Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â§n cÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â³ mÃƒÆ’Ã†â€™Ãƒâ€šÃ‚Â£ sÃƒÆ’Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â£n phÃƒÆ’Ã‚Â¡Ãƒâ€šÃ‚ÂºÃƒâ€šÃ‚Â©m"
+                    "Dòng sản phẩm cần có mã sản phẩm"
             );
         }
 

@@ -7,6 +7,8 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.util.List;
+
 @Getter
 @Setter
 @NoArgsConstructor
@@ -39,4 +41,7 @@ public class ServiceDetailDTO {
 
     private String imageUrl;
     private Boolean active;
+    private Double rating;
+    private Long ratingCount;
+    private List<ServiceDetailReviewDTO> reviews;
 }

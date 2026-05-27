@@ -24,6 +24,7 @@ public class ServicePublicService {
 
     private static final int MAX_SCROLL_SIZE = 50;
     private static final int MAX_PER_SHOP_LIMIT = 20;
+    private static final int MAX_RELATED_SIZE = 20;
 
     private final IServiceRepository serviceRepository;
     private final IServiceReviewRepository serviceReviewRepository;
@@ -85,6 +86,53 @@ public class ServicePublicService {
                 perShopLimit,
                 cursor,
                 size
+        );
+    }
+
+    public ScrollResponse<ServicePublicDTO> getRelatedServices(
+            Long serviceId,
+            Long cursor,
+            int size
+    ) {
+        Service targetService = serviceRepository.findById(serviceId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy dịch vụ"));
+
+        int normalizedSize = Math.min(Math.max(size, 1), MAX_RELATED_SIZE);
+        int normalizedOffset = cursor == null || cursor < 0 ? 0 : Math.toIntExact(cursor);
+
+        List<Long> orderedServiceIds = serviceRepository.findRelatedServiceIds(
+                targetService.getId(),
+                normalizedOffset,
+                normalizedSize + 1
+        );
+        if (orderedServiceIds.isEmpty()) {
+            return ScrollResponse.of(List.of(), normalizedSize, null, false);
+        }
+
+        Map<Long, Service> serviceById = new HashMap<>();
+        for (Service service : serviceRepository.findAllById(orderedServiceIds)) {
+            serviceById.put(service.getId(), service);
+        }
+
+        List<Service> orderedServices = new ArrayList<>();
+        for (Long relatedServiceId : orderedServiceIds) {
+            Service service = serviceById.get(relatedServiceId);
+            if (service != null) {
+                orderedServices.add(service);
+            }
+        }
+
+        boolean hasNext = orderedServices.size() > normalizedSize;
+        List<Service> content = orderedServices.stream()
+                .limit(normalizedSize)
+                .toList();
+        Long nextCursor = hasNext ? (long) normalizedOffset + normalizedSize : null;
+
+        return ScrollResponse.of(
+                toPublicDTOs(content, null, null),
+                normalizedSize,
+                nextCursor,
+                hasNext
         );
     }
 

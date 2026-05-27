@@ -14,7 +14,7 @@ import java.util.List;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class OrderListItemDTO {
+public class OrderDetailDTO {
     private Long id;
     private String orderCode;
     private Long shopId;
@@ -28,9 +28,14 @@ public class OrderListItemDTO {
     private OrderShippingSnapshotDTO shippingSnapshot;
     private List<OrderItemDTO> items;
     private OrderCancelRequestDTO cancelRequest;
+    private Long subtotalAmount;
+    private Long shippingFee;
+    private Long discountAmount;
     private Long totalAmount;
     private OrderStatus status;
     private String statusLabel;
     private OrderSource source;
+    private String note;
     private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
 }

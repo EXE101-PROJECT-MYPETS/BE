@@ -13,16 +13,16 @@ import lombok.Setter;
 @Setter
 public class ServiceWriteDTO {
 
-    @NotBlank(message = "TÃªn dá»‹ch vá»¥ khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
-    @Size(max = 255, message = "TÃªn dá»‹ch vá»¥ khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 255 kÃ½ tá»±")
+    @NotBlank(message = "Tên dịch vụ không được để trống")
+    @Size(max = 255, message = "Tên dịch vụ không được vượt quá 255 ký tự")
     private String name;
 
-    @NotNull(message = "Thá»i lÆ°á»£ng dá»‹ch vá»¥ khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
-    @Min(value = 1, message = "Thá»i lÆ°á»£ng dá»‹ch vá»¥ pháº£i lá»›n hÆ¡n 0")
+    @NotNull(message = "Thời lượng dịch vụ không được để trống")
+    @Min(value = 1, message = "Thời lượng dịch vụ phải lớn hơn 0")
     private Integer durationMin;
 
-    @NotNull(message = "GiÃ¡ dá»‹ch vá»¥ khÃ´ng Ä‘Æ°á»£c Ä‘á»ƒ trá»‘ng")
-    @Min(value = 0, message = "GiÃ¡ dá»‹ch vá»¥ pháº£i lá»›n hÆ¡n hoáº·c báº±ng 0")
+    @NotNull(message = "Giá dịch vụ không được để trống")
+    @Min(value = 0, message = "Giá dịch vụ phải lớn hơn hoặc bằng 0")
     private Long basePrice;
 
     private Long categoryId;
@@ -30,7 +30,7 @@ public class ServiceWriteDTO {
     private VeterinaryServiceType veterinaryServiceType;
     private Long vaccineId;
 
-    @Size(max = 1000, message = "ÄÆ°á»ng dáº«n áº£nh khÃ´ng Ä‘Æ°á»£c vÆ°á»£t quÃ¡ 1000 kÃ½ tá»±")
+    @Size(max = 1000, message = "Đường dẫn ảnh không được vượt quá 1000 ký tự")
     private String imageUrl;
 
     private Boolean active;

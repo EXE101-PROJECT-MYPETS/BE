@@ -67,7 +67,7 @@ public class UserService implements IService<User, UserDTO, Long> {
     public UserProfileDTO getCurrentUserProfile(UserPrincipal principal) {
         Long currentUserId = getCurrentUserId(principal);
         User user = userRepository.findById(currentUserId)
-                .orElseThrow(() -> new UserNotFound("UserNotFound", "KhÃ´ng tÃ¬m tháº¥y ngÆ°á»i dÃ¹ng"));
+                .orElseThrow(() -> new UserNotFound("UserNotFound", "Không tìm thấy người dùng"));
         return userMapper.toProfileDTO(user);
     }
 

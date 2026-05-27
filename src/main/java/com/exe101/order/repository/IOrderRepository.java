@@ -23,6 +23,14 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
             SELECT o
             FROM CustomerOrder o
             WHERE o.id = :id
+            """)
+    Optional<CustomerOrder> findByIdForUpdate(@Param("id") Long id);
+
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("""
+            SELECT o
+            FROM CustomerOrder o
+            WHERE o.id = :id
               AND o.shopId = :shopId
             """)
     Optional<CustomerOrder> findByIdAndShopIdForUpdate(
