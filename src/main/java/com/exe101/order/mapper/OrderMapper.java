@@ -1,11 +1,6 @@
 package com.exe101.order.mapper;
 
-import com.exe101.order.dto.OrderDTO;
-import com.exe101.order.dto.OrderCancelRequestDTO;
-import com.exe101.order.dto.OrderDetailDTO;
-import com.exe101.order.dto.OrderItemDTO;
-import com.exe101.order.dto.OrderListItemDTO;
-import com.exe101.order.dto.OrderShippingSnapshotDTO;
+import com.exe101.order.dto.*;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
@@ -73,6 +68,9 @@ public class OrderMapper {
                 toShippingSnapshotDTO(entity),
                 items,
                 cancelRequest,
+                entity.getSubtotalAmount(),
+                entity.getShippingFee(),
+                entity.getDiscountAmount(),
                 entity.getTotalAmount(),
                 entity.getStatus(),
                 statusLabel,

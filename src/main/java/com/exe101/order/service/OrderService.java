@@ -10,19 +10,8 @@ import com.exe101.file.FileUploadUtil;
 import com.exe101.notification.dto.NotificationTargetType;
 import com.exe101.notification.dto.NotificationType;
 import com.exe101.notification.service.NotificationService;
-import com.exe101.order.dto.OrderDTO;
-import com.exe101.order.dto.OrderCancelRequestCreateDTO;
-import com.exe101.order.dto.OrderCancelRequestDTO;
-import com.exe101.order.dto.OrderCancelRequestReviewDTO;
-import com.exe101.order.dto.OrderDetailDTO;
-import com.exe101.order.dto.OrderItemDTO;
-import com.exe101.order.dto.OrderListItemDTO;
-import com.exe101.order.entity.OrderCancelRequest;
-import com.exe101.order.entity.OrderCancelRequestStatus;
-import com.exe101.order.entity.CustomerOrder;
-import com.exe101.order.entity.OrderItem;
-import com.exe101.order.entity.OrderSource;
-import com.exe101.order.entity.OrderStatus;
+import com.exe101.order.dto.*;
+import com.exe101.order.entity.*;
 import com.exe101.order.exception.OrderNotFound;
 import com.exe101.order.exception.OrderValidationException;
 import com.exe101.order.mapper.OrderMapper;
@@ -33,6 +22,9 @@ import com.exe101.product.entity.Product;
 import com.exe101.product.entity.ProductImage;
 import com.exe101.product.repository.IProductImageRepository;
 import com.exe101.product.repository.IProductRepository;
+import com.exe101.shipping.dto.ShippingWebhookLogDTO;
+import com.exe101.shipping.entity.ShippingWebhookLog;
+import com.exe101.shipping.repository.IShippingWebhookLogRepository;
 import com.exe101.shop.entity.Shop;
 import com.exe101.shop.repository.IShopRepository;
 import com.exe101.shopMember.entity.MemberStatus;
@@ -50,11 +42,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.time.ZoneId;
-import java.util.Collections;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -78,6 +66,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     private final FileUploadUtil fileUploadUtil;
     private final IOrderCancelRequestRepository orderCancelRequestRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final IShippingWebhookLogRepository shippingWebhookLogRepository;
 
     @Override
     public List<OrderDTO> getAll() {
@@ -115,6 +104,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
                 OrderStatus.CONFIRMED,
                 OrderStatus.PACKING,
                 OrderStatus.WAITING_GHTK_PICKUP,
+                OrderStatus.GHTK_PICKED_UP,
                 OrderStatus.SHIPPING,
                 OrderStatus.COMPLETED,
                 OrderStatus.CANCELLED,
@@ -147,6 +137,16 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         CustomerOrder order = orderRepository.findByIdAndShopId(id, shopId)
                 .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
         return toListItemDTOs(List.of(order)).get(0);
+    }
+
+    @Transactional(readOnly = true)
+    public List<ShippingWebhookLogDTO> getShippingWebhookLogs(Long shopId, Long orderId) {
+        CustomerOrder order = orderRepository.findByIdAndShopId(orderId, shopId)
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Khong tim thay don hang"));
+
+        return shippingWebhookLogRepository.findByOrderIdOrderByActionTimeDescIdDesc(order.getId()).stream()
+                .map(this::toShippingWebhookLogDTO)
+                .toList();
     }
 
     public OrderDetailDTO getCustomerOrderDetail(Long userId, Long id) {
@@ -422,6 +422,24 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
                 toItemDTOs(items, productsById, productImageUrlsById),
                 loadLatestCancelRequestDTO(order.getId()),
                 toStatusLabel(order.getStatus())
+        );
+    }
+
+    private ShippingWebhookLogDTO toShippingWebhookLogDTO(ShippingWebhookLog log) {
+        return new ShippingWebhookLogDTO(
+                log.getId(),
+                log.getCarrier(),
+                log.getShipmentId(),
+                log.getShopId(),
+                log.getOrderId(),
+                log.getPartnerId(),
+                log.getLabelId(),
+                log.getStatusId(),
+                log.getActionTime(),
+                log.getProcessingStatus(),
+                log.getErrorMessage(),
+                log.getRawPayloadJson(),
+                log.getCreatedAt()
         );
     }
 
@@ -821,13 +839,14 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
             return null;
         }
         return switch (status) {
-            case PENDING -> "Chờ xác nhận";
-            case CONFIRMED -> "Đã xác nhận";
-            case PACKING -> "Đang đóng gói";
-            case WAITING_GHTK_PICKUP -> "Chờ GHTK đến lấy hàng";
-            case SHIPPING -> "Đang giao";
-            case COMPLETED -> "Hoàn thành";
-            case CANCELLED -> "Đã hủy";
+            case PENDING -> "Cho xac nhan";
+            case CONFIRMED -> "Da xac nhan";
+            case PACKING -> "Dang dong goi";
+            case WAITING_GHTK_PICKUP -> "Cho GHTK den lay hang";
+            case GHTK_PICKED_UP -> "GHTK da lay hang";
+            case SHIPPING -> "Dang giao";
+            case COMPLETED -> "Hoan thanh";
+            case CANCELLED -> "Da huy";
         };
     }
 
@@ -843,19 +862,19 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
 
     private int toSortPriority(OrderStatus status) {
         if (status == null) {
-            return 6;
+            return 7;
         }
         return switch (status) {
             case PENDING -> 0;
             case CONFIRMED -> 1;
             case PACKING -> 2;
             case WAITING_GHTK_PICKUP -> 3;
-            case SHIPPING -> 4;
-            case COMPLETED -> 5;
-            case CANCELLED -> 6;
+            case GHTK_PICKED_UP -> 4;
+            case SHIPPING -> 5;
+            case COMPLETED -> 6;
+            case CANCELLED -> 7;
         };
     }
-
     private Map<Long, OrderCancelRequestDTO> loadLatestCancelRequestsByOrderId(List<Long> orderIds) {
         if (orderIds == null || orderIds.isEmpty()) {
             return Map.of();

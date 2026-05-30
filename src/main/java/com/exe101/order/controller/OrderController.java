@@ -2,16 +2,12 @@ package com.exe101.order.controller;
 
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.ScrollResponse;
-import com.exe101.order.dto.OrderCancelRequestCreateDTO;
-import com.exe101.order.dto.OrderCancelRequestDTO;
-import com.exe101.order.dto.OrderCancelRequestReviewDTO;
-import com.exe101.order.dto.OrderDetailDTO;
-import com.exe101.order.dto.OrderDTO;
-import com.exe101.order.dto.OrderListItemDTO;
+import com.exe101.order.dto.*;
 import com.exe101.order.entity.OrderCancelRequestStatus;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.service.OrderService;
+import com.exe101.shipping.dto.ShippingWebhookLogDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -135,6 +131,14 @@ public class OrderController {
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(orderService.getDetail(shopId, id));
+    }
+
+    @GetMapping("/{id}/shipment/logs")
+    public ResponseEntity<List<ShippingWebhookLogDTO>> getShippingWebhookLogs(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.getShippingWebhookLogs(shopId, id));
     }
 
     @PostMapping

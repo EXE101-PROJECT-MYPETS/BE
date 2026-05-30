@@ -45,7 +45,7 @@ public class Product {
     private Long price = 0L;
 
     @Column(name = "weight_kg", nullable = false, precision = 10, scale = 3)
-    private BigDecimal weightKg = new BigDecimal("0.100");
+    private BigDecimal weightKg = new BigDecimal("100");
 
     @Column(nullable = false)
     private Boolean active = true;

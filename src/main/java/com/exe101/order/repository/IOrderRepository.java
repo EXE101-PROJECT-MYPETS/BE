@@ -56,9 +56,10 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
                     WHEN o.status = :confirmedStatus THEN 1
                     WHEN o.status = :packingStatus THEN 2
                     WHEN o.status = :waitingGhtkPickupStatus THEN 3
-                    WHEN o.status = :shippingStatus THEN 4
-                    WHEN o.status = :completedStatus THEN 5
-                    WHEN o.status = :cancelledStatus THEN 6
+                    WHEN o.status = :ghtkPickedUpStatus THEN 4
+                    WHEN o.status = :shippingStatus THEN 5
+                    WHEN o.status = :completedStatus THEN 6
+                    WHEN o.status = :cancelledStatus THEN 7
                     ELSE 7
                   END
                 ) > :cursorPriority
@@ -69,9 +70,10 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
                       WHEN o.status = :confirmedStatus THEN 1
                       WHEN o.status = :packingStatus THEN 2
                       WHEN o.status = :waitingGhtkPickupStatus THEN 3
-                      WHEN o.status = :shippingStatus THEN 4
-                      WHEN o.status = :completedStatus THEN 5
-                      WHEN o.status = :cancelledStatus THEN 6
+                      WHEN o.status = :ghtkPickedUpStatus THEN 4
+                      WHEN o.status = :shippingStatus THEN 5
+                      WHEN o.status = :completedStatus THEN 6
+                      WHEN o.status = :cancelledStatus THEN 7
                       ELSE 7
                     END
                   ) = :cursorPriority
@@ -87,9 +89,10 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
                 WHEN o.status = :confirmedStatus THEN 1
                 WHEN o.status = :packingStatus THEN 2
                 WHEN o.status = :waitingGhtkPickupStatus THEN 3
-                WHEN o.status = :shippingStatus THEN 4
-                WHEN o.status = :completedStatus THEN 5
-                WHEN o.status = :cancelledStatus THEN 6
+                WHEN o.status = :ghtkPickedUpStatus THEN 4
+                WHEN o.status = :shippingStatus THEN 5
+                WHEN o.status = :completedStatus THEN 6
+                WHEN o.status = :cancelledStatus THEN 7
                 ELSE 7
               END ASC,
               o.createdAt DESC,
@@ -110,6 +113,7 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
             @Param("confirmedStatus") OrderStatus confirmedStatus,
             @Param("packingStatus") OrderStatus packingStatus,
             @Param("waitingGhtkPickupStatus") OrderStatus waitingGhtkPickupStatus,
+            @Param("ghtkPickedUpStatus") OrderStatus ghtkPickedUpStatus,
             @Param("shippingStatus") OrderStatus shippingStatus,
             @Param("completedStatus") OrderStatus completedStatus,
             @Param("cancelledStatus") OrderStatus cancelledStatus,
