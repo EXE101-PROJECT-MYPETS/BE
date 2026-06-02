@@ -1,13 +1,7 @@
 package com.exe101.search.service;
 
 import com.exe101.file.FileUploadUtil;
-import com.exe101.search.dto.SearchHistoryResponse;
-import com.exe101.search.dto.SearchInitialResponse;
-import com.exe101.search.dto.SearchItemDTO;
-import com.exe101.search.dto.SearchItemType;
-import com.exe101.search.dto.SearchPageResponse;
-import com.exe101.search.dto.SearchSortType;
-import com.exe101.search.dto.SearchSuggestionsResponse;
+import com.exe101.search.dto.*;
 import com.exe101.search.entity.SearchHistory;
 import com.exe101.search.repository.ISearchHistoryRepository;
 import jakarta.persistence.EntityManager;
@@ -16,13 +10,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.text.Normalizer;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 @RequiredArgsConstructor
@@ -65,11 +55,11 @@ public class SearchService {
         }
         Map<String, String> dedup = new LinkedHashMap<>();
         for (String value : getKeywordSuggestionsFromHistory(normalizedKeyword, normalizedSize)) {
-            dedup.putIfAbsent(value.toLowerCase(Locale.ROOT), value);
+            dedup.putIfAbsent(normalizeSearchKeyword(value), value);
         }
         if (dedup.size() < normalizedSize) {
             for (String value : getKeywordSuggestionsFromCatalog(normalizedKeyword, lat, lng, radiusKm, normalizedSize * 2)) {
-                dedup.putIfAbsent(value.toLowerCase(Locale.ROOT), value);
+                dedup.putIfAbsent(normalizeSearchKeyword(value), value);
                 if (dedup.size() >= normalizedSize) {
                     break;
                 }
@@ -77,7 +67,7 @@ public class SearchService {
         }
         if (dedup.isEmpty() && radiusKm != null) {
             for (String value : getKeywordSuggestionsFromCatalog(normalizedKeyword, lat, lng, null, normalizedSize * 2)) {
-                dedup.putIfAbsent(value.toLowerCase(Locale.ROOT), value);
+                dedup.putIfAbsent(normalizeSearchKeyword(value), value);
                 if (dedup.size() >= normalizedSize) {
                     break;
                 }
@@ -321,7 +311,7 @@ public class SearchService {
     private String buildProductSubQuery(boolean hasKeyword, boolean hasLocation, boolean hasRadius) {
         String keywordFilter = hasKeyword
                 ? """
-                        AND LOWER(p.name) LIKE :keywordLike
+                AND unaccent(LOWER(p.name)) LIKE :keywordLike
                         """
                 : "";
         String distanceExpr = buildDistanceExpr("sh", hasLocation);
@@ -329,9 +319,9 @@ public class SearchService {
         String relevanceExpr = hasKeyword
                 ? """
                         CASE
-                            WHEN LOWER(p.name) = :keywordExact THEN 100
-                            WHEN LOWER(p.name) LIKE :keywordPrefix THEN 90
-                            WHEN LOWER(p.name) LIKE :keywordLike THEN 80
+                    WHEN unaccent(LOWER(p.name)) = :keywordExact THEN 100
+                    WHEN unaccent(LOWER(p.name)) LIKE :keywordPrefix THEN 90
+                    WHEN unaccent(LOWER(p.name)) LIKE :keywordLike THEN 80
                             ELSE 10
                         END
                         """
@@ -388,7 +378,7 @@ public class SearchService {
     private String buildServiceSubQuery(boolean hasKeyword, boolean hasLocation, boolean hasRadius) {
         String keywordFilter = hasKeyword
                 ? """
-                        AND LOWER(s.name) LIKE :keywordLike
+                AND unaccent(LOWER(s.name)) LIKE :keywordLike
                         """
                 : "";
         String distanceExpr = buildDistanceExpr("sh", hasLocation);
@@ -396,9 +386,9 @@ public class SearchService {
         String relevanceExpr = hasKeyword
                 ? """
                         CASE
-                            WHEN LOWER(s.name) = :keywordExact THEN 100
-                            WHEN LOWER(s.name) LIKE :keywordPrefix THEN 90
-                            WHEN LOWER(s.name) LIKE :keywordLike THEN 80
+                    WHEN unaccent(LOWER(s.name)) = :keywordExact THEN 100
+                    WHEN unaccent(LOWER(s.name)) LIKE :keywordPrefix THEN 90
+                    WHEN unaccent(LOWER(s.name)) LIKE :keywordLike THEN 80
                             ELSE 10
                         END
                         """
@@ -455,14 +445,14 @@ public class SearchService {
                                 FROM prod.products p
                                 WHERE p.shop_id = sh.id
                                   AND p.active = true
-                                  AND LOWER(p.name) LIKE :keywordLike
+                          AND unaccent(LOWER(p.name)) LIKE :keywordLike
                             )
                             OR EXISTS (
                                 SELECT 1
                                 FROM prod.services s
                                 WHERE s.shop_id = sh.id
                                   AND s.active = true
-                                  AND LOWER(s.name) LIKE :keywordLike
+                          AND unaccent(LOWER(s.name)) LIKE :keywordLike
                             )
                         )
                         """
@@ -477,14 +467,14 @@ public class SearchService {
                                 FROM prod.products p
                                 WHERE p.shop_id = sh.id
                                   AND p.active = true
-                                  AND LOWER(p.name) LIKE :keywordLike
+                          AND unaccent(LOWER(p.name)) LIKE :keywordLike
                             ) THEN 80
                             WHEN EXISTS (
                                 SELECT 1
                                 FROM prod.services s
                                 WHERE s.shop_id = sh.id
                                   AND s.active = true
-                                  AND LOWER(s.name) LIKE :keywordLike
+                          AND unaccent(LOWER(s.name)) LIKE :keywordLike
                             ) THEN 70
                             ELSE 10
                         END
@@ -578,9 +568,10 @@ public class SearchService {
 
     private void applySqlParameters(Query query, SqlPack sqlPack, boolean includePaging) {
         if (sqlPack.hasKeyword()) {
-            query.setParameter("keywordExact", sqlPack.keyword());
-            query.setParameter("keywordPrefix", sqlPack.keyword() + "%");
-            query.setParameter("keywordLike", "%" + sqlPack.keyword() + "%");
+            String searchKeyword = normalizeSearchKeyword(sqlPack.keyword());
+            query.setParameter("keywordExact", searchKeyword);
+            query.setParameter("keywordPrefix", searchKeyword + "%");
+            query.setParameter("keywordLike", "%" + searchKeyword + "%");
         }
         if (sqlPack.hasLocation()) {
             query.setParameter("lat", sqlPack.lat());
@@ -648,12 +639,12 @@ public class SearchService {
         Query query = entityManager.createNativeQuery("""
                 SELECT MIN(s.keyword) AS keyword
                 FROM prod.search_histories s
-                WHERE LOWER(s.keyword) LIKE :keywordLike
+                WHERE unaccent(LOWER(s.keyword)) LIKE :keywordLike
                 GROUP BY LOWER(TRIM(s.keyword))
                 ORDER BY SUM(s.search_count) DESC, MAX(s.last_searched_at) DESC
                 LIMIT :limit
                 """);
-        query.setParameter("keywordLike", "%" + keyword + "%");
+        query.setParameter("keywordLike", "%" + normalizeSearchKeyword(keyword) + "%");
         query.setParameter("limit", limit);
         @SuppressWarnings("unchecked")
         List<Object> rows = query.getResultList();
@@ -676,12 +667,12 @@ public class SearchService {
                         SELECT DISTINCT p.name AS value
                         FROM prod.products p
                         WHERE p.active = true
-                          AND LOWER(p.name) LIKE :keywordLike
+                          AND unaccent(LOWER(p.name)) LIKE :keywordLike
                         UNION
                         SELECT DISTINCT s.name AS value
                         FROM prod.services s
                         WHERE s.active = true
-                          AND LOWER(s.name) LIKE :keywordLike
+                          AND unaccent(LOWER(s.name)) LIKE :keywordLike
                     ) suggestion_values
                     ORDER BY value ASC
                     LIMIT :limit
@@ -695,14 +686,14 @@ public class SearchService {
                         FROM prod.products p
                         JOIN prod.shops sh ON sh.id = p.shop_id
                         WHERE p.active = true
-                          AND LOWER(p.name) LIKE :keywordLike
+                          AND unaccent(LOWER(p.name)) LIKE :keywordLike
                         %s
                         UNION ALL
                         SELECT s.name AS value, %s AS distance_km
                         FROM prod.services s
                         JOIN prod.shops sh ON sh.id = s.shop_id
                         WHERE s.active = true
-                          AND LOWER(s.name) LIKE :keywordLike
+                          AND unaccent(LOWER(s.name)) LIKE :keywordLike
                         %s
                     ),
                     ranked AS (
@@ -726,7 +717,7 @@ public class SearchService {
                 query.setParameter("radiusKm", radiusKm);
             }
         }
-        query.setParameter("keywordLike", "%" + keyword + "%");
+        query.setParameter("keywordLike", "%" + normalizeSearchKeyword(keyword) + "%");
         query.setParameter("limit", limit);
         @SuppressWarnings("unchecked")
         List<Object> rows = query.getResultList();
@@ -751,6 +742,17 @@ public class SearchService {
             throw new IllegalArgumentException("keyword không được vượt quá 255 ký tự");
         }
         return normalized;
+    }
+
+    private String normalizeSearchKeyword(String keyword) {
+        if (keyword == null) {
+            return "";
+        }
+        String normalized = Normalizer.normalize(keyword, Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "")
+                .replace('đ', 'd')
+                .replace('Đ', 'D');
+        return normalized.toLowerCase(Locale.ROOT);
     }
 
     private void validatePaging(int page, int size) {
