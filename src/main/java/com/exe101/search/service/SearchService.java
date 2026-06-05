@@ -291,6 +291,7 @@ public class SearchService {
         String unionSql = String.join("\nUNION ALL\n", subQueries);
         String orderBy = switch (sort) {
             case NEAREST -> "CASE WHEN distance_km IS NULL THEN 1 ELSE 0 END ASC, distance_km ASC, relevance_score DESC, rating DESC, id DESC";
+            case SOLD_DESC -> "sold_count DESC, relevance_score DESC, rating DESC, id DESC";
             case PRICE_ASC -> "CASE WHEN price IS NULL THEN 1 ELSE 0 END ASC, price ASC, relevance_score DESC, rating DESC, id DESC";
             case PRICE_DESC -> "CASE WHEN price IS NULL THEN 1 ELSE 0 END ASC, price DESC, relevance_score DESC, rating DESC, id DESC";
             case RATING_DESC -> "rating DESC, sold_count DESC, relevance_score DESC, id DESC";
