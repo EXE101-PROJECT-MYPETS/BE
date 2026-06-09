@@ -558,7 +558,7 @@ public class CommissionInvoiceService {
     }
 
     private String buildInvoiceCode(Long shopId, LocalDate periodFrom, LocalDate periodTo) {
-        return "PC_" + shopId + "_" + compactDate(periodFrom) + "_" + compactDate(periodTo);
+        return "PC" + compactDate(periodTo) + String.format("%04d", shopId);
     }
 
     private String buildQrUrl(PlatformCommissionInvoice invoice) {
