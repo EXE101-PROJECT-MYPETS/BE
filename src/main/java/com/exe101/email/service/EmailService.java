@@ -22,6 +22,8 @@ import org.springframework.util.StringUtils;
 
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.Locale;
 
@@ -97,6 +99,55 @@ public class EmailService {
                 <p>Vui long kiem tra lai thong tin dang ky hoac lien he bo phan ho tro de duoc huong dan them.</p>
                 """;
         sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
+    }
+
+    public void sendPlatformCommissionInvoiceCreated(
+            String to,
+            String ownerName,
+            String shopName,
+            String invoiceCode,
+            LocalDate periodFrom,
+            LocalDate periodTo,
+            Long totalCommissionAmount,
+            OffsetDateTime dueAt,
+            String bankCode,
+            String accountNumber,
+            String accountName,
+            String transferContent
+    ) {
+        String subject = "Hoa don phi nen tang " + safeText(invoiceCode);
+        String greetingName = StringUtils.hasText(ownerName) ? ownerName.trim() : "chu shop";
+        String displayShopName = StringUtils.hasText(shopName) ? shopName.trim() : "shop cua ban";
+        String body = """
+                <p>Xin chao <strong>%s</strong>,</p>
+                <p>He thong da tao hoa don phi nen tang cho shop <strong>%s</strong>.</p>
+                <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="margin:20px 0;border-collapse:collapse;border:1px solid #d8e0ec;border-radius:8px;overflow:hidden;">
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">Ma hoa don</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#111827;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">Ky tinh phi</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;">%s - %s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">So tien can thanh toan</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;font-weight:700;color:#e11d48;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">Han thanh toan</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">Ngan hang</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">So tai khoan</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;border-bottom:1px solid #e5e7eb;color:#64748b;">Chu tai khoan</td><td style="padding:12px 14px;border-bottom:1px solid #e5e7eb;">%s</td></tr>
+                  <tr><td style="padding:12px 14px;background:#f8fafc;color:#64748b;">Noi dung chuyen khoan</td><td style="padding:12px 14px;font-weight:700;color:#111827;">%s</td></tr>
+                </table>
+                <p>Vui long thanh toan dung so tien va noi dung chuyen khoan de he thong tu dong doi trang thai hoa don sang da thanh toan.</p>
+                <p>Tran trong,<br>%s</p>
+                """.formatted(
+                escapeHtml(greetingName),
+                escapeHtml(displayShopName),
+                escapeHtml(safeText(invoiceCode)),
+                escapeHtml(periodFrom != null ? periodFrom.toString() : ""),
+                escapeHtml(periodTo != null ? periodTo.toString() : ""),
+                escapeHtml(formatVnd(totalCommissionAmount)),
+                escapeHtml(dueAt != null ? dueAt.toLocalDate().toString() : ""),
+                escapeHtml(safeText(bankCode)),
+                escapeHtml(safeText(accountNumber)),
+                escapeHtml(safeText(accountName)),
+                escapeHtml(safeText(transferContent)),
+                escapeHtml(brandName)
+        );
+        sendHtml(to, subject, renderStandardEmail(subject, body));
     }
 
     @Transactional
@@ -384,6 +435,15 @@ public class EmailService {
                 .replace(">", "&gt;")
                 .replace("\"", "&quot;")
                 .replace("'", "&#39;");
+    }
+
+    private String formatVnd(Long amount) {
+        NumberFormat formatter = NumberFormat.getNumberInstance(Locale.US);
+        return formatter.format(amount != null ? amount : 0L) + " VND";
+    }
+
+    private String safeText(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "";
     }
 
     /**
