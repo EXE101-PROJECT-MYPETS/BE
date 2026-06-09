@@ -1,13 +1,9 @@
 package com.exe101.config;
 
 import com.exe101.auth.controller.JwtAuthenticationFilterController;
-import com.exe101.auth.model.UserPrincipal;
 import com.exe101.exception.CustomAccessDeniedHandler;
 import com.exe101.exception.CustomAuthenticationEntryPoint;
-import com.exe101.user.entity.User;
 import com.exe101.user.repository.IUserRepository;
-import com.exe101.userCredential.entity.CredentialProvider;
-import com.exe101.userCredential.entity.UserCredential;
 import com.exe101.userCredential.repository.IUserCredentialRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -21,7 +17,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.userdetails.UserDetailsService;
-import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
@@ -96,7 +91,8 @@ public class SecurityConfig {
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/ai/pet-health/chat",
-                                "/api/payments/sepay/ipn"
+                                "/api/payments/sepay/ipn",
+                                "/api/payments/sepay/platform-commission-ipn"
                         ).permitAll()
                         .requestMatchers(
                                 "/api/auth/**",

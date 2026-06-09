@@ -5,6 +5,7 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+import java.math.BigDecimal;
 import java.util.List;
 
 @Getter
@@ -15,6 +16,7 @@ public class ProductPublicDetailDTO {
     private Long id;
     private String name;
     private Long price;
+    private BigDecimal weightKg;
     private Long priceSale;
     private ProductPublicCategoryDTO category;
     private Long shopId;

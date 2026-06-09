@@ -27,6 +27,10 @@ public class OrderListItemDTO {
     private Long userAddressId;
     private OrderShippingSnapshotDTO shippingSnapshot;
     private List<OrderItemDTO> items;
+    private OrderCancelRequestDTO cancelRequest;
+    private Long subtotalAmount;
+    private Long shippingFee;
+    private Long discountAmount;
     private Long totalAmount;
     private OrderStatus status;
     private String statusLabel;

@@ -3,8 +3,12 @@ package com.exe101.service_shop.service;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.ScrollResponse;
 import com.exe101.file.FileUploadUtil;
+import com.exe101.serviceReview.entity.ServiceReview;
+import com.exe101.serviceReview.repository.IServiceReviewRepository;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDetailDTO;
+import com.exe101.service_shop.dto.ServiceDetailReviewDTO;
+import com.exe101.service_shop.dto.ServiceDetailReviewUserDTO;
 import com.exe101.service_shop.dto.ServiceWriteDTO;
 import com.exe101.service_shop.entity.Service;
 import com.exe101.service_shop.entity.ServiceCategory;
@@ -40,6 +44,7 @@ public class ServiceService {
     private final IShopMemberRepository shopMemberRepository;
     private final FileUploadUtil fileUploadUtil;
     private final IVaccineRepository vaccineRepository;
+    private final IServiceReviewRepository serviceReviewRepository;
 
     public List<ServiceDetailDTO> getAll() {
         return serviceRepository.findAll().stream().map(this::toDetailDTO).toList();
@@ -85,7 +90,7 @@ public class ServiceService {
     public ServiceDetailDTO getById(Long id) {
         return serviceRepository.findDetailById(id)
                 .map(this::toDetailDTO)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
     }
 
     public ServiceDetailDTO create(Long shopId, ServiceWriteDTO dto) {
@@ -123,7 +128,7 @@ public class ServiceService {
 
     public ServiceDetailDTO update(Long id, Long shopId, ServiceWriteDTO dto) {
         Service entity = serviceRepository.findById(id)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(shopId, dto.getName(), id);
         validateVeterinaryService(dto.getServiceType(), dto.getVeterinaryServiceType(), dto.getVaccineId());
         validateCategoryType(shopId, dto.getCategoryId(), dto.getServiceType());
@@ -148,7 +153,7 @@ public class ServiceService {
 
     public ServiceDetailDTO update(Long id, Long shopId, ServiceCreateRequest request) {
         Service entity = serviceRepository.findById(id)
-                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥"));
+                .orElseThrow(() -> new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ"));
         assertServiceNameNotDuplicated(shopId, request.getName(), id);
         validateVeterinaryService(request.getServiceType(), request.getVeterinaryServiceType(), request.getVaccineId());
         validateCategoryType(shopId, request.getCategoryId(), request.getServiceType());
@@ -225,7 +230,7 @@ public class ServiceService {
             if (veterinaryServiceType != null || vaccineId != null) {
                 throw new ServiceValidationException(
                         "ServiceTypeInvalid",
-                        "Dá»‹ch vá»¥ thÆ°á»ng khÃ´ng Ä‘Æ°á»£c cÃ³ thÃ´ng tin thÃº y hoáº·c vaccine"
+                        "Dịch vụ thường không được có thông tin thú y hoặc vaccine"
                 );
             }
             return;
@@ -234,7 +239,7 @@ public class ServiceService {
         if (veterinaryServiceType == null) {
             throw new ServiceValidationException(
                     "VeterinaryServiceTypeRequired",
-                    "Dá»‹ch vá»¥ thÃº y pháº£i cÃ³ loáº¡i dá»‹ch vá»¥ thÃº y"
+                    "Dịch vụ thú y phải có loại dịch vụ thú y"
             );
         }
 
@@ -242,13 +247,13 @@ public class ServiceService {
             if (vaccineId == null) {
                 throw new ServiceValidationException(
                         "VaccineRequired",
-                        "Dá»‹ch vá»¥ tiÃªm vaccine pháº£i gáº¯n vaccine"
+                        "Dịch vụ tiêm vaccine phải gắn vaccine"
                 );
             }
             if (!vaccineRepository.existsById(vaccineId)) {
                 throw new ServiceValidationException(
                         "VaccineNotFound",
-                        "KhÃ´ng tÃ¬m tháº¥y vaccine Ä‘Æ°á»£c gáº¯n cho dá»‹ch vá»¥"
+                        "Không tìm thấy vaccine được gắn cho dịch vụ"
                 );
             }
             return;
@@ -257,7 +262,7 @@ public class ServiceService {
         if (vaccineId != null) {
             throw new ServiceValidationException(
                     "VaccineOnlyForVaccination",
-                    "Chá»‰ dá»‹ch vá»¥ tiÃªm vaccine má»›i Ä‘Æ°á»£c gáº¯n vaccine"
+                    "Chỉ dịch vụ tiêm vaccine mới được gắn vaccine"
             );
         }
     }
@@ -271,15 +276,15 @@ public class ServiceService {
         ServiceCategory category = serviceCategoryRepository.findByIdAndShopId(categoryId, shopId)
                 .orElseThrow(() -> new ServiceValidationException(
                         "ServiceCategoryNotFound",
-                        "KhÃ´ng tÃ¬m tháº¥y nhÃ³m dá»‹ch vá»¥ trong shop hiá»‡n táº¡i"
+                        "Không tìm thấy nhóm dịch vụ trong shop hiện tại"
                 ));
 
         if (category.getServiceType() != normalizedType) {
             throw new ServiceValidationException(
                     "ServiceCategoryTypeMismatch",
                     normalizedType == ServiceType.VETERINARY
-                            ? "Dá»‹ch vá»¥ thÃº y pháº£i dÃ¹ng nhÃ³m dá»‹ch vá»¥ thÃº y"
-                            : "Dá»‹ch vá»¥ spa pháº£i dÃ¹ng nhÃ³m dá»‹ch vá»¥ spa"
+                            ? "Dịch vụ thú y phải dùng nhóm dịch vụ thú y"
+                            : "Dịch vụ spa phải dùng nhóm dịch vụ spa"
             );
         }
     }
@@ -295,12 +300,37 @@ public class ServiceService {
         ServiceDetailDTO dto = ServiceMapper.toDetailDTO(service);
         dto.setImageUrl(normalizeImageUrl(dto.getImageUrl()));
         dto.setShopImageUrl(fileUploadUtil.normalizeShopImagePath(dto.getShopImageUrl()));
+        List<ServiceReview> reviews = serviceReviewRepository.findByShopIdAndServiceIdOrderByIdDesc(
+                service.getShopId(),
+                service.getId()
+        );
+        dto.setReviews(reviews.stream()
+                .map(this::toDetailReviewDTO)
+                .toList());
+        dto.setRating(reviews.stream()
+                .mapToInt(ServiceReview::getRating)
+                .average()
+                .orElse(0D));
+        dto.setRatingCount((long) reviews.size());
         return dto;
+    }
+
+    private ServiceDetailReviewDTO toDetailReviewDTO(ServiceReview review) {
+        return new ServiceDetailReviewDTO(
+                review.getId(),
+                review.getRating(),
+                review.getComment(),
+                new ServiceDetailReviewUserDTO(
+                        review.getCustomerId(),
+                        review.getCustomer() != null ? review.getCustomer().getFullName() : null
+                ),
+                review.getCreatedAt()
+        );
     }
 
     public void delete(Long id) {
         if (!serviceRepository.existsById(id)) {
-            throw new ServiceNotFound("ServiceNotFound", "KhÃ´ng tÃ¬m tháº¥y dá»‹ch vá»¥");
+            throw new ServiceNotFound("ServiceNotFound", "Không tìm thấy dịch vụ");
         }
         serviceRepository.deleteById(id);
     }
@@ -316,7 +346,7 @@ public class ServiceService {
         if (!allowed) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "Chá»‰ chá»§ shop hoáº·c quáº£n lÃ½ má»›i Ä‘Æ°á»£c táº¡o dá»‹ch vá»¥"
+                    "Chỉ chủ shop hoặc quản lý mới được tạo dịch vụ"
             );
         }
     }
@@ -326,7 +356,7 @@ public class ServiceService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new ServiceAccessDenied(
                     "ServiceAccessDenied",
-                    "YÃªu cáº§u ngÆ°á»i dÃ¹ng Ä‘Ã£ Ä‘Äƒng nháº­p"
+                    "Yêu cầu người dùng đã đăng nhập"
             );
         }
         return userPrincipal.getUser().getId();
@@ -340,7 +370,7 @@ public class ServiceService {
         if (duplicated) {
             throw new ServiceDuplicate(
                     "ServiceDuplicate",
-                    "TÃªn dá»‹ch vá»¥ Ä‘Ã£ tá»“n táº¡i trong shop"
+                    "Tên dịch vụ đã tồn tại trong shop"
             );
         }
     }

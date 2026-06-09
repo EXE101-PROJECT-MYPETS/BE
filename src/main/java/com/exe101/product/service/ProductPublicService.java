@@ -3,11 +3,7 @@ package com.exe101.product.service;
 import com.exe101.common.ScrollResponse;
 import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.repository.IOrderItemRepository;
-import com.exe101.product.dto.ProductDTO;
-import com.exe101.product.dto.ProductPublicCategoryDTO;
-import com.exe101.product.dto.ProductPublicDetailDTO;
-import com.exe101.product.dto.ProductPublicReviewDTO;
-import com.exe101.product.dto.ProductPublicReviewUserDTO;
+import com.exe101.product.dto.*;
 import com.exe101.product.entity.Product;
 import com.exe101.product.exception.ProductNotFound;
 import com.exe101.product.repository.IProductRepository;
@@ -69,6 +65,7 @@ public class ProductPublicService {
                 dto.getId(),
                 dto.getName(),
                 dto.getPrice(),
+                dto.getWeightKg(),
                 null,
                 category,
                 dto.getShopId(),

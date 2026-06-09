@@ -46,7 +46,7 @@ public class ProductMapper {
         entity.setName(dto.getName());
         entity.setUnit(dto.getUnit());
         entity.setPrice(dto.getPrice() != null ? dto.getPrice() : 0L);
-        entity.setWeightKg(dto.getWeightKg() != null ? dto.getWeightKg() : new BigDecimal("0.100"));
+        entity.setWeightKg(dto.getWeightKg() != null ? dto.getWeightKg() : new BigDecimal("100"));
         entity.setActive(dto.getActive() != null ? dto.getActive() : Boolean.TRUE);
     }
 }

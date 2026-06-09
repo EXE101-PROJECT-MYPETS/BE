@@ -141,6 +141,58 @@ public interface IServiceRepository extends JpaRepository<Service, Long> {
             @Param("limit") int limit
     );
 
+    @Query(value = """
+            WITH target AS (
+                SELECT
+                    s.id,
+                    s.category_id,
+                    s.service_type,
+                    s.veterinary_service_type
+                FROM prod.services s
+                WHERE s.id = :serviceId
+            ),
+            ranked AS (
+                SELECT
+                    s.id,
+                    (
+                        CASE WHEN s.category_id = t.category_id THEN 4 ELSE 0 END
+                        + CASE WHEN s.service_type = t.service_type THEN 3 ELSE 0 END
+                        + CASE
+                            WHEN t.service_type = 'VETERINARY'
+                             AND s.veterinary_service_type = t.veterinary_service_type
+                            THEN 2
+                            ELSE 0
+                          END
+                    ) AS relevance_score,
+                    COALESCE(AVG(sr.rating), 0) AS avg_rating
+                FROM prod.services s
+                CROSS JOIN target t
+                LEFT JOIN prod.service_reviews sr
+                    ON sr.shop_id = s.shop_id
+                   AND sr.service_id = s.id
+                WHERE s.id <> t.id
+                  AND s.active = true
+                  AND s.service_type = t.service_type
+                GROUP BY
+                    s.id,
+                    s.category_id,
+                    s.service_type,
+                    s.veterinary_service_type,
+                    t.category_id,
+                    t.service_type,
+                    t.veterinary_service_type
+            )
+            SELECT r.id
+            FROM ranked r
+            ORDER BY r.relevance_score DESC, r.avg_rating DESC, r.id DESC
+            LIMIT :limit OFFSET :offset
+            """, nativeQuery = true)
+    List<Long> findRelatedServiceIds(
+            @Param("serviceId") Long serviceId,
+            @Param("offset") int offset,
+            @Param("limit") int limit
+    );
+
     boolean existsByShopIdAndName(Long shopId, String name);
 
     boolean existsByShopIdAndNameAndIdNot(Long shopId, String name, Long id);

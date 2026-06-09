@@ -2,11 +2,12 @@ package com.exe101.order.controller;
 
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.common.ScrollResponse;
-import com.exe101.order.dto.OrderDTO;
-import com.exe101.order.dto.OrderListItemDTO;
+import com.exe101.order.dto.*;
+import com.exe101.order.entity.OrderCancelRequestStatus;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.service.OrderService;
+import com.exe101.shipping.dto.ShippingWebhookLogDTO;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -15,6 +16,7 @@ import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
+import java.util.List;
 
 @RestController
 @RequestMapping("/api/orders")
@@ -68,11 +70,59 @@ public class OrderController {
     }
 
     @GetMapping("/customer/{id}")
-    public ResponseEntity<OrderListItemDTO> getCustomerOrderDetail(
+    public ResponseEntity<OrderDetailDTO> getCustomerOrderDetail(
             @AuthenticationPrincipal UserPrincipal principal,
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(orderService.getCustomerOrderDetail(getCurrentUserId(principal), id));
+    }
+
+    @PostMapping("/customer/{id}/cancel")
+    public ResponseEntity<OrderDetailDTO> cancelCustomerOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id,
+            @Valid @RequestBody(required = false) OrderCancelRequestCreateDTO request
+    ) {
+        return ResponseEntity.ok(orderService.cancelCustomerOrder(getCurrentUserId(principal), id, request));
+    }
+
+    @GetMapping("/cancel-requests")
+    public ResponseEntity<List<OrderCancelRequestDTO>> getCancelRequests(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) OrderCancelRequestStatus status
+    ) {
+        return ResponseEntity.ok(orderService.getCancelRequests(shopId, getCurrentUserId(principal), status));
+    }
+
+    @PostMapping("/cancel-requests/{requestId}/approve")
+    public ResponseEntity<OrderDetailDTO> approveCancelRequest(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long requestId,
+            @Valid @RequestBody(required = false) OrderCancelRequestReviewDTO request
+    ) {
+        return ResponseEntity.ok(orderService.approveCancelRequest(
+                shopId,
+                getCurrentUserId(principal),
+                requestId,
+                request
+        ));
+    }
+
+    @PostMapping("/cancel-requests/{requestId}/reject")
+    public ResponseEntity<OrderCancelRequestDTO> rejectCancelRequest(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long requestId,
+            @Valid @RequestBody(required = false) OrderCancelRequestReviewDTO request
+    ) {
+        return ResponseEntity.ok(orderService.rejectCancelRequest(
+                shopId,
+                getCurrentUserId(principal),
+                requestId,
+                request
+        ));
     }
 
     @GetMapping("/{id}")
@@ -81,6 +131,14 @@ public class OrderController {
             @PathVariable Long id
     ) {
         return ResponseEntity.ok(orderService.getDetail(shopId, id));
+    }
+
+    @GetMapping("/{id}/shipment/logs")
+    public ResponseEntity<List<ShippingWebhookLogDTO>> getShippingWebhookLogs(
+            @RequestHeader("X-Shop-Id") Long shopId,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.getShippingWebhookLogs(shopId, id));
     }
 
     @PostMapping

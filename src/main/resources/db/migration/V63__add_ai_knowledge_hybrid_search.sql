@@ -1,3 +1,6 @@
+CREATE
+EXTENSION IF NOT EXISTS unaccent;
+
 ALTER TABLE prod.ai_knowledge_embeddings
     ADD COLUMN IF NOT EXISTS search_text tsvector;
 
