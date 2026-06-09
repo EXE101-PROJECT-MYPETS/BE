@@ -1,5 +1,6 @@
 package com.exe101.ghtk.webhook;
 
+import com.exe101.commission.service.CommissionService;
 import com.exe101.notification.dto.NotificationTargetType;
 import com.exe101.notification.dto.NotificationType;
 import com.exe101.notification.service.NotificationService;
@@ -38,6 +39,7 @@ public class GhtkWebhookService {
     private final IOrderRepository orderRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
+    private final CommissionService commissionService;
 
     @Value("${ghtk.webhook-secret:}")
     private String webhookSecret;
@@ -153,6 +155,9 @@ public class GhtkWebhookService {
         OrderStatus previousStatus = order.getStatus();
         order.setStatus(nextStatus);
         CustomerOrder savedOrder = orderRepository.save(order);
+        if (nextStatus == OrderStatus.COMPLETED) {
+            commissionService.createCommissionIfAbsent(savedOrder);
+        }
         publishOrderStatusNotification(savedOrder, previousStatus, nextStatus);
     }
 

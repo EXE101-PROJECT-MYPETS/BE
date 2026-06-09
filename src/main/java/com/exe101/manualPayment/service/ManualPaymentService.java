@@ -1,15 +1,12 @@
 package com.exe101.manualPayment.service;
 
 import com.exe101.auth.model.UserPrincipal;
-import com.exe101.booking.entity.Booking;
-import com.exe101.booking.entity.BookingItem;
-import com.exe101.booking.entity.BookingItemType;
-import com.exe101.booking.entity.BookingStatus;
-import com.exe101.booking.entity.BookingStatusEvent;
+import com.exe101.booking.entity.*;
 import com.exe101.booking.exception.BookingNotFound;
 import com.exe101.booking.repository.IBookingItemRepository;
 import com.exe101.booking.repository.IBookingRepository;
 import com.exe101.booking.repository.IBookingStatusEventRepository;
+import com.exe101.commission.service.CommissionService;
 import com.exe101.inventory.entity.Inventory;
 import com.exe101.inventory.repository.IInventoryRepository;
 import com.exe101.invoice.entity.Invoice;
@@ -53,6 +50,7 @@ public class ManualPaymentService {
     private final IOrderItemRepository orderItemRepository;
     private final IInventoryRepository inventoryRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final CommissionService commissionService;
 
     @Transactional
     public ManualPaymentConfirmResponse confirmPayment(Long shopId, ManualPaymentConfirmRequest request) {
@@ -92,6 +90,7 @@ public class ManualPaymentService {
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
         CustomerOrder savedOrder = orderRepository.save(order);
+        commissionService.createCommissionIfAbsent(savedOrder);
 
         return new ManualPaymentConfirmResponse(
                 savedInvoice.getId(),
@@ -127,6 +126,7 @@ public class ManualPaymentService {
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
         Booking savedBooking = bookingRepository.save(booking);
+        commissionService.createCommissionIfAbsent(savedBooking);
         createBookingStatusEvent(
                 savedBooking.getShopId(),
                 savedBooking.getId(),

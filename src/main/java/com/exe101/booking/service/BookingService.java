@@ -8,6 +8,7 @@ import com.exe101.booking.mapper.BookingMapper;
 import com.exe101.booking.repository.IBookingItemRepository;
 import com.exe101.booking.repository.IBookingRepository;
 import com.exe101.booking.repository.IBookingStatusEventRepository;
+import com.exe101.commission.service.CommissionService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.customer.entity.Customer;
 import com.exe101.customer.repository.ICustomerRepository;
@@ -68,6 +69,7 @@ public class BookingService {
     private final IPetRepository petRepository;
     private final IPetMedicalRecordRepository petMedicalRecordRepository;
     private final IPetVaccinationRepository petVaccinationRepository;
+    private final CommissionService commissionService;
 
     public List<BookingListItemDTO> getAll() {
         return toListItemDTOs(bookingRepository.findAll());
@@ -1154,6 +1156,9 @@ public class BookingService {
         if (!Objects.equals(previousStatus, status)) {
             booking.setStatus(status);
             Booking saved = bookingRepository.save(booking);
+            if (status == BookingStatus.COMPLETED) {
+                commissionService.createCommissionIfAbsent(saved);
+            }
             createStatusEvent(saved.getShopId(), saved.getId(), previousStatus, status);
             return getById(saved.getId());
         }

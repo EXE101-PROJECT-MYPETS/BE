@@ -1,5 +1,6 @@
 package com.exe101.order.service;
 
+import com.exe101.commission.service.CommissionService;
 import com.exe101.common.IService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.customer.entity.Customer;
@@ -67,6 +68,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     private final IOrderCancelRequestRepository orderCancelRequestRepository;
     private final IShopMemberRepository shopMemberRepository;
     private final IShippingWebhookLogRepository shippingWebhookLogRepository;
+    private final CommissionService commissionService;
 
     @Override
     public List<OrderDTO> getAll() {
@@ -295,6 +297,8 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         CustomerOrder entity = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
 
+        OrderStatus previousStatus = entity.getStatus();
+
         validateOnlineRequestDoesNotUseCustomerAddress(
                 dto,
                 dto.getSource() != null ? dto.getSource() : entity.getSource()
@@ -320,6 +324,9 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
 
         CustomerOrder saved = orderRepository.save(entity);
+        if (previousStatus != OrderStatus.COMPLETED && saved.getStatus() == OrderStatus.COMPLETED) {
+            commissionService.createCommissionIfAbsent(saved);
+        }
         return getById(saved.getId());
     }
 
