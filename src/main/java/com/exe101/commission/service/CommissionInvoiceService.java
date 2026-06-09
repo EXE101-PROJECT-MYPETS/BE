@@ -6,11 +6,16 @@ import com.exe101.commission.repository.IPlatformCommissionInvoiceItemRepository
 import com.exe101.commission.repository.IPlatformCommissionInvoiceRepository;
 import com.exe101.commission.repository.IPlatformCommissionRepository;
 import com.exe101.common.PageResponse;
+import com.exe101.email.service.EmailService;
 import com.exe101.notification.dto.NotificationTargetType;
 import com.exe101.notification.dto.NotificationType;
 import com.exe101.notification.service.NotificationService;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.repository.IOrderRepository;
+import com.exe101.shop.entity.Shop;
+import com.exe101.shop.entity.ShopRole;
+import com.exe101.shop.repository.IShopRepository;
+import com.exe101.shopMember.dto.ShopMemberDTO;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.subscription.config.SubscriptionPaymentProperties;
@@ -23,6 +28,8 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.StringUtils;
 
 import java.math.BigDecimal;
@@ -58,8 +65,10 @@ public class CommissionInvoiceService {
     private final IPlatformCommissionInvoiceRepository invoiceRepository;
     private final IPlatformCommissionInvoiceItemRepository invoiceItemRepository;
     private final IOrderRepository orderRepository;
+    private final IShopRepository shopRepository;
     private final IShopMemberRepository shopMemberRepository;
     private final NotificationService notificationService;
+    private final EmailService emailService;
     private final SubscriptionPaymentProperties paymentProperties;
 
     @Value("${platform.commission-min-invoice-amount:100000}")
@@ -383,6 +392,7 @@ public class CommissionInvoiceService {
                 OffsetDateTime.now(BUSINESS_ZONE)
         );
         publishInvoiceCreatedNotification(savedInvoice);
+        sendInvoiceCreatedEmailsAfterCommit(savedInvoice);
         return savedInvoice;
     }
 
@@ -425,6 +435,66 @@ public class CommissionInvoiceService {
                         + " da duoc tao. Vui long thanh toan truoc ngay " + invoice.getDueAt().toLocalDate() + ".",
                 metadata
         );
+    }
+
+    private void sendInvoiceCreatedEmailsAfterCommit(PlatformCommissionInvoice invoice) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    sendInvoiceCreatedEmails(invoice);
+                }
+            });
+            return;
+        }
+        sendInvoiceCreatedEmails(invoice);
+    }
+
+    private void sendInvoiceCreatedEmails(PlatformCommissionInvoice invoice) {
+        try {
+            Shop shop = shopRepository.findById(invoice.getShopId()).orElse(null);
+            String shopName = shop != null ? shop.getName() : null;
+            Map<String, String> recipients = new LinkedHashMap<>();
+
+            List<ShopMemberDTO> owners = shopMemberRepository.findByShopIdAndRoleAndStatusForDisplay(
+                    invoice.getShopId(),
+                    ShopRole.OWNER,
+                    MemberStatus.ACTIVE
+            );
+            owners.forEach(owner -> putRecipient(
+                    recipients,
+                    owner.getUserEmail(),
+                    owner.getUserFullName()
+            ));
+
+            if (recipients.isEmpty() && shop != null) {
+                putRecipient(recipients, shop.getEmail(), null);
+            }
+
+            recipients.forEach((email, ownerName) -> emailService.sendPlatformCommissionInvoiceCreated(
+                    email,
+                    ownerName,
+                    shopName,
+                    invoice.getInvoiceCode(),
+                    invoice.getPeriodFrom(),
+                    invoice.getPeriodTo(),
+                    invoice.getTotalCommissionAmount(),
+                    invoice.getDueAt(),
+                    invoice.getBankCode(),
+                    invoice.getAccountNumber(),
+                    invoice.getAccountName(),
+                    invoice.getTransferContent()
+            ));
+        } catch (Exception ex) {
+            log.warn("Cannot send platform commission invoice email. invoiceId={}", invoice.getId(), ex);
+        }
+    }
+
+    private void putRecipient(Map<String, String> recipients, String email, String ownerName) {
+        if (!StringUtils.hasText(email)) {
+            return;
+        }
+        recipients.putIfAbsent(email.trim().toLowerCase(), ownerName);
     }
 
     private CommissionDTO toCommissionDTO(PlatformCommission commission) {
