@@ -169,7 +169,7 @@ public class CommissionInvoiceService {
     public CommissionInvoiceDTO getShopInvoice(Long shopId, Long currentUserId, Long invoiceId) {
         assertActiveShopMember(shopId, currentUserId);
         PlatformCommissionInvoice invoice = invoiceRepository.findByShopIdAndId(shopId, invoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay hoa don phi nen tang"));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn phí nền tảng"));
         return toInvoiceDTO(invoice, true);
     }
 
@@ -177,7 +177,7 @@ public class CommissionInvoiceService {
     public CommissionPaymentInfoDTO getShopInvoicePaymentInfo(Long shopId, Long currentUserId, Long invoiceId) {
         assertActiveShopMember(shopId, currentUserId);
         PlatformCommissionInvoice invoice = invoiceRepository.findByShopIdAndId(shopId, invoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay hoa don phi nen tang"));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn phí nền tảng"));
         return new CommissionPaymentInfoDTO(
                 invoice.getId(),
                 invoice.getInvoiceCode(),
@@ -245,16 +245,16 @@ public class CommissionInvoiceService {
     @Transactional
     public CommissionInvoiceDTO markInvoicePaid(Long invoiceId) {
         PlatformCommissionInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay hoa don phi nen tang"));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn phí nền tảng"));
         return toInvoiceDTO(markInvoicePaidInternal(invoice), true);
     }
 
     @Transactional
     public CommissionInvoiceDTO cancelInvoice(Long invoiceId) {
         PlatformCommissionInvoice invoice = invoiceRepository.findByIdForUpdate(invoiceId)
-                .orElseThrow(() -> new IllegalArgumentException("Khong tim thay hoa don phi nen tang"));
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy hóa đơn phí nền tảng"));
         if (invoice.getStatus() == CommissionInvoiceStatus.PAID) {
-            throw new IllegalArgumentException("Khong the huy hoa don da thanh toan");
+            throw new IllegalArgumentException("Không thể hủy hóa đơn đã thanh toán");
         }
         if (invoice.getStatus() != CommissionInvoiceStatus.CANCELED) {
             invoice.setStatus(CommissionInvoiceStatus.CANCELED);
@@ -401,7 +401,7 @@ public class CommissionInvoiceService {
             return invoice;
         }
         if (invoice.getStatus() == CommissionInvoiceStatus.CANCELED) {
-            throw new IllegalArgumentException("Khong the thanh toan hoa don da huy");
+            throw new IllegalArgumentException("Không thể thanh toán hóa đơn đã hủy");
         }
 
         OffsetDateTime now = OffsetDateTime.now(BUSINESS_ZONE);
@@ -430,9 +430,9 @@ public class CommissionInvoiceService {
                 NotificationTargetType.INVOICE,
                 invoice.getId(),
                 null,
-                "Hoa don phi nen tang da duoc tao",
-                "Hoa don phi nen tang ky " + invoice.getPeriodFrom() + " - " + invoice.getPeriodTo()
-                        + " da duoc tao. Vui long thanh toan truoc ngay " + invoice.getDueAt().toLocalDate() + ".",
+                "Hóa đơn phí nền tảng đã được tạo",
+                "Hóa đơn phí nền tảng kỳ " + invoice.getPeriodFrom() + " - " + invoice.getPeriodTo()
+                        + " đã được tạo. Vui lòng thanh toán trước ngày " + invoice.getDueAt().toLocalDate() + ".",
                 metadata
         );
     }
@@ -641,23 +641,23 @@ public class CommissionInvoiceService {
 
     private String buildSummaryMessage(boolean hasUnpaidInvoice, long unpaidAmount, OffsetDateTime nextDueDate) {
         if (!hasUnpaidInvoice) {
-            return "Shop chua co hoa don phi nen tang can thanh toan.";
+            return "Shop chưa có hóa đơn phí nền tảng cần thanh toán.";
         }
-        return "Ban co hoa don phi nen tang can thanh toan truoc ngay "
+        return "Bạn có hóa đơn phí nền tảng cần thanh toán trước ngày "
                 + nextDueDate.toLocalDate()
-                + ". Tong so tien: "
+                + ". Tổng số tiền: "
                 + unpaidAmount;
     }
 
     private void validatePeriod(LocalDate periodFrom, LocalDate periodTo) {
         if (periodFrom == null || periodTo == null || periodTo.isBefore(periodFrom)) {
-            throw new IllegalArgumentException("Ky hoa don khong hop le");
+            throw new IllegalArgumentException("Kỳ hóa đơn không hợp lệ");
         }
     }
 
     private void assertActiveShopMember(Long shopId, Long currentUserId) {
         if (shopId == null) {
-            throw new IllegalArgumentException("Can chon shop de xem cong no");
+            throw new IllegalArgumentException("Cần chọn shop để xem công nợ");
         }
         boolean allowed = currentUserId != null && shopMemberRepository.existsByShopIdAndUserIdAndStatus(
                 shopId,
@@ -665,7 +665,7 @@ public class CommissionInvoiceService {
                 MemberStatus.ACTIVE
         );
         if (!allowed) {
-            throw new IllegalArgumentException("Ban khong co quyen xem cong no cua shop nay");
+            throw new IllegalArgumentException("Bạn không có quyền xem công nợ của shop này");
         }
     }
 

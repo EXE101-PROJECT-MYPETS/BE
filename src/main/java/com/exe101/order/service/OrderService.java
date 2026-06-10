@@ -144,7 +144,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     @Transactional(readOnly = true)
     public List<ShippingWebhookLogDTO> getShippingWebhookLogs(Long shopId, Long orderId) {
         CustomerOrder order = orderRepository.findByIdAndShopId(orderId, shopId)
-                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Khong tim thay don hang"));
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
 
         return shippingWebhookLogRepository.findByOrderIdOrderByActionTimeDescIdDesc(order.getId()).stream()
                 .map(this::toShippingWebhookLogDTO)
@@ -848,12 +848,12 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         return switch (status) {
             case PENDING -> "Cho xac nhan";
             case CONFIRMED -> "Da xac nhan";
-            case PACKING -> "Dang dong goi";
+            case PACKING -> "Đang đóng gói";
             case WAITING_GHTK_PICKUP -> "Cho GHTK den lay hang";
             case GHTK_PICKED_UP -> "GHTK da lay hang";
-            case SHIPPING -> "Dang giao";
+            case SHIPPING -> "Đang giao";
             case COMPLETED -> "Hoan thanh";
-            case CANCELLED -> "Da huy";
+            case CANCELLED -> "Đã hủy";
         };
     }
 

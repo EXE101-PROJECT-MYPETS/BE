@@ -114,7 +114,7 @@ public class GhtkOrderService {
         Shop shop = shopRepository.findById(shopId)
                 .orElseThrow(() -> new GhtkValidationException(
                         "GhtkShopNotFound",
-                        "Khong tim thay shop de lay thong tin diem lay hang"));
+                        "Không tìm thấy shop để lấy thông tin điểm lấy hàng"));
         validateShopPickupInfo(shop);
 
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
@@ -775,7 +775,7 @@ public class GhtkOrderService {
         if (isBlank(shop.getName()) || isBlank(shop.getPhone()) || isBlank(shop.getAddressText())) {
             throw new GhtkValidationException(
                     "GhtkShopPickupInfoRequired",
-                    "Ho so shop can co ten, so dien thoai va dia chi de dang don GHTK");
+                    "Hồ sơ shop cần có tên, số điện thoại và địa chỉ để đăng đơn GHTK");
         }
     }
 

@@ -9,11 +9,11 @@ import lombok.Setter;
 @Setter
 public class ShopRegistrationEmailRequest {
 
-    @NotBlank(message = "Tieu de email khong duoc de trong")
-    @Size(max = 255, message = "Tieu de email khong duoc vuot qua 255 ky tu")
+    @NotBlank(message = "Tiêu đề email không được để trống")
+    @Size(max = 255, message = "Tiêu đề email không được vượt quá 255 ký tự")
     private String title;
 
-    @NotBlank(message = "Noi dung email khong duoc de trong")
-    @Size(max = 5000, message = "Noi dung email khong duoc vuot qua 5000 ky tu")
+    @NotBlank(message = "Nội dung email không được để trống")
+    @Size(max = 5000, message = "Nội dung email không được vượt quá 5000 ký tự")
     private String content;
 }

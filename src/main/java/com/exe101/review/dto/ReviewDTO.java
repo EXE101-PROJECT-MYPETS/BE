@@ -18,18 +18,18 @@ import java.time.OffsetDateTime;
 public class ReviewDTO {
     private Long id;
     private Long shopId;
-    @NotNull(message = "San pham khong duoc de trong")
+    @NotNull(message = "Sản phẩm không được để trống")
     private Long productId;
-    @NotNull(message = "Khach hang khong duoc de trong")
+    @NotNull(message = "Khách hàng không được để trống")
     private Long customerId;
     private String customerName;
 
-    @NotNull(message = "Danh gia khong duoc de trong")
+    @NotNull(message = "Đánh giá không được để trống")
     @Min(value = 1, message = "So sao phai tu 1 den 5")
     @Max(value = 5, message = "So sao phai tu 1 den 5")
     private Integer rating;
 
-    @Size(max = 2000, message = "Noi dung danh gia khong duoc vuot qua 2000 ky tu")
+    @Size(max = 2000, message = "Nội dung đánh giá không được vượt quá 2000 ký tự")
     private String comment;
 
     private OffsetDateTime createdAt;

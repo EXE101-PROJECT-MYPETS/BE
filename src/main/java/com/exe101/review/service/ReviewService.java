@@ -48,7 +48,7 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
     public ReviewDTO getById(Long id) {
         return reviewRepository.findById(id)
                 .map(ReviewMapper::toDTO)
-                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia"));
+                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá"));
     }
 
     @Override
@@ -60,7 +60,7 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
     @Override
     public ReviewDTO update(Long id, ReviewDTO dto) {
         Review entity = reviewRepository.findById(id)
-                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia"));
+                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá"));
         assertUniqueReview(dto.getShopId(), dto.getProductId(), dto.getCustomerId(), id);
         ReviewMapper.updateEntity(entity, dto);
         return ReviewMapper.toDTO(reviewRepository.save(entity));
@@ -69,7 +69,7 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
     @Override
     public void delete(Long id) {
         if (!reviewRepository.existsById(id)) {
-            throw new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia");
+            throw new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá");
         }
         reviewRepository.deleteById(id);
     }
@@ -89,7 +89,7 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
         );
 
         if (duplicated) {
-            throw new ReviewDuplicate("ReviewDuplicate", "Khach hang da danh gia san pham nay trong shop");
+            throw new ReviewDuplicate("ReviewDuplicate", "Khách hàng đã đánh giá sản phẩm này trong shop");
         }
     }
 }

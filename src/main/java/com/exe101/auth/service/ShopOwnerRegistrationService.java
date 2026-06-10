@@ -63,7 +63,7 @@ public class ShopOwnerRegistrationService {
                 null,
                 userMapper.toDTO(user),
                 shopDto,
-                "Dang ky shop thanh cong, vui long cho admin duyet"
+                "Đăng ký shop thành công, vui lòng chờ admin duyệt"
         );
     }
 

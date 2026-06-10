@@ -8,6 +8,6 @@ import lombok.Setter;
 @Setter
 public class SepayQrPaymentRequest {
 
-    @NotNull(message = "So thang thanh toan khong duoc de trong")
+    @NotNull(message = "Số tháng thanh toán không được để trống")
     private Integer months;
 }
