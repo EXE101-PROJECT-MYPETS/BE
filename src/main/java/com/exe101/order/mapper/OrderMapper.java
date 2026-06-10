@@ -58,7 +58,7 @@ public class OrderMapper {
                 entity.getShopId(),
             shopName != null && !shopName.isBlank()
                 ? shopName
-                : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng PetPee"),
+                    : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng Pawly"),
                 entity.getUserId(),
                 user != null ? user.getFullName() : null,
                 user != null ? user.getPhone() : null,
@@ -94,7 +94,7 @@ public class OrderMapper {
                 entity.getShopId(),
                 shopName != null && !shopName.isBlank()
                         ? shopName
-                        : (entity.getShopId() != null ? "Cá»­a hÃ ng #" + entity.getShopId() : "Cá»­a hÃ ng PetPee"),
+                        : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng Pawly"),
                 entity.getUserId(),
                 user != null ? user.getFullName() : null,
                 user != null ? user.getPhone() : null,

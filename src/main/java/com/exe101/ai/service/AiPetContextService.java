@@ -45,15 +45,15 @@ public class AiPetContextService {
                 .petId(pet.getId())
                 .name(defaultText(pet.getName()))
                 .species(resolveSpeciesCode(pet))
-                .speciesName(pet.getSpecies() == null ? "khong ro" : defaultText(pet.getSpecies().getName()))
+                .speciesName(pet.getSpecies() == null ? "không rõ" : defaultText(pet.getSpecies().getName()))
                 .breed(resolveBreedName(pet))
                 .age(resolveAge(pet))
-                .weight(pet.getWeightKg() == null ? "khong co" : pet.getWeightKg() + " kg")
+                .weight(pet.getWeightKg() == null ? "không có" : pet.getWeightKg() + " kg")
                 .gender(defaultText(pet.getGender()))
                 .generalNote(defaultText(pet.getNote()))
-                .allergies(healthProfile == null ? "khong co" : defaultText(healthProfile.getAllergies()))
-                .conditions(healthProfile == null ? "khong co" : defaultText(healthProfile.getConditions()))
-                .healthNotes(healthProfile == null ? "khong co" : defaultText(healthProfile.getNotes()))
+                .allergies(healthProfile == null ? "không có" : defaultText(healthProfile.getAllergies()))
+                .conditions(healthProfile == null ? "không có" : defaultText(healthProfile.getConditions()))
+                .healthNotes(healthProfile == null ? "không có" : defaultText(healthProfile.getNotes()))
                 .vaccinationSummary(buildVaccinationSummary(vaccinations))
                 .medicalRecordSummary(buildMedicalRecordSummary(medicalRecords))
                 .build();
@@ -61,7 +61,7 @@ public class AiPetContextService {
 
     public String buildPetContext(PetContext petContext) {
         StringBuilder builder = new StringBuilder();
-        builder.append("Thong tin thu cung:\n");
+        builder.append("Thông tin thú cưng:\n");
         builder.append("- Ten: ").append(defaultText(petContext.getName())).append('\n');
         builder.append("- Loai: ").append(defaultText(petContext.getSpeciesName())).append('\n');
         builder.append("- Giong: ").append(defaultText(petContext.getBreed())).append('\n');
@@ -84,13 +84,13 @@ public class AiPetContextService {
     private String buildVaccinationSummary(List<PetVaccination> vaccinations) {
         StringBuilder builder = new StringBuilder();
         if (vaccinations.isEmpty()) {
-            builder.append("- Chua co du lieu tiem phong\n");
+            builder.append("- Chưa có dữ liệu tiêm phòng\n");
         } else {
             vaccinations.stream().limit(10).forEach(vaccination -> builder
                     .append("- ")
-                    .append(vaccination.getVaccine() == null ? "Khong ro vaccine" : defaultText(vaccination.getVaccine().getName()))
-                    .append(", ngay tiem: ").append(vaccination.getVaccinatedAt())
-                    .append(", hen nhac lai: ").append(vaccination.getNextDueAt() == null ? "khong co" : vaccination.getNextDueAt())
+                    .append(vaccination.getVaccine() == null ? "Không rõ vaccine" : defaultText(vaccination.getVaccine().getName()))
+                    .append(", ngày tiêm: ").append(vaccination.getVaccinatedAt())
+                    .append(", hẹn nhắc lại: ").append(vaccination.getNextDueAt() == null ? "không có" : vaccination.getNextDueAt())
                     .append('\n'));
         }
         return builder.toString();
@@ -99,17 +99,17 @@ public class AiPetContextService {
     private String buildMedicalRecordSummary(List<PetMedicalRecord> medicalRecords) {
         StringBuilder builder = new StringBuilder();
         if (medicalRecords.isEmpty()) {
-            builder.append("- Chua co du lieu kham/thu y\n");
+            builder.append("- Chưa có dữ liệu khám/thú y\n");
         } else {
             medicalRecords.stream().limit(10).forEach(record -> builder
-                    .append("- Ngay: ").append(record.getPerformedAt() == null ? "khong ro" : record.getPerformedAt())
-                    .append(", dich vu: ").append(record.getService() == null ? "khong ro" : defaultText(record.getService().getName()))
+                    .append("- Ngày: ").append(record.getPerformedAt() == null ? "không rõ" : record.getPerformedAt())
+                    .append(", dịch vụ: ").append(record.getService() == null ? "không rõ" : defaultText(record.getService().getName()))
                     .append(", trieu chung: ").append(defaultText(record.getSymptoms()))
                     .append(", chan doan: ").append(defaultText(record.getDiagnosis()))
                     .append(", dieu tri: ").append(defaultText(record.getTreatment()))
                     .append(", ghi chu: ").append(defaultText(record.getNote()))
                     .append(", hen tai kham: ")
-                    .append(record.getFollowUpAt() == null ? "khong co" : record.getFollowUpAt())
+                    .append(record.getFollowUpAt() == null ? "không có" : record.getFollowUpAt())
                     .append('\n'));
         }
         return builder.toString();
@@ -138,7 +138,7 @@ public class AiPetContextService {
 
     private String resolveAge(Pet pet) {
         if (pet.getDob() == null) {
-            return "khong ro";
+            return "không rõ";
         }
         Period age = Period.between(pet.getDob(), LocalDate.now());
         if (age.getYears() > 0) {
@@ -162,6 +162,6 @@ public class AiPetContextService {
     }
 
     private String defaultText(String value) {
-        return value == null || value.isBlank() ? "khong co" : value;
+        return value == null || value.isBlank() ? "không có" : value;
     }
 }

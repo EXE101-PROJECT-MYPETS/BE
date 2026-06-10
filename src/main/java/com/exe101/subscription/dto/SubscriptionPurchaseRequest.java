@@ -9,7 +9,7 @@ import lombok.Setter;
 @Setter
 public class SubscriptionPurchaseRequest {
 
-    @NotNull(message = "Goi subscription khong duoc de trong")
+    @NotNull(message = "Gói subscription không được để trống")
     private Long planId;
 
     private SubscriptionPaymentMethod paymentMethod = SubscriptionPaymentMethod.BANK_TRANSFER;

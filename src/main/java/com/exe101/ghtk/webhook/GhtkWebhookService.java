@@ -1,6 +1,7 @@
 package com.exe101.ghtk.webhook;
 
 import com.exe101.commission.service.CommissionService;
+import com.exe101.email.service.EmailService;
 import com.exe101.notification.dto.NotificationTargetType;
 import com.exe101.notification.dto.NotificationType;
 import com.exe101.notification.service.NotificationService;
@@ -13,12 +14,17 @@ import com.exe101.shipping.entity.ShippingWebhookProcessingStatus;
 import com.exe101.shipping.entity.ShopOrderShipment;
 import com.exe101.shipping.repository.IShippingWebhookLogRepository;
 import com.exe101.shipping.repository.IShopOrderShipmentRepository;
+import com.exe101.user.entity.User;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.util.MultiValueMap;
 
 import java.math.BigDecimal;
@@ -34,12 +40,15 @@ import java.util.Optional;
 @RequiredArgsConstructor
 public class GhtkWebhookService {
 
+    private static final Logger log = LoggerFactory.getLogger(GhtkWebhookService.class);
+
     private final IShopOrderShipmentRepository shipmentRepository;
     private final IShippingWebhookLogRepository webhookLogRepository;
     private final IOrderRepository orderRepository;
     private final NotificationService notificationService;
     private final ObjectMapper objectMapper;
     private final CommissionService commissionService;
+    private final EmailService emailService;
 
     @Value("${ghtk.webhook-secret:}")
     private String webhookSecret;
@@ -119,7 +128,7 @@ public class GhtkWebhookService {
 
         ShipmentStatus shipmentStatus = GhtkShipmentStatusMapper.toShipmentStatus(statusId);
         if (shipmentStatus == null) {
-            markFailed(log, "GHTK status_id khong duoc ho tro: " + statusId);
+            markFailed(log, "GHTK status_id không được hỗ trợ: " + statusId);
             return;
         }
 
@@ -159,6 +168,7 @@ public class GhtkWebhookService {
             commissionService.createCommissionIfAbsent(savedOrder);
         }
         publishOrderStatusNotification(savedOrder, previousStatus, nextStatus);
+        sendOrderStatusEmail(savedOrder, nextStatus);
     }
 
     private OrderStatus toImportantOrderStatus(ShipmentStatus shipmentStatus) {
@@ -215,8 +225,8 @@ public class GhtkWebhookService {
                 NotificationTargetType.ORDER,
                 order.getId(),
                 null,
-                "Cap nhat van chuyen GHTK",
-                "Don hang " + resolveOrderCode(order) + " da chuyen sang " + toOrderStatusLabel(nextStatus),
+                "Cập nhật vận chuyển GHTK",
+                "Đơn hàng " + resolveOrderCode(order) + " đã chuyển sang " + toOrderStatusLabel(nextStatus),
                 metadata
         );
 
@@ -228,11 +238,49 @@ public class GhtkWebhookService {
                     NotificationTargetType.ORDER,
                     order.getId(),
                     null,
-                    "Cap nhat don hang",
-                    "Don hang " + resolveOrderCode(order) + " da chuyen sang " + toOrderStatusLabel(nextStatus),
+                    "Cập nhật đơn hàng",
+                    "Đơn hàng " + resolveOrderCode(order) + " đã chuyển sang " + toOrderStatusLabel(nextStatus),
                     metadata
             );
         }
+    }
+
+    private void sendOrderStatusEmail(CustomerOrder order, OrderStatus nextStatus) {
+        if (nextStatus != OrderStatus.SHIPPING && nextStatus != OrderStatus.COMPLETED) {
+            return;
+        }
+        if (order.getUserId() == null) {
+            return;
+        }
+
+        User user = order.getUser();
+        if (user == null || isBlank(user.getEmail())) {
+            return;
+        }
+
+        Runnable emailTask = () -> {
+            try {
+                if (nextStatus == OrderStatus.SHIPPING) {
+                    emailService.sendOrderShipping(user, order);
+                } else {
+                    emailService.sendOrderCompleted(user, order);
+                }
+            } catch (RuntimeException ex) {
+                log.warn("Cannot send order status email. orderId={}, status={}", order.getId(), nextStatus, ex);
+            }
+        };
+
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    emailTask.run();
+                }
+            });
+            return;
+        }
+
+        emailTask.run();
     }
 
     private Optional<ShopOrderShipment> findShipment(GhtkWebhookPayload payload) {
@@ -341,10 +389,10 @@ public class GhtkWebhookService {
 
     private String toOrderStatusLabel(OrderStatus status) {
         return switch (status) {
-            case GHTK_PICKED_UP -> "ghtk da lay hang";
-            case SHIPPING -> "dang giao";
-            case COMPLETED -> "hoan thanh";
-            case CANCELLED -> "da huy";
+            case GHTK_PICKED_UP -> "GHTK đã lấy hàng";
+            case SHIPPING -> "đang giao";
+            case COMPLETED -> "hoàn thành";
+            case CANCELLED -> "đã hủy";
             default -> status.name();
         };
     }

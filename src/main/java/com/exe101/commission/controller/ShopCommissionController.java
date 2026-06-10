@@ -102,7 +102,7 @@ public class ShopCommissionController {
 
     private Long getCurrentUserId(UserPrincipal principal) {
         if (principal == null || principal.getUser() == null) {
-            throw new IllegalArgumentException("Ban can dang nhap");
+            throw new IllegalArgumentException("Bạn cần đăng nhập");
         }
         return principal.getUser().getId();
     }
