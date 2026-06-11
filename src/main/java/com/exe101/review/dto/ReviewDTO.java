@@ -25,8 +25,8 @@ public class ReviewDTO {
     private String customerName;
 
     @NotNull(message = "Đánh giá không được để trống")
-    @Min(value = 1, message = "So sao phai tu 1 den 5")
-    @Max(value = 5, message = "So sao phai tu 1 den 5")
+    @Min(value = 1, message = "Số sao phải từ 1 đến 5")
+    @Max(value = 5, message = "Số sao phải từ 1 đến 5")
     private Integer rating;
 
     @Size(max = 2000, message = "Nội dung đánh giá không được vượt quá 2000 ký tự")
