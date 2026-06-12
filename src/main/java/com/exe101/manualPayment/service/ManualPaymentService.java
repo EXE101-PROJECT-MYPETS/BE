@@ -28,6 +28,8 @@ import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
+import com.exe101.order.service.OrderService;
+import com.exe101.booking.service.BookingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -53,6 +55,8 @@ public class ManualPaymentService {
     private final IOrderItemRepository orderItemRepository;
     private final IInventoryRepository inventoryRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final OrderService orderService;
+    private final BookingService bookingService;
 
     @Transactional
     public ManualPaymentConfirmResponse confirmPayment(Long shopId, ManualPaymentConfirmRequest request) {
@@ -92,6 +96,11 @@ public class ManualPaymentService {
 
         Invoice savedInvoice = invoiceRepository.save(invoice);
         CustomerOrder savedOrder = orderRepository.save(order);
+        try {
+            orderService.publishOrderStatusUpdatedNotification(savedOrder);
+        } catch (Exception e) {
+            // ignore/log
+        }
 
         return new ManualPaymentConfirmResponse(
                 savedInvoice.getId(),
@@ -133,6 +142,11 @@ public class ManualPaymentService {
                 previousStatus,
                 savedBooking.getStatus()
         );
+        try {
+            bookingService.publishBookingStatusUpdatedNotification(savedBooking);
+        } catch (Exception e) {
+            // ignore/log
+        }
 
         return new ManualPaymentConfirmResponse(
                 savedInvoice.getId(),

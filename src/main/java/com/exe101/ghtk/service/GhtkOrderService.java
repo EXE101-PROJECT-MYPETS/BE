@@ -15,6 +15,7 @@ import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.exception.OrderNotFound;
 import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
+import com.exe101.order.service.OrderService;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
 import com.exe101.shopGhtkConfig.entity.ShopGhtkConfig;
@@ -75,6 +76,7 @@ public class GhtkOrderService {
     private final IShopMemberRepository shopMemberRepository;
     private final GhtkConfigCryptoService cryptoService;
     private final ObjectMapper objectMapper;
+    private final OrderService orderService;
 
     private final RestTemplate restTemplate = new RestTemplate();
 
@@ -321,7 +323,12 @@ public class GhtkOrderService {
     private void markSubmittedIfAccepted(CustomerOrder order, GhtkSubmitOrderResponse response) {
         if (response.isSuccess()) {
             order.setStatus(OrderStatus.WAITING_GHTK_PICKUP);
-            orderRepository.save(order);
+            CustomerOrder saved = orderRepository.save(order);
+            try {
+                orderService.publishOrderStatusUpdatedNotification(saved);
+            } catch (Exception e) {
+                log.error("Failed to publish order status update notification", e);
+            }
         }
     }
 

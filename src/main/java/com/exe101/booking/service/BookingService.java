@@ -1144,22 +1144,46 @@ public class BookingService {
     @Transactional
     public BookingListItemDTO updateStatus(Long id, BookingStatus status) {
         if (status == null) {
-            throw new BookingValidationException("BookingStatusRequired", "Tr\u1ea1ng th\u00e1i l\u1ecbch h\u1eb9n kh\u00f4ng \u0111\u01b0\u1ee3c \u0111\u1ec3 tr\u1ed1ng");
+            throw new BookingValidationException("BookingStatusRequired", "Trạng thái lịch hẹn không được để trống");
         }
 
         Booking booking = bookingRepository.findById(id)
-                .orElseThrow(() -> new BookingNotFound("BookingNotFound", "Kh\u00f4ng t\u00ecm th\u1ea5y l\u1ecbch h\u1eb9n"));
+                .orElseThrow(() -> new BookingNotFound("BookingNotFound", "Không tìm thấy lịch hẹn"));
         BookingStatus previousStatus = booking.getStatus();
 
         if (!Objects.equals(previousStatus, status)) {
             booking.setStatus(status);
             Booking saved = bookingRepository.save(booking);
             createStatusEvent(saved.getShopId(), saved.getId(), previousStatus, status);
+            publishBookingStatusUpdatedNotification(saved);
             return getById(saved.getId());
         }
 
         return getById(booking.getId());
     }
+
+    public void publishBookingStatusUpdatedNotification(Booking booking) {
+        if (booking.getUserId() == null) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(booking.getShopId(), booking.getCustomerId());
+        User user = resolveNotificationUser(booking.getUserId());
+        String statusLabel = toStatusLabel(booking.getStatus());
+
+        notificationService.publishToUser(
+                booking.getUserId(),
+                booking.getShopId(),
+                NotificationType.BOOKING_STATUS_UPDATED,
+                NotificationTargetType.BOOKING,
+                booking.getId(),
+                null,
+                "Cập nhật lịch hẹn " + (formatBookingCode(booking.getId()) != null ? formatBookingCode(booking.getId()) : ""),
+                "Lịch hẹn của bạn đã chuyển sang trạng thái: " + statusLabel,
+                buildBookingNotificationMetadata(booking, user, customer)
+        );
+    }
+
 
     private void createStatusEvent(Long shopId, Long bookingId, BookingStatus fromStatus, BookingStatus toStatus) {
         BookingStatusEvent event = new BookingStatusEvent();
