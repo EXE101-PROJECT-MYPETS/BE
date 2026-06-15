@@ -1,9 +1,6 @@
 package com.exe101.order.mapper;
 
-import com.exe101.order.dto.OrderDTO;
-import com.exe101.order.dto.OrderItemDTO;
-import com.exe101.order.dto.OrderListItemDTO;
-import com.exe101.order.dto.OrderShippingSnapshotDTO;
+import com.exe101.order.dto.*;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.entity.OrderSource;
 import com.exe101.order.entity.OrderStatus;
@@ -51,6 +48,7 @@ public class OrderMapper {
             String shopName,
             User user,
             List<OrderItemDTO> items,
+            OrderCancelRequestDTO cancelRequest,
             String statusLabel
     ) {
         if (entity == null) return null;
@@ -60,7 +58,7 @@ public class OrderMapper {
                 entity.getShopId(),
             shopName != null && !shopName.isBlank()
                 ? shopName
-                : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng PetPee"),
+                    : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng Pawly"),
                 entity.getUserId(),
                 user != null ? user.getFullName() : null,
                 user != null ? user.getPhone() : null,
@@ -69,11 +67,53 @@ public class OrderMapper {
                 entity.getUserAddressId(),
                 toShippingSnapshotDTO(entity),
                 items,
+                cancelRequest,
+                entity.getSubtotalAmount(),
+                entity.getShippingFee(),
+                entity.getDiscountAmount(),
                 entity.getTotalAmount(),
                 entity.getStatus(),
                 statusLabel,
                 entity.getSource(),
                 entity.getCreatedAt()
+        );
+    }
+
+    public static OrderDetailDTO toDetailDTO(
+            CustomerOrder entity,
+            String shopName,
+            User user,
+            List<OrderItemDTO> items,
+            OrderCancelRequestDTO cancelRequest,
+            String statusLabel
+    ) {
+        if (entity == null) return null;
+        return new OrderDetailDTO(
+                entity.getId(),
+                entity.getOrderCode(),
+                entity.getShopId(),
+                shopName != null && !shopName.isBlank()
+                        ? shopName
+                        : (entity.getShopId() != null ? "Cửa hàng #" + entity.getShopId() : "Cửa hàng Pawly"),
+                entity.getUserId(),
+                user != null ? user.getFullName() : null,
+                user != null ? user.getPhone() : null,
+                user != null ? user.getEmail() : null,
+                user != null ? user.getAvatarUrlPreview() : null,
+                entity.getUserAddressId(),
+                toShippingSnapshotDTO(entity),
+                items,
+                cancelRequest,
+                entity.getSubtotalAmount(),
+                entity.getShippingFee(),
+                entity.getDiscountAmount(),
+                entity.getTotalAmount(),
+                entity.getStatus(),
+                statusLabel,
+                entity.getSource(),
+                entity.getNote(),
+                entity.getCreatedAt(),
+                entity.getUpdatedAt()
         );
     }
 

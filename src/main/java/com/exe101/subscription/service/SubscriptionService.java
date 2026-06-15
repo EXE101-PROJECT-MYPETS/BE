@@ -42,8 +42,11 @@ import java.util.Optional;
 public class SubscriptionService {
 
     private static final String CURRENCY = "VND";
+    private static final String FREE_PLAN_CODE = "FREE";
     private static final String MONTHLY_PLAN_CODE = "MONTHLY";
     private static final String PROVIDER_SEPAY = "SEPAY";
+    private static final String PAYMENT_COLLECTION_DISABLED_STATUS = "DISABLED";
+    private static final int FREE_ACCESS_YEARS = 100;
 
     private final ISubscriptionPlanRepository planRepository;
     private final IShopSubscriptionRepository subscriptionRepository;
@@ -54,6 +57,12 @@ public class SubscriptionService {
 
     @Transactional(readOnly = true)
     public List<SubscriptionPlanResponse> getActivePlans() {
+        if (!isPaymentCollectionEnabled()) {
+            // Tạm tắt nghiệp vụ thu tiền subscription: trả về gói miễn phí thay cho các gói cần thanh toán.
+            // Khi cần bật lại, đổi subscription.payment-collection-enabled=true để chạy lại code plan cũ bên dưới.
+            return List.of(buildFreePlanResponse());
+        }
+
         return planRepository.findByActiveTrueOrderByDurationMonthsAscIdAsc().stream()
                 .map(this::toPlanResponse)
                 .toList();
@@ -70,6 +79,14 @@ public class SubscriptionService {
     public SepayQrPaymentResponse createSepayQrPayment(Long requestedShopId, SepayQrPaymentRequest request) {
         Long shopId = resolveCurrentShopId(requestedShopId);
         int months = validateAndResolveMonths(request.getMonths());
+
+        if (!isPaymentCollectionEnabled()) {
+            // Tạm tắt tạo QR/ghi payment subscription của shop.
+            // Code SePay gốc được giữ nguyên ngay bên dưới để nâng cấp/bật lại sau.
+            resolveOrCreateSubscription(shopId);
+            return buildPaymentCollectionDisabledResponse(months);
+        }
+
         int durationDays = properties.getSubscriptionMonthlyDays() * months;
         long amount = properties.getSubscriptionMonthlyPrice() * months;
         OffsetDateTime now = OffsetDateTime.now();
@@ -115,6 +132,12 @@ public class SubscriptionService {
     @Transactional
     public SepayQrPaymentResponse getCurrentPendingPayment(Long requestedShopId) {
         Long shopId = resolveCurrentShopId(requestedShopId);
+
+        if (!isPaymentCollectionEnabled()) {
+            // Không còn thu tiền subscription nên không expose pending payment mới.
+            return null;
+        }
+
         paymentRepository.expirePendingPaymentsByShopId(shopId, OffsetDateTime.now());
         return paymentRepository
                 .findFirstByShopIdAndStatusAndExpiredAtAfterOrderByCreatedAtDesc(
@@ -129,10 +152,16 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionPaymentStatusResponse getPaymentStatus(Long requestedShopId, Long paymentId) {
         Long shopId = resolveCurrentShopId(requestedShopId);
+
+        if (!isPaymentCollectionEnabled()) {
+            // Endpoint status được giữ để frontend cũ không vỡ, nhưng payment collection đã tắt.
+            return buildPaymentCollectionDisabledStatusResponse(paymentId);
+        }
+
         SubscriptionPayment payment = paymentRepository.findByShopIdAndId(shopId, paymentId)
                 .orElseThrow(() -> new SubscriptionNotFound(
                         "SubscriptionPaymentNotFound",
-                        "Khong tim thay giao dich subscription"
+                        "Không tìm thấy giao dịch subscription"
                 ));
         expirePendingPaymentIfNeeded(payment, OffsetDateTime.now());
         return toPaymentStatusResponse(payment);
@@ -141,16 +170,22 @@ public class SubscriptionService {
     @Transactional
     public SubscriptionCancelPaymentResponse cancelPendingPayment(Long requestedShopId, Long paymentId) {
         Long shopId = resolveCurrentShopId(requestedShopId);
+
+        if (!isPaymentCollectionEnabled()) {
+            // Không tạo pending payment khi collection tắt, nên cancel chỉ trả về trạng thái disabled.
+            return buildPaymentCollectionDisabledCancelResponse(paymentId);
+        }
+
         SubscriptionPayment payment = paymentRepository.findByShopIdAndId(shopId, paymentId)
                 .orElseThrow(() -> new SubscriptionNotFound(
                         "SubscriptionPaymentNotFound",
-                        "Khong tim thay giao dich subscription"
+                        "Không tìm thấy giao dịch subscription"
                 ));
         expirePendingPaymentIfNeeded(payment, OffsetDateTime.now());
         if (payment.getStatus() != SubscriptionPaymentStatus.PENDING) {
             throw new SubscriptionValidationException(
                     "SubscriptionPaymentStatusInvalid",
-                    "Chi co the huy giao dich dang cho thanh toan"
+                    "Chỉ có thể hủy giao dịch đang chờ thanh toán"
             );
         }
 
@@ -160,13 +195,19 @@ public class SubscriptionService {
                 saved.getId(),
                 saved.getInvoiceNumber(),
                 saved.getStatus().name(),
-                "Da huy thanh toan."
+                "Đã hủy thanh toán."
         );
     }
 
     @Transactional(readOnly = true)
     public PageResponse<SubscriptionPaymentHistoryItemDTO> getPaymentHistory(Long requestedShopId, int page, int size) {
         Long shopId = resolveCurrentShopId(requestedShopId);
+
+        if (!isPaymentCollectionEnabled()) {
+            // Lịch sử payment cũ không bị xóa trong DB/code, nhưng nghiệp vụ thu tiền đang tạm ẩn.
+            return new PageResponse<>(List.of(), page, size, 0, 0, false, false);
+        }
+
         Page<SubscriptionPaymentHistoryItemDTO> payments = paymentRepository
                 .findByShopIdOrderByCreatedAtDesc(shopId, PageRequest.of(page, size))
                 .map(this::toHistoryItem);
@@ -188,6 +229,15 @@ public class SubscriptionService {
 
     @Transactional
     public void handleSepayIpn(SepayWebhookRequest request) {
+        if (!isPaymentCollectionEnabled()) {
+            // Webhook SePay được nhận và bỏ qua để không ghi nhận/extend subscription trong giai đoạn miễn phí.
+            log.info(
+                    "SePay subscription webhook ignored because subscription payment collection is disabled. webhookId={}",
+                    request != null ? request.getId() : null
+            );
+            return;
+        }
+
         if (request == null) {
             log.warn("Received empty SePay webhook");
             return;
@@ -287,7 +337,14 @@ public class SubscriptionService {
         subscriptionRepository.findByShopId(shopId).ifPresentOrElse(
                 ignored -> {
                 },
-                () -> createTrial(shopId)
+                () -> {
+                    if (isPaymentCollectionEnabled()) {
+                        createTrial(shopId);
+                    } else {
+                        // Shop mới được kích hoạt gói miễn phí khi đã bỏ nghiệp vụ thu tiền.
+                        createFreeAccessSubscription(shopId);
+                    }
+                }
         );
     }
 
@@ -325,7 +382,7 @@ public class SubscriptionService {
         ShopSubscription subscription = subscriptionRepository.findById(payment.getSubscriptionId())
                 .orElseThrow(() -> new SubscriptionNotFound(
                         "ShopSubscriptionNotFound",
-                        "Shop chua co subscription"
+                        "Shop chưa có subscription"
                 ));
 
         payment.setStatus(payment.getStatus() == SubscriptionPaymentStatus.EXPIRED
@@ -400,9 +457,28 @@ public class SubscriptionService {
         return subscriptionRepository.save(subscription);
     }
 
+    private ShopSubscription createFreeAccessSubscription(Long shopId) {
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime technicalExpiredAt = now.plusYears(FREE_ACCESS_YEARS);
+        ShopSubscription subscription = new ShopSubscription();
+        subscription.setShopId(shopId);
+        subscription.setPlanId(null);
+        subscription.setPlanType(FREE_PLAN_CODE);
+        subscription.setStatus(ShopSubscriptionStatus.ACTIVE);
+        subscription.setStartedAt(now);
+        subscription.setTrialEndsAt(null);
+        subscription.setCurrentPeriodStart(now);
+        // DB đang bắt buộc current_period_end/expired_at NOT NULL; dùng mốc xa để biểu diễn gói miễn phí.
+        subscription.setCurrentPeriodEnd(technicalExpiredAt);
+        subscription.setExpiredAt(technicalExpiredAt);
+        return subscriptionRepository.save(subscription);
+    }
+
     private ShopSubscription resolveOrCreateSubscription(Long shopId) {
         return subscriptionRepository.findByShopId(shopId)
-                .orElseGet(() -> createTrial(shopId));
+                .orElseGet(() -> isPaymentCollectionEnabled()
+                        ? createTrial(shopId)
+                        : createFreeAccessSubscription(shopId));
     }
 
     private void expirePendingPaymentIfNeeded(SubscriptionPayment payment, OffsetDateTime now) {
@@ -415,6 +491,10 @@ public class SubscriptionService {
     }
 
     private SubscriptionOverviewResponse toOverview(ShopSubscription subscription) {
+        if (!isPaymentCollectionEnabled()) {
+            return toFreeOverview(subscription);
+        }
+
         OffsetDateTime now = OffsetDateTime.now();
         boolean expired = subscription.getExpiredAt() == null || !subscription.getExpiredAt().isAfter(now);
         String status = expired ? "EXPIRED" : toApiSubscriptionStatus(subscription.getStatus());
@@ -445,6 +525,37 @@ public class SubscriptionService {
                 CURRENCY,
                 true,
                 buildOverviewMessage(planType, status, remainingDays)
+        );
+    }
+
+    private SubscriptionOverviewResponse toFreeOverview(ShopSubscription subscription) {
+        OffsetDateTime now = OffsetDateTime.now();
+        OffsetDateTime startedAt = subscription.getStartedAt() != null
+                ? subscription.getStartedAt()
+                : now;
+        OffsetDateTime expiredAt = subscription.getExpiredAt() != null && subscription.getExpiredAt().isAfter(now)
+                ? subscription.getExpiredAt()
+                : now.plusYears(FREE_ACCESS_YEARS);
+        long freeDays = Math.max(1, Duration.between(now, expiredAt).toDays());
+        return new SubscriptionOverviewResponse(
+                subscription.getShopId(),
+                FREE_PLAN_CODE,
+                "ACTIVE",
+                startedAt,
+                expiredAt,
+                freeDays,
+                properties.getSubscriptionTrialDays(),
+                0,
+                freeDays,
+                startedAt,
+                null,
+                startedAt,
+                expiredAt,
+                freeDays,
+                0L,
+                CURRENCY,
+                false,
+                "Shop đang được sử dụng miễn phí, không cần thanh toán subscription."
         );
     }
 
@@ -503,17 +614,35 @@ public class SubscriptionService {
     private SubscriptionPlanResponse toPlanResponse(SubscriptionPlan plan) {
         return new SubscriptionPlanResponse(
                 toApiPlanCode(plan),
-                "Goi Monthly",
+                "Gói Monthly",
                 properties.getSubscriptionMonthlyPrice(),
                 properties.getSubscriptionMonthlyDays(),
                 CURRENCY,
                 List.of(
-                        "Quan ly shop",
-                        "Quan ly dich vu",
-                        "Quan ly san pham",
-                        "Quan ly lich dat",
-                        "Tin nhan voi khach hang",
-                        "AI chat ho tro khach hang"
+                        "Quản lý shop",
+                        "Quản lý dịch vụ",
+                        "Quản lý sản phẩm",
+                        "Quản lý lịch đặt",
+                        "Tin nhắn với khách hàng",
+                        "AI chat hỗ trợ khách hàng"
+                )
+        );
+    }
+
+    private SubscriptionPlanResponse buildFreePlanResponse() {
+        return new SubscriptionPlanResponse(
+                FREE_PLAN_CODE,
+                "Gói miễn phí",
+                0L,
+                0,
+                CURRENCY,
+                List.of(
+                        "Quản lý shop",
+                        "Quản lý dịch vụ",
+                        "Quản lý sản phẩm",
+                        "Quản lý lịch đặt",
+                        "Tin nhắn với khách hàng",
+                        "AI chat hỗ trợ khách hàng"
                 )
         );
     }
@@ -554,7 +683,7 @@ public class SubscriptionService {
         return new SubscriptionPaymentHistoryItemDTO(
                 payment.getId(),
                 payment.getInvoiceNumber(),
-                payment.getPlan() != null ? payment.getPlan().getName() : "Goi Monthly",
+                payment.getPlan() != null ? payment.getPlan().getName() : "Gói Monthly",
                 payment.getDurationMonths(),
                 payment.getAmount(),
                 payment.getStatus().name(),
@@ -562,6 +691,47 @@ public class SubscriptionService {
                 payment.getPaidAt(),
                 payment.getPeriodEnd(),
                 payment.getCreatedAt()
+        );
+    }
+
+    private SepayQrPaymentResponse buildPaymentCollectionDisabledResponse(Integer months) {
+        return new SepayQrPaymentResponse(
+                null,
+                null,
+                months,
+                0,
+                0L,
+                PAYMENT_COLLECTION_DISABLED_STATUS,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null,
+                null
+        );
+    }
+
+    private SubscriptionPaymentStatusResponse buildPaymentCollectionDisabledStatusResponse(Long paymentId) {
+        return new SubscriptionPaymentStatusResponse(
+                paymentId,
+                null,
+                PAYMENT_COLLECTION_DISABLED_STATUS,
+                null,
+                null,
+                null
+        );
+    }
+
+    private SubscriptionCancelPaymentResponse buildPaymentCollectionDisabledCancelResponse(Long paymentId) {
+        return new SubscriptionCancelPaymentResponse(
+                paymentId,
+                null,
+                PAYMENT_COLLECTION_DISABLED_STATUS,
+                "Nghiệp vụ thu tiền subscription đang tạm tắt."
         );
     }
 
@@ -576,7 +746,7 @@ public class SubscriptionService {
             if (!allowed) {
                 throw new SubscriptionAccessDenied(
                         "SubscriptionAccessDenied",
-                        "Ban khong co quyen thao tac subscription cua shop nay"
+                        "Bạn không có quyền thao tác subscription của shop này"
                 );
             }
             return requestedShopId;
@@ -590,10 +760,14 @@ public class SubscriptionService {
         if (shops.isEmpty()) {
             throw new SubscriptionAccessDenied(
                     "SubscriptionShopNotFound",
-                    "Tai khoan hien tai chua co shop dang hoat dong"
+                    "Tài khoản hiện tại chưa có shop đang hoạt động"
             );
         }
         return shops.get(0).getId();
+    }
+
+    private boolean isPaymentCollectionEnabled() {
+        return properties.isSubscriptionPaymentCollectionEnabled();
     }
 
     private SubscriptionPlan resolveMonthlyPlan() {
@@ -602,7 +776,7 @@ public class SubscriptionService {
                 .findFirst()
                 .orElseThrow(() -> new SubscriptionNotFound(
                         "SubscriptionPlanNotFound",
-                        "Khong tim thay goi Monthly dang hoat dong"
+                        "Không tìm thấy gói Monthly đang hoạt động"
                 ));
     }
 
@@ -626,12 +800,12 @@ public class SubscriptionService {
 
     private String buildOverviewMessage(String planType, String status, long remainingDays) {
         if ("EXPIRED".equals(status)) {
-            return "Goi su dung cua ban da het han.";
+            return "Gói sử dụng của bạn đã hết hạn.";
         }
         if ("TRIAL".equals(planType)) {
-            return "Goi dung thu cua ban con " + remainingDays + " ngay.";
+            return "Gói dùng thử của bạn còn " + remainingDays + " ngày.";
         }
-        return "Goi Monthly cua ban con " + remainingDays + " ngay.";
+        return "Gói Monthly của bạn còn " + remainingDays + " ngày.";
     }
 
     private String generateInvoiceNumber(Long shopId) {
@@ -642,7 +816,7 @@ public class SubscriptionService {
         if (months == null || (months != 1 && months != 3 && months != 6)) {
             throw new SubscriptionValidationException(
                     "SubscriptionMonthsInvalid",
-                    "So thang thanh toan chi ho tro 1, 3 hoac 6"
+                    "Số tháng thanh toán chỉ hỗ trợ 1, 3 hoặc 6"
             );
         }
         return months;
@@ -742,7 +916,7 @@ public class SubscriptionService {
         if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
             throw new SubscriptionAccessDenied(
                     "SubscriptionAccessDenied",
-                    "Ban can dang nhap de thao tac subscription"
+                    "Bạn cần đăng nhập để thao tác subscription"
             );
         }
         return userPrincipal.getUser().getId();

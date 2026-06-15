@@ -73,7 +73,7 @@ public class UserAddressService {
         return userAddressRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new UserAddressNotFound(
                         "UserAddressNotFound",
-                        "KhÃ´ng tÃ¬m tháº¥y Ä‘á»‹a chá»‰ ngÆ°á»i dÃ¹ng"
+                        "Không tìm thấy địa chỉ người dùng"
                 ));
     }
 }

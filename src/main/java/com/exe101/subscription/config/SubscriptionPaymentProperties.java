@@ -29,6 +29,9 @@ public class SubscriptionPaymentProperties {
     @Value("${sepay.webhook-auth-enabled:true}")
     private boolean sepayWebhookAuthEnabled;
 
+    @Value("${subscription.payment-collection-enabled:false}")
+    private boolean subscriptionPaymentCollectionEnabled;
+
     @Value("${subscription.monthly-price:500000}")
     private Long subscriptionMonthlyPrice;
 

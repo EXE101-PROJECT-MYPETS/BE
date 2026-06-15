@@ -5,6 +5,7 @@ public enum OrderStatus {
     CONFIRMED,
     PACKING,
     WAITING_GHTK_PICKUP,
+    GHTK_PICKED_UP,
     SHIPPING,
     COMPLETED,
     CANCELLED

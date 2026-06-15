@@ -1,13 +1,6 @@
 package com.exe101.auth.service;
 
-import com.exe101.auth.dto.AuthenticatedShopDTO;
-import com.exe101.auth.dto.AuthenticationRequest;
-import com.exe101.auth.dto.AuthenticationResponse;
-import com.exe101.auth.dto.ForgotPasswordRequest;
-import com.exe101.auth.dto.ForgotPasswordResponse;
-import com.exe101.auth.dto.RegisterRequest;
-import com.exe101.auth.dto.ResetPasswordRequest;
-import com.exe101.auth.dto.VerifyOtpForgotPasswordRequest;
+import com.exe101.auth.dto.*;
 import com.exe101.auth.exception.AuthAccessDeniedException;
 import com.exe101.auth.exception.LoginException;
 import com.exe101.auth.model.RefreshToken;
@@ -32,6 +25,7 @@ import com.exe101.userAddress.repository.IUserAddressRepository;
 import com.exe101.userCredential.entity.CredentialProvider;
 import com.exe101.userCredential.entity.UserCredential;
 import com.exe101.userCredential.repository.IUserCredentialRepository;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -43,9 +37,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDateTime;
 import java.time.OffsetDateTime;
-import java.util.List;
 import java.util.Base64;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import java.util.List;
 
 @Service
 @RequiredArgsConstructor
@@ -155,7 +148,7 @@ public class AuthenticationService {
                         UserRole.SHOP,
                         true,
                         "ShopPortalOnly",
-                        "Tai khoan nay khong the dang nhap vao trang quan ly shop"
+                        "Tài khoản này không thể đăng nhập vào trang quản lý shop"
                 );
             }
 
@@ -172,7 +165,7 @@ public class AuthenticationService {
                     resolveCurrentShopId(shops)
             );
         } catch (BadCredentialsException ex) {
-            throw new LoginException("WrongPassOrEmail", "Email hoac mat khau khong dung");
+            throw new LoginException("WrongPassOrEmail", "Email hoặc mật khẩu không đúng");
         }
     }
 
@@ -249,7 +242,7 @@ public class AuthenticationService {
         if (user.getStatus() != UserStatus.ACTIVE) {
             throw new AuthAccessDeniedException(
                     "AccountInactive",
-                    "Tai khoan nay khong con hoat dong"
+                    "Tài khoản này không còn hoạt động"
             );
         }
     }
@@ -269,7 +262,7 @@ public class AuthenticationService {
         )) {
             throw new AuthAccessDeniedException(
                     "ShopPendingApproval",
-                    "Shop cua ban dang cho admin duyet"
+                    "Shop của bạn đang chờ admin duyệt"
             );
         }
 
@@ -279,13 +272,13 @@ public class AuthenticationService {
         )) {
             throw new AuthAccessDeniedException(
                     "ShopRegistrationRejected",
-                    "Dang ky shop cua ban da bi tu choi"
+                    "Đăng ký shop của bạn đã bị từ chối"
             );
         }
 
         throw new AuthAccessDeniedException(
                 "ShopMembershipInactive",
-                "Tai khoan shop nay chua co lien ket shop dang hoat dong"
+                "Tài khoản shop này chưa có liên kết shop đang hoạt động"
         );
     }
 
@@ -301,7 +294,7 @@ public class AuthenticationService {
             refreshTokenService.revokeByToken(rotated.getToken());
             throw new AuthAccessDeniedException(
                     "AccountInactive",
-                    "Tai khoan nay khong con hoat dong"
+                    "Tài khoản này không còn hoạt động"
             );
         }
 

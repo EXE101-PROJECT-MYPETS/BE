@@ -3,12 +3,10 @@ package com.exe101.ghtk.service;
 import com.exe101.auth.model.UserPrincipal;
 import com.exe101.customerAddress.entity.CustomerAddress;
 import com.exe101.customerAddress.repository.ICustomerAddressRepository;
-import com.exe101.ghtk.dto.GhtkFeeRequest;
-import com.exe101.ghtk.dto.GhtkFeeResponse;
-import com.exe101.ghtk.dto.GhtkSubmitOrderRequest;
-import com.exe101.ghtk.dto.GhtkSubmitOrderResponse;
+import com.exe101.ghtk.dto.*;
 import com.exe101.ghtk.exception.GhtkAccessDenied;
 import com.exe101.ghtk.exception.GhtkValidationException;
+import com.exe101.ghtk.webhook.GhtkShipmentStatusMapper;
 import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.entity.OrderItem;
 import com.exe101.order.entity.OrderStatus;
@@ -18,6 +16,11 @@ import com.exe101.order.repository.IOrderRepository;
 import com.exe101.order.service.OrderService;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
+import com.exe101.shipping.entity.ShipmentStatus;
+import com.exe101.shipping.entity.ShopOrderShipment;
+import com.exe101.shipping.repository.IShopOrderShipmentRepository;
+import com.exe101.shop.entity.Shop;
+import com.exe101.shop.repository.IShopRepository;
 import com.exe101.shopGhtkConfig.entity.ShopGhtkConfig;
 import com.exe101.shopGhtkConfig.exception.ShopGhtkConfigNotFound;
 import com.exe101.shopGhtkConfig.repository.IShopGhtkConfigRepository;
@@ -26,27 +29,28 @@ import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.userAddress.entity.UserAddress;
 import com.exe101.userAddress.repository.IUserAddressRepository;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.HttpEntity;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.HttpMethod;
-import org.springframework.http.MediaType;
-import org.springframework.http.ResponseEntity;
+import org.springframework.http.*;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.client.HttpStatusCodeException;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.UriComponentsBuilder;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.LinkedHashMap;
@@ -61,8 +65,11 @@ import java.util.stream.Collectors;
 public class GhtkOrderService {
 
     private static final int MAX_GHTK_NOTE_LENGTH = 120;
+    private static final Duration GHTK_CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Duration GHTK_READ_TIMEOUT = Duration.ofSeconds(20);
     private static final List<String> GHTK_PICK_OPTIONS = List.of("cod", "post");
     private static final List<String> GHTK_TRANSPORTS = List.of("road", "fly");
+    private static final List<Integer> GHTK_CANCELABLE_STATUS_IDS = List.of(1, 2, 12);
     private static final ZoneId VIETNAM_ZONE = ZoneId.of("Asia/Ho_Chi_Minh");
     private static final DateTimeFormatter GHTK_PICK_DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final Logger log = LoggerFactory.getLogger(GhtkOrderService.class);
@@ -70,21 +77,26 @@ public class GhtkOrderService {
     private final IOrderRepository orderRepository;
     private final IOrderItemRepository orderItemRepository;
     private final IProductRepository productRepository;
+    private final IShopRepository shopRepository;
     private final ICustomerAddressRepository customerAddressRepository;
     private final IUserAddressRepository userAddressRepository;
     private final IShopGhtkConfigRepository shopGhtkConfigRepository;
     private final IShopMemberRepository shopMemberRepository;
+    private final IShopOrderShipmentRepository shipmentRepository;
     private final GhtkConfigCryptoService cryptoService;
     private final ObjectMapper objectMapper;
     private final OrderService orderService;
 
-    private final RestTemplate restTemplate = new RestTemplate();
+    private final RestTemplate restTemplate = buildRestTemplate();
 
     @Value("${ghtk.submit-order-url}")
     private String submitOrderUrl;
 
     @Value("${ghtk.fee-url}")
     private String feeUrl;
+
+    @Value("${ghtk.cancel-shipment-url:https://services.giaohangtietkiem.vn/services/shipment/cancel}")
+    private String cancelShipmentUrl;
 
     @Transactional
     public GhtkSubmitOrderResponse submitOrder(Long shopId, Long orderId, GhtkSubmitOrderRequest request) {
@@ -101,6 +113,11 @@ public class GhtkOrderService {
                         "ShopGhtkConfigNotFound",
                         "Chưa có cấu hình GHTK cho shop"));
         validateConfig(config);
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new GhtkValidationException(
+                        "GhtkShopNotFound",
+                        "Không tìm thấy shop để lấy thông tin điểm lấy hàng"));
+        validateShopPickupInfo(shop);
 
         List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
         if (items.isEmpty()) {
@@ -112,7 +129,8 @@ public class GhtkOrderService {
         Map<Long, Product> productsById = loadProductsById(shopId, items);
 
         String apiToken = cryptoService.decrypt(config.getEncryptedApiToken());
-        Map<String, Object> body = buildSubmitBody(order, items, productsById, config, request);
+        Map<String, Object> body = buildSubmitBody(order, items, productsById, shop, config, request);
+        logSubmitPayload(body);
         GhtkSubmitOrderResponse response = callGhtk(apiToken, resolveClientSource(config), body);
         markSubmittedIfAccepted(order, response);
         return response;
@@ -166,6 +184,95 @@ public class GhtkOrderService {
         }
     }
 
+    @Transactional
+    public GhtkCancelShipmentResponse cancelShipment(Long shopId, Long orderId) {
+        assertCanSubmitOrder(shopId);
+
+        CustomerOrder order = orderRepository.findByIdForUpdate(orderId)
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        assertOrderBelongsToShop(order, shopId);
+
+        ShopOrderShipment existingShipment = shipmentRepository.findByOrderIdForUpdate(order.getId()).orElse(null);
+
+        if (!hasGhtkShipmentIdentifier(existingShipment) && canCancelOrderInternally(order.getStatus())) {
+            order.setStatus(OrderStatus.CANCELLED);
+            CustomerOrder saved = orderRepository.save(order);
+            return new GhtkCancelShipmentResponse(
+                    true,
+                    "Hủy đơn hàng thành công",
+                    saved.getId(),
+                    null,
+                    null,
+                    null,
+                    saved.getStatus().name()
+            );
+        }
+
+        ShopOrderShipment shipment = shipmentRepository.findByOrderIdForUpdate(order.getId())
+                .orElseThrow(() -> new GhtkValidationException(
+                        "GhtkShipmentNotFound",
+                        "Đơn hàng chưa tạo vận đơn GHTK"));
+        validateShipmentBelongsToOrder(shipment, order);
+        validateShipmentCanBeCanceled(shipment);
+
+        ShopGhtkConfig config = shopGhtkConfigRepository.findByShopId(shopId)
+                .orElseThrow(() -> new ShopGhtkConfigNotFound(
+                        "ShopGhtkConfigNotFound",
+                        "Chưa có cấu hình GHTK cho shop"));
+        validateCancelConfig(config);
+
+        String apiToken = cryptoService.decrypt(config.getEncryptedApiToken());
+        if (isBlank(apiToken)) {
+            throw new GhtkValidationException(
+                    "GhtkApiTokenRequired",
+                    "Shop chưa cấu hình GHTK token");
+        }
+
+        String clientSource = resolveClientSource(config);
+        String cancelUrl = buildCancelShipmentUrl(shipment);
+        GhtkCancelApiResponse ghtkResponse = callGhtkCancel(
+                cancelUrl,
+                apiToken,
+                clientSource,
+                shipment
+        );
+
+        if (!ghtkResponse.isSuccess()) {
+            String message = !isBlank(ghtkResponse.getMessage())
+                    ? ghtkResponse.getMessage()
+                    : "GHTK từ chối hủy vận đơn";
+            log.warn(
+                    "GHTK cancel returned success=false: orderId={}, labelId={}, partnerId={}, message={}, logId={}",
+                    order.getId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    ghtkResponse.getMessage(),
+                    ghtkResponse.getLogId()
+            );
+            throw new GhtkValidationException("GhtkCancelRejected", message);
+        }
+
+        shipment.setStatus(ShipmentStatus.CANCELED);
+        shipment.setGhtkStatusId(-1);
+        shipment.setLastActionTime(OffsetDateTime.now());
+        shipment.setReason(trim(ghtkResponse.getMessage()));
+        shipment.setReasonCode(trim(ghtkResponse.getLogId()));
+        ShopOrderShipment savedShipment = shipmentRepository.save(shipment);
+
+        order.setStatus(OrderStatus.CANCELLED);
+        CustomerOrder savedOrder = orderRepository.save(order);
+
+        return new GhtkCancelShipmentResponse(
+                true,
+                "Hủy vận đơn GHTK thành công",
+                savedOrder.getId(),
+                savedShipment.getLabelId(),
+                savedShipment.getPartnerId(),
+                savedShipment.getStatus().name(),
+                savedOrder.getStatus().name()
+        );
+    }
+
     private GhtkSubmitOrderResponse callGhtk(
             String apiToken,
             String clientSource,
@@ -192,6 +299,11 @@ public class GhtkOrderService {
             }
             return response.getBody();
         } catch (HttpStatusCodeException ex) {
+            log.warn(
+                    "GHTK submit failed: status={}, responseBody={}",
+                    ex.getStatusCode(),
+                    ex.getResponseBodyAsString()
+            );
             throw new GhtkValidationException(
                     "GhtkSubmitFailed",
                     resolveGhtkErrorMessage(ex));
@@ -202,14 +314,105 @@ public class GhtkOrderService {
             CustomerOrder order,
             List<OrderItem> items,
             Map<Long, Product> productsById,
+            Shop shop,
             ShopGhtkConfig config,
             GhtkSubmitOrderRequest request) {
         Map<String, Object> body = new LinkedHashMap<>();
         body.put("products", items.stream()
                 .map(item -> buildProductPayload(item, productsById.get(item.getProductId())))
                 .toList());
-        body.put("order", buildOrderPayload(order, config, request));
+        body.put("order", buildOrderPayload(order, shop, config, request));
         return body;
+    }
+
+    private void logSubmitPayload(Map<String, Object> body) {
+        try {
+            log.info("GHTK submit payload: {}", objectMapper.writeValueAsString(body));
+        } catch (Exception ex) {
+            log.info("GHTK submit payload could not be serialized", ex);
+        }
+    }
+
+    private GhtkCancelApiResponse callGhtkCancel(
+            String url,
+            String apiToken,
+            String clientSource,
+            ShopOrderShipment shipment
+    ) {
+        HttpHeaders headers = new HttpHeaders();
+        headers.set("Token", apiToken);
+        headers.set("Accept", "*/*");
+        if (!isBlank(clientSource)) {
+            headers.set("X-Client-Source", clientSource);
+        }
+
+        try {
+            ResponseEntity<String> response = restTemplate.exchange(
+                    url,
+                    HttpMethod.POST,
+                    new HttpEntity<>(headers),
+                    String.class);
+            String rawResponseBody = response.getBody();
+            log.info(
+                    "GHTK cancel response: orderId={}, labelId={}, partnerId={}, status={}, body={}",
+                    shipment.getOrderId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    response.getStatusCode(),
+                    rawResponseBody
+            );
+            if (rawResponseBody == null || rawResponseBody.isBlank()) {
+                throw new GhtkValidationException(
+                        "GhtkEmptyCancelResponse",
+                        "GHTK không trả dữ liệu hủy vận đơn");
+            }
+            return objectMapper.readValue(rawResponseBody, GhtkCancelApiResponse.class);
+        } catch (HttpStatusCodeException ex) {
+            log.warn(
+                    "GHTK cancel failed: orderId={}, labelId={}, partnerId={}, status={}, responseBody={}",
+                    shipment.getOrderId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    ex.getStatusCode(),
+                    ex.getResponseBodyAsString()
+            );
+            throw new GhtkValidationException(
+                    "GhtkCancelFailed",
+                    resolveGhtkCancelErrorMessage(ex));
+        } catch (ResourceAccessException ex) {
+            log.warn(
+                    "GHTK cancel timeout or connection error: orderId={}, labelId={}, partnerId={}",
+                    shipment.getOrderId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    ex
+            );
+            throw new GhtkValidationException(
+                    "GhtkCancelTimeout",
+                    "Không thể kết nối GHTK để hủy vận đơn, vui lòng thử lại sau");
+        } catch (RestClientException ex) {
+            log.warn(
+                    "GHTK cancel request error: orderId={}, labelId={}, partnerId={}",
+                    shipment.getOrderId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    ex
+            );
+            throw new GhtkValidationException(
+                    "GhtkCancelFailed",
+                    "Không thể gọi GHTK để hủy vận đơn");
+        } catch (Exception ex) {
+            log.warn(
+                    "GHTK cancel parse error: orderId={}, labelId={}, partnerId={}",
+                    shipment.getOrderId(),
+                    shipment.getLabelId(),
+                    shipment.getPartnerId(),
+                    ex
+            );
+            throw new GhtkValidationException(
+                    "GhtkCancelInvalidResponse",
+                    "Phản hồi hủy vận đơn từ GHTK không đúng định dạng");
+        }
     }
 
     private Map<String, Object> buildProductPayload(OrderItem item, Product product) {
@@ -231,7 +434,7 @@ public class GhtkOrderService {
 
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("name", trim(product.getName()));
-        payload.put("weight", product.getWeightKg());
+        payload.put("weight", toGhtkSubmitWeightKg(product.getWeightKg()));
         payload.put("quantity", item.getQty());
         payload.put("product_code",
                 !isBlank(product.getSku()) ? trim(product.getSku()) : String.valueOf(product.getId()));
@@ -239,15 +442,20 @@ public class GhtkOrderService {
         return payload;
     }
 
+    private BigDecimal toGhtkSubmitWeightKg(BigDecimal weightGram) {
+        return weightGram.divide(new BigDecimal("1000"));
+    }
+
     private Map<String, Object> buildOrderPayload(
             CustomerOrder order,
+            Shop shop,
             ShopGhtkConfig config,
             GhtkSubmitOrderRequest request) {
         Map<String, Object> payload = new LinkedHashMap<>();
         payload.put("id", resolvePartnerOrderId(order));
-        payload.put("pick_name", trim(config.getPickName()));
-        payload.put("pick_tel", trim(config.getPickTel()));
-        payload.put("pick_address", trim(config.getPickAddress()));
+        payload.put("pick_name", trim(shop.getName()));
+        payload.put("pick_tel", trim(shop.getPhone()));
+        payload.put("pick_address", trim(shop.getAddressText()));
         payload.put("pick_province", trim(config.getPickProvince()));
         payload.put("pick_district", trim(config.getPickDistrict()));
         if (!isBlank(config.getPickWard())) {
@@ -267,8 +475,9 @@ public class GhtkOrderService {
         } else {
             payload.put("hamlet", trim(order.getShippingHamlet()));
         }
-        payload.put("pick_money", valueOrZero(order.getTotalAmount()));
-        payload.put("is_freeship", resolveIsFreeship(request));
+        int isFreeship = resolveIsFreeship(request);
+        payload.put("pick_money", resolveGhtkPickMoney(order, isFreeship));
+        payload.put("is_freeship", isFreeship);
         payload.put("value", valueOrZero(order.getSubtotalAmount()) > 0
                 ? valueOrZero(order.getSubtotalAmount())
                 : valueOrZero(order.getTotalAmount()));
@@ -310,6 +519,20 @@ public class GhtkOrderService {
         return request.getIsFreeship();
     }
 
+    private long resolveGhtkPickMoney(CustomerOrder order, int isFreeship) {
+        if (isFreeship == 1) {
+            return valueOrZero(order.getTotalAmount());
+        }
+
+        long subtotal = valueOrZero(order.getSubtotalAmount());
+        long discountAmount = valueOrZero(order.getDiscountAmount());
+        long amount = subtotal - discountAmount;
+        if (amount > 0) {
+            return amount;
+        }
+        return subtotal > 0 ? subtotal : valueOrZero(order.getTotalAmount());
+    }
+
     private String resolveNote(CustomerOrder order, GhtkSubmitOrderRequest request) {
         String note = request != null && !isBlank(request.getNote()) ? trim(request.getNote()) : trim(order.getNote());
         if (note != null && note.length() > MAX_GHTK_NOTE_LENGTH) {
@@ -320,16 +543,45 @@ public class GhtkOrderService {
         return note;
     }
 
-    private void markSubmittedIfAccepted(CustomerOrder order, GhtkSubmitOrderResponse response) {
-        if (response.isSuccess()) {
-            order.setStatus(OrderStatus.WAITING_GHTK_PICKUP);
-            CustomerOrder saved = orderRepository.save(order);
-            try {
-                orderService.publishOrderStatusUpdatedNotification(saved);
-            } catch (Exception e) {
-                log.error("Failed to publish order status update notification", e);
-            }
+private void markSubmittedIfAccepted(CustomerOrder order, GhtkSubmitOrderResponse response) {
+    if (response.isSuccess()) {
+        order.setStatus(OrderStatus.WAITING_GHTK_PICKUP);
+
+        CustomerOrder saved = orderRepository.save(order);
+
+        upsertShipmentFromSubmitResponse(saved, response);
+
+        try {
+            orderService.publishOrderStatusUpdatedNotification(saved);
+        } catch (Exception e) {
+            log.error("Failed to publish order status update notification", e);
         }
+    }
+}
+
+    private void upsertShipmentFromSubmitResponse(CustomerOrder order, GhtkSubmitOrderResponse response) {
+        JsonNode responseOrder = response.getOrder();
+        String partnerId = firstNonBlank(
+                text(responseOrder, "partner_id"),
+                resolvePartnerOrderId(order)
+        );
+
+        ShopOrderShipment shipment = shipmentRepository.findByOrderIdForUpdate(order.getId())
+                .orElseGet(ShopOrderShipment::new);
+        shipment.setShopId(order.getShopId());
+        shipment.setOrderId(order.getId());
+        shipment.setCarrier(ShopOrderShipment.CARRIER_GHTK);
+        shipment.setPartnerId(partnerId);
+        shipment.setLabelId(text(responseOrder, "label"));
+        shipment.setTrackingId(text(responseOrder, "tracking_id"));
+        shipment.setActualShippingFee(parseLong(text(responseOrder, "fee")));
+
+        Integer statusId = parseInteger(text(responseOrder, "status_id"));
+        ShipmentStatus status = GhtkShipmentStatusMapper.toShipmentStatus(statusId);
+        shipment.setGhtkStatusId(statusId);
+        shipment.setStatus(status != null ? status : ShipmentStatus.ACCEPTED);
+
+        shipmentRepository.save(shipment);
     }
 
     private void applyCustomerAddressSnapshot(CustomerOrder order) {
@@ -417,6 +669,42 @@ public class GhtkOrderService {
         }
     }
 
+    private void assertOrderBelongsToShop(CustomerOrder order, Long shopId) {
+        if (!Objects.equals(order.getShopId(), shopId)) {
+            throw new GhtkAccessDenied(
+                    "GhtkOrderAccessDenied",
+                    "Đơn hàng không thuộc shop hiện tại");
+        }
+    }
+
+    private void validateShipmentBelongsToOrder(ShopOrderShipment shipment, CustomerOrder order) {
+        if (!Objects.equals(shipment.getShopId(), order.getShopId())
+                || !Objects.equals(shipment.getOrderId(), order.getId())) {
+            throw new GhtkValidationException(
+                    "GhtkShipmentOrderMismatch",
+                    "Vận đơn GHTK không khớp với đơn hàng hiện tại");
+        }
+    }
+
+    private void validateShipmentCanBeCanceled(ShopOrderShipment shipment) {
+        if (isBlank(shipment.getLabelId()) && isBlank(shipment.getPartnerId())) {
+            throw new GhtkValidationException(
+                    "GhtkShipmentIdentifierRequired",
+                    "Đơn hàng chưa tạo vận đơn GHTK");
+        }
+        if (shipment.getStatus() == ShipmentStatus.CANCELED || Objects.equals(shipment.getGhtkStatusId(), -1)) {
+            throw new GhtkValidationException(
+                    "GhtkShipmentAlreadyCanceled",
+                    "Vận đơn GHTK đã được hủy");
+        }
+        Integer statusId = shipment.getGhtkStatusId();
+        if (statusId == null || !GHTK_CANCELABLE_STATUS_IDS.contains(statusId)) {
+            throw new GhtkValidationException(
+                    "GhtkShipmentCancelNotAllowed",
+                    "Đơn đã được lấy hàng hoặc đang giao, không thể hủy vận đơn GHTK.");
+        }
+    }
+
     private void validateOrderAmounts(CustomerOrder order) {
         long subtotal = valueOrZero(order.getSubtotalAmount());
         long shippingFee = valueOrZero(order.getShippingFee());
@@ -475,9 +763,6 @@ public class GhtkOrderService {
                     "Cấu hình GHTK của shop đang tắt");
         }
         if (isBlank(config.getEncryptedApiToken())
-                || isBlank(config.getPickName())
-                || isBlank(config.getPickTel())
-                || isBlank(config.getPickAddress())
                 || isBlank(config.getPickProvince())
                 || isBlank(config.getPickDistrict())) {
             throw new GhtkValidationException(
@@ -496,6 +781,14 @@ public class GhtkOrderService {
         }
     }
 
+    private void validateShopPickupInfo(Shop shop) {
+        if (isBlank(shop.getName()) || isBlank(shop.getPhone()) || isBlank(shop.getAddressText())) {
+            throw new GhtkValidationException(
+                    "GhtkShopPickupInfoRequired",
+                    "Hồ sơ shop cần có tên, số điện thoại và địa chỉ để đăng đơn GHTK");
+        }
+    }
+
     private void validateFeeConfig(ShopGhtkConfig config) {
         if (!Boolean.TRUE.equals(config.getEnabled())) {
             throw new GhtkValidationException(
@@ -509,6 +802,19 @@ public class GhtkOrderService {
             throw new GhtkValidationException(
                     "GhtkConfigInvalid",
                     "Cấu hình GHTK của shop chưa đủ thông tin lấy hàng để tính phí");
+        }
+    }
+
+    private void validateCancelConfig(ShopGhtkConfig config) {
+        if (!Boolean.TRUE.equals(config.getEnabled())) {
+            throw new GhtkValidationException(
+                    "GhtkConfigDisabled",
+                    "Cấu hình GHTK của shop đang tắt");
+        }
+        if (isBlank(config.getEncryptedApiToken())) {
+            throw new GhtkValidationException(
+                    "GhtkApiTokenRequired",
+                    "Shop chưa cấu hình GHTK token");
         }
     }
 
@@ -531,7 +837,45 @@ public class GhtkOrderService {
     }
 
     private String resolvePartnerOrderId(CustomerOrder order) {
-        return !isBlank(order.getOrderCode()) ? trim(order.getOrderCode()) : "ORD-" + order.getId();
+        return "ORD-" + order.getId();
+    }
+
+    private String text(JsonNode node, String fieldName) {
+        if (node == null || node.isMissingNode() || node.isNull()) {
+            return null;
+        }
+        JsonNode value = node.get(fieldName);
+        if (value == null || value.isNull()) {
+            return null;
+        }
+        String text = value.asText(null);
+        return !isBlank(text) ? trim(text) : null;
+    }
+
+    private Integer parseInteger(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        try {
+            return Integer.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private Long parseLong(String value) {
+        if (isBlank(value)) {
+            return null;
+        }
+        try {
+            return Long.valueOf(value.trim());
+        } catch (NumberFormatException ex) {
+            return null;
+        }
+    }
+
+    private String firstNonBlank(String first, String fallback) {
+        return !isBlank(first) ? trim(first) : trim(fallback);
     }
 
     private String resolveGhtkErrorMessage(HttpStatusCodeException ex) {
@@ -558,6 +902,30 @@ public class GhtkOrderService {
             // Fall back to HTTP status below.
         }
         return "GHTK từ chối tính phí: " + ex.getStatusCode();
+    }
+
+    private String resolveGhtkCancelErrorMessage(HttpStatusCodeException ex) {
+        try {
+            String message = objectMapper.readTree(ex.getResponseBodyAsString()).path("message").asText(null);
+            if (!isBlank(message)) {
+                return message;
+            }
+        } catch (Exception ignored) {
+            // Fall back to HTTP status below.
+        }
+        return "GHTK từ chối hủy vận đơn: " + ex.getStatusCode();
+    }
+
+    private String buildCancelShipmentUrl(ShopOrderShipment shipment) {
+        String baseUrl = cancelShipmentUrl != null ? cancelShipmentUrl.trim() : "";
+        while (baseUrl.endsWith("/")) {
+            baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
+        }
+
+        String identifier = !isBlank(shipment.getLabelId())
+                ? trim(shipment.getLabelId())
+                : "partner_id:" + trim(shipment.getPartnerId());
+        return baseUrl + "/" + identifier;
     }
 
     private String buildFeeUrl(
@@ -622,6 +990,16 @@ public class GhtkOrderService {
         return userPrincipal.getUser().getId();
     }
 
+    private boolean hasGhtkShipmentIdentifier(ShopOrderShipment shipment) {
+        return shipment != null && (!isBlank(shipment.getLabelId()) || !isBlank(shipment.getPartnerId()));
+    }
+
+    private boolean canCancelOrderInternally(OrderStatus status) {
+        return status == OrderStatus.PENDING
+                || status == OrderStatus.CONFIRMED
+                || status == OrderStatus.PACKING;
+    }
+
     private long valueOrZero(Long value) {
         return value != null ? value : 0L;
     }
@@ -632,6 +1010,13 @@ public class GhtkOrderService {
 
     private boolean isBlank(String value) {
         return value == null || value.isBlank();
+    }
+
+    private static RestTemplate buildRestTemplate() {
+        SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
+        requestFactory.setConnectTimeout((int) GHTK_CONNECT_TIMEOUT.toMillis());
+        requestFactory.setReadTimeout((int) GHTK_READ_TIMEOUT.toMillis());
+        return new RestTemplate(requestFactory);
     }
 
 }

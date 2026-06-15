@@ -29,6 +29,8 @@ import java.util.*;
 @Slf4j
 public class AiPetHealthChatService {
 
+    private static final String AI_BUSY_FALLBACK_MESSAGE = "AI đang bận, vui lòng chờ khoảng 5 phút rồi hỏi lại.";
+
     private final AiPetChatConversationRepository conversationRepository;
     private final AiPetChatMessageRepository messageRepository;
     private final AiPetContextService aiPetContextService;
@@ -61,74 +63,54 @@ public class AiPetHealthChatService {
         List<AiPetChatMessage> recentMessages = new ArrayList<>(messageRepository.findTop20ByConversationIdOrderByCreatedAtDesc(conversation.getId()));
         recentMessages.sort(Comparator.comparing(AiPetChatMessage::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())));
 
-        PetContext petContext = aiPetContextService.loadPetContext(pet.getId(), currentUserId);
-        String rewrittenQuery = queryRewriteService.rewrite(request.getMessage(), petContext);
-        List<Double> embedding = aiEmbeddingService.embed(rewrittenQuery);
-        String embeddingText = aiEmbeddingService.toPgVectorString(embedding);
-        List<AiKnowledgeSearchResult> candidates = aiKnowledgeSearchService.hybridSearch(
-                rewrittenQuery,
-                embeddingText,
-                30,
-                20
-        );
-        List<AiKnowledgeSearchResult> finalContexts = rerankingService.rerank(
-                        request.getMessage(),
-                        rewrittenQuery,
-                        petContext,
-                        candidates
-                )
-                .stream()
-                .limit(5)
-                .toList();
-
-        log.info("AI original message: {}", request.getMessage());
-        log.info("AI rewritten query: {}", rewrittenQuery);
-        for (AiKnowledgeSearchResult item : finalContexts) {
-            log.info(
-                    "AI selected context: id={}, title={}, vectorScore={}, keywordScore={}, hybridScore={}, rerankScore={}",
-                    item.getId(),
-                    item.getTitle(),
-                    item.getVectorScore(),
-                    item.getKeywordScore(),
-                    item.getHybridScore(),
-                    item.getRerankScore()
+        try {
+            PetContext petContext = aiPetContextService.loadPetContext(pet.getId(), currentUserId);
+            String rewrittenQuery = queryRewriteService.rewrite(request.getMessage(), petContext);
+            List<Double> embedding = aiEmbeddingService.embed(rewrittenQuery);
+            String embeddingText = aiEmbeddingService.toPgVectorString(embedding);
+            List<AiKnowledgeSearchResult> candidates = aiKnowledgeSearchService.hybridSearch(
+                    rewrittenQuery,
+                    embeddingText,
+                    30,
+                    20
             );
+            List<AiKnowledgeSearchResult> finalContexts = rerankingService.rerank(
+                            request.getMessage(),
+                            rewrittenQuery,
+                            petContext,
+                            candidates
+                    )
+                    .stream()
+                    .limit(5)
+                    .toList();
+
+            log.info("AI original message: {}", request.getMessage());
+            log.info("AI rewritten query: {}", rewrittenQuery);
+            for (AiKnowledgeSearchResult item : finalContexts) {
+                log.info(
+                        "AI selected context: id={}, title={}, vectorScore={}, keywordScore={}, hybridScore={}, rerankScore={}",
+                        item.getId(),
+                        item.getTitle(),
+                        item.getVectorScore(),
+                        item.getKeywordScore(),
+                        item.getHybridScore(),
+                        item.getRerankScore()
+                );
+            }
+
+            String systemInstruction = aiPromptBuilder.buildPetHealthSystemInstruction();
+            String prompt = aiPromptBuilder.buildPetHealthPrompt(petContext, finalContexts, recentMessages, request.getMessage());
+            String rawAnswer = geminiClientService.generateText(systemInstruction, prompt);
+            if (rawAnswer == null) {
+                rawAnswer = "";
+            }
+            AiResponsePayload payload = parseAiResponse(rawAnswer, request);
+            return buildExecution(conversation.getId(), currentUserId, userMessage, createAssistantMessage(conversation.getId(), payload), payload);
+        } catch (Exception ex) {
+            log.error("AI pet health chat failed for conversationId={}, petId={}", conversation.getId(), pet.getId(), ex);
+            AiResponsePayload fallbackPayload = fallbackPayload(request);
+            return buildExecution(conversation.getId(), currentUserId, userMessage, createAssistantMessage(conversation.getId(), fallbackPayload), fallbackPayload);
         }
-
-        String systemInstruction = aiPromptBuilder.buildPetHealthSystemInstruction();
-        String prompt = aiPromptBuilder.buildPetHealthPrompt(petContext, finalContexts, recentMessages, request.getMessage());
-        String rawAnswer = geminiClientService.generateText(systemInstruction, prompt);
-        if (rawAnswer == null) {
-            rawAnswer = "";
-        }
-        AiResponsePayload payload = parseAiResponse(rawAnswer, request);
-
-        AiPetChatMessage assistantMessage = new AiPetChatMessage();
-        assistantMessage.setConversationId(conversation.getId());
-        assistantMessage.setRole(AiChatRole.ASSISTANT);
-        assistantMessage.setContent(payload.answer());
-        assistantMessage.setMetadata(buildAssistantMetadata(payload));
-        messageRepository.save(assistantMessage);
-
-        conversationRepository.touch(conversation.getId());
-
-        AiPetChatResponse response = new AiPetChatResponse(
-                conversation.getId(),
-                payload.answer(),
-                payload.riskLevel(),
-                payload.shouldBookVet(),
-                payload.recommendedActions(),
-                payload.action()
-        );
-        AiPetChatMessageDTO userMessageDTO = toMessageDTO(userMessage);
-        AiPetChatMessageDTO assistantMessageDTO = toMessageDTO(assistantMessage);
-        return new AiPetChatExecution(
-                currentUserId,
-                response,
-                new AiPetChatSocketEventDTO("USER_MESSAGE", conversation.getId(), currentUserId, userMessageDTO, null),
-                new AiPetChatSocketEventDTO("ASSISTANT_MESSAGE", conversation.getId(), currentUserId, assistantMessageDTO, null),
-                new AiPetChatSocketEventDTO("CHAT_RESPONSE", conversation.getId(), currentUserId, null, response)
-        );
     }
 
     @Transactional(readOnly = true)
@@ -207,6 +189,53 @@ public class AiPetHealthChatService {
         payload.recommendedActions().forEach(actions::add);
         metadata.set("action", objectMapper.valueToTree(payload.action()));
         return metadata;
+    }
+
+    private AiPetChatExecution buildExecution(
+            Long conversationId,
+            Long currentUserId,
+            AiPetChatMessage userMessage,
+            AiPetChatMessage assistantMessage,
+            AiResponsePayload payload
+    ) {
+        conversationRepository.touch(conversationId);
+
+        AiPetChatResponse response = new AiPetChatResponse(
+                conversationId,
+                payload.answer(),
+                payload.riskLevel(),
+                payload.shouldBookVet(),
+                payload.recommendedActions(),
+                payload.action()
+        );
+        AiPetChatMessageDTO userMessageDTO = toMessageDTO(userMessage);
+        AiPetChatMessageDTO assistantMessageDTO = toMessageDTO(assistantMessage);
+        return new AiPetChatExecution(
+                currentUserId,
+                response,
+                new AiPetChatSocketEventDTO("USER_MESSAGE", conversationId, currentUserId, userMessageDTO, null),
+                new AiPetChatSocketEventDTO("ASSISTANT_MESSAGE", conversationId, currentUserId, assistantMessageDTO, null),
+                new AiPetChatSocketEventDTO("CHAT_RESPONSE", conversationId, currentUserId, null, response)
+        );
+    }
+
+    private AiPetChatMessage createAssistantMessage(Long conversationId, AiResponsePayload payload) {
+        AiPetChatMessage assistantMessage = new AiPetChatMessage();
+        assistantMessage.setConversationId(conversationId);
+        assistantMessage.setRole(AiChatRole.ASSISTANT);
+        assistantMessage.setContent(payload.answer());
+        assistantMessage.setMetadata(buildAssistantMetadata(payload));
+        return messageRepository.save(assistantMessage);
+    }
+
+    private AiResponsePayload fallbackPayload(AiPetChatRequest request) {
+        return new AiResponsePayload(
+                AI_BUSY_FALLBACK_MESSAGE,
+                "MEDIUM",
+                false,
+                List.of(),
+                normalizeAction(defaultNoneAction(), request)
+        );
     }
 
     private AiResponsePayload parseAiResponse(String rawAnswer, AiPetChatRequest request) {

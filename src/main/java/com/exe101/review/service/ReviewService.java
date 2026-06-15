@@ -1,10 +1,13 @@
 package com.exe101.review.service;
 
 import com.exe101.common.IService;
+import com.exe101.order.entity.OrderStatus;
+import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.review.dto.ReviewDTO;
 import com.exe101.review.entity.Review;
 import com.exe101.review.exception.ReviewDuplicate;
 import com.exe101.review.exception.ReviewNotFound;
+import com.exe101.review.exception.ReviewValidationException;
 import com.exe101.review.mapper.ReviewMapper;
 import com.exe101.review.repository.IReviewRepository;
 import lombok.RequiredArgsConstructor;
@@ -17,6 +20,7 @@ import java.util.List;
 public class ReviewService implements IService<Review, ReviewDTO, Long> {
 
     private final IReviewRepository reviewRepository;
+    private final IOrderItemRepository orderItemRepository;
 
     @Override
     public List<ReviewDTO> getAll() {
@@ -48,20 +52,22 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
     public ReviewDTO getById(Long id) {
         return reviewRepository.findById(id)
                 .map(ReviewMapper::toDTO)
-                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia"));
+                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá"));
     }
 
     @Override
     public ReviewDTO create(ReviewDTO dto) {
         assertUniqueReview(dto.getShopId(), dto.getProductId(), dto.getCustomerId(), null);
+        assertCompletedPurchase(dto);
         return ReviewMapper.toDTO(reviewRepository.save(ReviewMapper.toEntity(dto)));
     }
 
     @Override
     public ReviewDTO update(Long id, ReviewDTO dto) {
         Review entity = reviewRepository.findById(id)
-                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia"));
+                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá"));
         assertUniqueReview(dto.getShopId(), dto.getProductId(), dto.getCustomerId(), id);
+        assertCompletedPurchase(dto);
         ReviewMapper.updateEntity(entity, dto);
         return ReviewMapper.toDTO(reviewRepository.save(entity));
     }
@@ -69,7 +75,7 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
     @Override
     public void delete(Long id) {
         if (!reviewRepository.existsById(id)) {
-            throw new ReviewNotFound("ReviewNotFound", "Khong tim thay danh gia");
+            throw new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá");
         }
         reviewRepository.deleteById(id);
     }
@@ -89,7 +95,26 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
         );
 
         if (duplicated) {
-            throw new ReviewDuplicate("ReviewDuplicate", "Khach hang da danh gia san pham nay trong shop");
+            throw new ReviewDuplicate("ReviewDuplicate", "Khách hàng đã đánh giá sản phẩm này trong shop");
+        }
+    }
+
+    private void assertCompletedPurchase(ReviewDTO dto) {
+        if (dto.getShopId() == null || dto.getProductId() == null || dto.getCustomerId() == null) {
+            return;
+        }
+
+        boolean hasCompletedPurchase = orderItemRepository.existsCompletedPurchaseForReview(
+                dto.getShopId(),
+                dto.getProductId(),
+                dto.getCustomerId(),
+                OrderStatus.COMPLETED
+        );
+        if (!hasCompletedPurchase) {
+            throw new ReviewValidationException(
+                    "ProductReviewRequiresCompletedOrder",
+                    "Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã hoàn thành"
+            );
         }
     }
 }

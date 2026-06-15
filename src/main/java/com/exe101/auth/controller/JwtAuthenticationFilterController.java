@@ -18,7 +18,6 @@ import lombok.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
@@ -109,13 +108,13 @@ public class JwtAuthenticationFilterController extends OncePerRequestFilter {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "Phien dang nhap da het han"
+                    "Phiên đăng nhập đã hết hạn"
             );
         } catch (JwtException e) {
             ResponseUtil.writeError(
                     response,
                     HttpServletResponse.SC_UNAUTHORIZED,
-                    "Token khong hop le"
+                    "Token không hợp lệ"
             );
         } catch (Exception e) {
             ResponseUtil.writeError(

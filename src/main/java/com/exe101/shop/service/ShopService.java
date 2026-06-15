@@ -66,13 +66,13 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     public ShopDTO getById(Long id) {
         return shopRepository.findById(id)
                 .map(this::toDTO)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
     }
 
     @Transactional(readOnly = true)
     public ShopDTO getByIdWithOwner(Long id) {
         Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         UserDTO owner = resolveOwnerByShopId(id);
         return toDTOWithOwner(shop, owner);
     }
@@ -83,7 +83,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
             ShopRegistrationEmailRequest request
     ) {
         Shop shop = shopRepository.findById(shopId)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         validatePendingApprovalShop(shop);
         UserDTO owner = resolveRequiredOwner(shopId);
         String ownerEmail = resolveRequiredOwnerEmail(owner);
@@ -100,7 +100,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
                 true,
                 shopId,
                 ownerEmail,
-                "Da gui email toi shop dang ky"
+                "Đã gửi email tới shop đăng ký"
         );
     }
 
@@ -117,7 +117,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     @Transactional
     public ShopDTO update(Long id, ShopDTO dto) {
         Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         ShopMapper.updateEntity(shop, dto);
         shop.setImageUrl(normalizeImageStoragePath(dto.getImageUrl()));
         shop.setCoverImageUrl(normalizeImageStoragePath(dto.getCoverImageUrl()));
@@ -127,7 +127,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     @Transactional
     public ShopDTO update(Long shopId, ShopProfileUpdateRequest request) {
         Shop shop = shopRepository.findById(shopId)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
 
         applyWriteData(shop, request);
         applyImageUpdates(shop, request);
@@ -139,7 +139,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     @Transactional
     public void delete(Long id) {
         if (!shopRepository.existsById(id)) {
-            throw new ShopNotFound("ShopNotFound", "Khong tim thay shop");
+            throw new ShopNotFound("ShopNotFound", "Không tìm thấy shop");
         }
         shopRepository.deleteById(id);
     }
@@ -147,7 +147,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     @Transactional
     public ShopDTO approve(Long id) {
         Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         UserDTO owner = resolveRequiredOwner(id);
 
         shop.setStatus(ShopStatus.ACTIVE);
@@ -167,7 +167,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     @Transactional
     public ShopDTO reject(Long id) {
         Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Khong tim thay shop"));
+                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         UserDTO owner = resolveRequiredOwner(id);
 
         shop.setStatus(ShopStatus.REJECTED);
@@ -282,7 +282,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
         if (owner == null) {
             throw new EmailValidationException(
                     "ShopOwnerEmailRecipientNotFound",
-                    "Khong tim thay chu shop de gui email"
+                    "Không tìm thấy chủ shop để gửi email"
             );
         }
         return owner;
@@ -292,7 +292,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
         if (owner == null || !StringUtils.hasText(owner.getEmail())) {
             throw new EmailValidationException(
                     "ShopOwnerEmailRequired",
-                    "Chu shop chua co email de nhan thong bao"
+                    "Chủ shop chưa có email để nhận thông báo"
             );
         }
         return owner.getEmail().trim();
@@ -302,7 +302,7 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
         if (shop.getStatus() != ShopStatus.PENDING_APPROVAL) {
             throw new EmailValidationException(
                     "ShopRegistrationEmailStatusInvalid",
-                    "Chi co the gui email cho shop dang cho duyet"
+                    "Chỉ có thể gửi email cho shop đang chờ duyệt"
             );
         }
     }

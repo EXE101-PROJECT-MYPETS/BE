@@ -11,8 +11,8 @@ import com.exe101.product.dto.ProductDTO;
 import com.exe101.product.entity.Product;
 import com.exe101.product.entity.ProductCategory;
 import com.exe101.product.entity.ProductImage;
-import com.exe101.product.exception.ProductDuplicate;
 import com.exe101.product.exception.ProductCategoryNotFound;
+import com.exe101.product.exception.ProductDuplicate;
 import com.exe101.product.exception.ProductNotFound;
 import com.exe101.product.exception.ProductValidationException;
 import com.exe101.product.mapper.ProductMapper;
@@ -26,15 +26,11 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.math.BigDecimal;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
+import java.util.*;
 import java.util.stream.Collectors;
-import org.springframework.web.multipart.MultipartFile;
 
 @Service
 @RequiredArgsConstructor
@@ -494,7 +490,7 @@ public class ProductService implements IService<Product, ProductDTO, Long> {
         entity.setName(data.name());
         entity.setUnit(data.unit());
         entity.setPrice(data.price() != null ? data.price() : 0L);
-        entity.setWeightKg(data.weightKg() != null ? data.weightKg() : new BigDecimal("0.100"));
+        entity.setWeightKg(data.weightKg() != null ? data.weightKg() : new BigDecimal("100"));
         entity.setActive(data.active() != null ? data.active() : Boolean.TRUE);
     }
 

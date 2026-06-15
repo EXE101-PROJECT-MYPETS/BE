@@ -29,4 +29,20 @@ public interface IOrderItemRepository extends JpaRepository<OrderItem, Long> {
             @Param("productId") Long productId,
             @Param("status") OrderStatus status
     );
+
+    @Query("""
+            SELECT COUNT(item) > 0
+            FROM OrderItem item
+            JOIN item.order orderEntity
+            WHERE item.shopId = :shopId
+              AND item.productId = :productId
+              AND orderEntity.customerId = :customerId
+              AND orderEntity.status = :status
+            """)
+    boolean existsCompletedPurchaseForReview(
+            @Param("shopId") Long shopId,
+            @Param("productId") Long productId,
+            @Param("customerId") Long customerId,
+            @Param("status") OrderStatus status
+    );
 }

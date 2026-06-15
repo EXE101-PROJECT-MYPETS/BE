@@ -6,6 +6,7 @@ import com.exe101.email.entity.EmailVerificationToken;
 import com.exe101.email.exception.EmailSendException;
 import com.exe101.email.exception.EmailValidationException;
 import com.exe101.email.repository.IEmailVerificationTokenRepository;
+import com.exe101.order.entity.CustomerOrder;
 import com.exe101.user.entity.User;
 import com.exe101.user.exception.UserDuplicate;
 import com.exe101.user.repository.IUserRepository;
@@ -13,6 +14,7 @@ import jakarta.mail                                                             
 import jakarta.mail.internet.MimeMessage;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.MailException;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
@@ -20,10 +22,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.StringUtils;
 
+import java.io.IOException;
+import java.io.InputStream;
 import java.nio.charset.StandardCharsets;
 import java.security.SecureRandom;
+import java.text.NumberFormat;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.LinkedHashMap;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 @Service
 @RequiredArgsConstructor
@@ -32,15 +41,17 @@ public class EmailService {
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int MIN_CODE = 100000;
     private static final int CODE_RANGE = 900000;
+    private static final String TEMPLATE_DIR = "email-templates/";
 
     private final JavaMailSender mailSender;
     private final IEmailVerificationTokenRepository tokenRepository;
     private final IUserRepository userRepository;
+    private final Map<String, String> templateCache = new ConcurrentHashMap<>();
 
     @Value("${app.email.from:}")
     private String fromAddress;
 
-    @Value("${app.email.brand-name:EXE101 Pet Spa}")
+    @Value("${app.email.brand-name:Pawly}")
     private String brandName;
 
     @Value("${app.email.support-email:${MAIL_FROM:${MAIL_USERNAME:}}}")
@@ -82,21 +93,65 @@ public class EmailService {
     }
 
     public void sendShopRegistrationApproved(String to, String ownerName, String shopName) {
-        String subject = "Dang ky shop da duoc chap nhan";
-        String content = """
-                <p>Ho so dang ky shop cua ban da duoc chap nhan.</p>
-                <p>Ban co the dang nhap vao trang quan ly shop va bat dau cap nhat thong tin, dich vu, san pham cua shop.</p>
-                """;
+        String subject = "Đăng ký shop đã được chấp nhận";
+        String content = renderTemplate("shop-registration-approved-content.html", Map.of());
         sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
     }
 
     public void sendShopRegistrationRejected(String to, String ownerName, String shopName) {
-        String subject = "Dang ky shop chua duoc chap nhan";
-        String content = """
-                <p>Ho so dang ky shop cua ban chua duoc chap nhan.</p>
-                <p>Vui long kiem tra lai thong tin dang ky hoac lien he bo phan ho tro de duoc huong dan them.</p>
-                """;
+        String subject = "Đăng ký shop chưa được chấp nhận";
+        String content = renderTemplate("shop-registration-rejected-content.html", Map.of());
         sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
+    }
+
+    public void sendPlatformCommissionInvoiceCreated(
+            String to,
+            String ownerName,
+            String shopName,
+            String invoiceCode,
+            LocalDate periodFrom,
+            LocalDate periodTo,
+            Long totalCommissionAmount,
+            OffsetDateTime dueAt,
+            String bankCode,
+            String accountNumber,
+            String accountName,
+            String transferContent
+    ) {
+        String subject = "Hóa đơn phí nền tảng " + safeText(invoiceCode);
+        String greetingName = StringUtils.hasText(ownerName) ? ownerName.trim() : "chu shop";
+        String displayShopName = StringUtils.hasText(shopName) ? shopName.trim() : "shop cua ban";
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("ownerName", escapeHtml(greetingName));
+        values.put("shopName", escapeHtml(displayShopName));
+        values.put("invoiceCode", escapeHtml(safeText(invoiceCode)));
+        values.put("periodFrom", escapeHtml(periodFrom != null ? periodFrom.toString() : ""));
+        values.put("periodTo", escapeHtml(periodTo != null ? periodTo.toString() : ""));
+        values.put("totalCommissionAmount", escapeHtml(formatVnd(totalCommissionAmount)));
+        values.put("dueAt", escapeHtml(dueAt != null ? dueAt.toLocalDate().toString() : ""));
+        values.put("bankCode", escapeHtml(safeText(bankCode)));
+        values.put("accountNumber", escapeHtml(safeText(accountNumber)));
+        values.put("accountName", escapeHtml(safeText(accountName)));
+        values.put("transferContent", escapeHtml(safeText(transferContent)));
+        values.put("brandName", escapeHtml(brandName));
+        String body = renderTemplate("platform-commission-invoice-created.html", values);
+        sendHtml(to, subject, renderStandardEmail(subject, body));
+    }
+
+    public void sendOrderShipping(User user, CustomerOrder order) {
+        String subject = "Đơn hàng đang được giao " + resolveOrderCode(order);
+        sendHtml(user.getEmail(), subject, renderStandardEmail(
+                subject,
+                renderOrderStatusEmail("order-shipping.html", user, order)
+        ));
+    }
+
+    public void sendOrderCompleted(User user, CustomerOrder order) {
+        String subject = "Đơn hàng đã hoàn thành " + resolveOrderCode(order);
+        sendHtml(user.getEmail(), subject, renderStandardEmail(
+                subject,
+                renderOrderStatusEmail("order-completed.html", user, order)
+        ));
     }
 
     @Transactional
@@ -220,18 +275,11 @@ public class EmailService {
     }
 
     private String renderVerificationEmail(EmailTemplateContent content) {
-        String body = """
-                <p>%s</p>
-                <div style="margin:28px 0;text-align:center;">
-                  <div style="display:inline-block;padding:18px 28px;border-radius:8px;background:#f4f7fb;border:1px solid #d8e0ec;font-size:30px;font-weight:700;letter-spacing:8px;color:#111827;">%s</div>
-                </div>
-                <p>Mã này có hiệu lực trong <strong>%d phút</strong>. Vui lòng không chia sẻ mã này với bất kỳ ai.</p>
-                <p>Nếu bạn không thực hiện yêu cầu này, bạn có thể bỏ qua email.</p>
-                """.formatted(
-                escapeHtml(content.intro()),
-                escapeHtml(content.code()),
-                verificationCodeExpMinutes
-        );
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("intro", escapeHtml(content.intro()));
+        values.put("code", escapeHtml(content.code()));
+        values.put("expirationMinutes", String.valueOf(verificationCodeExpMinutes));
+        String body = renderTemplate("verification-code.html", values);
         return renderStandardEmail(content.title(), body);
     }
 
@@ -243,19 +291,12 @@ public class EmailService {
     ) {
         String greetingName = StringUtils.hasText(ownerName) ? ownerName.trim() : "chu shop";
         String displayShopName = StringUtils.hasText(shopName) ? shopName.trim() : "shop cua ban";
-        String body = """
-                <p>Xin chao <strong>%s</strong>,</p>
-                <p>Day la thong bao lien quan den ho so dang ky shop <strong>%s</strong>.</p>
-                <div style="margin:22px 0;padding:18px 20px;border:1px solid #d8e0ec;border-radius:8px;background:#f8fafc;">
-                  %s
-                </div>
-                <p>Tran trong,<br>%s</p>
-                """.formatted(
-                escapeHtml(greetingName),
-                escapeHtml(displayShopName),
-                contentHtml,
-                escapeHtml(brandName)
-        );
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("ownerName", escapeHtml(greetingName));
+        values.put("shopName", escapeHtml(displayShopName));
+        values.put("contentHtml", contentHtml);
+        values.put("brandName", escapeHtml(brandName));
+        String body = renderTemplate("shop-registration.html", values);
         return renderStandardEmail(title, body);
     }
 
@@ -270,51 +311,42 @@ public class EmailService {
                 ? "Cần hỗ trợ? Liên hệ " + escapeHtml(support)
                 : "Cần hỗ trợ? Vui lòng liên hệ đội ngũ chăm sóc khách hàng.";
 
-        return """
-                <!doctype html>
-                <html lang="vi">
-                <head>
-                  <meta charset="UTF-8">
-                  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-                  <title>%s</title>
-                </head>
-                <body style="margin:0;padding:0;background:#f3f6fa;font-family:Arial,Helvetica,sans-serif;color:#1f2937;">
-                  <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="background:#f3f6fa;padding:28px 12px;">
-                    <tr>
-                      <td align="center">
-                        <table role="presentation" width="100%%" cellspacing="0" cellpadding="0" style="max-width:620px;background:#ffffff;border:1px solid #dfe6ef;border-radius:10px;overflow:hidden;">
-                          <tr>
-                            <td style="background:#0f766e;padding:24px 30px;color:#ffffff;">
-                              <div style="font-size:20px;font-weight:700;">%s</div>
-                              <div style="font-size:13px;margin-top:6px;opacity:.9;">Dịch vụ chăm sóc thú cưng</div>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style="padding:30px;">
-                              <h1 style="margin:0 0 18px;font-size:22px;line-height:1.35;color:#111827;">%s</h1>
-                              <div style="font-size:15px;line-height:1.7;color:#374151;">%s</div>
-                            </td>
-                          </tr>
-                          <tr>
-                            <td style="padding:18px 30px;background:#f9fafb;border-top:1px solid #e5e7eb;color:#6b7280;font-size:12px;line-height:1.6;">
-                              <div>%s</div>
-                              <div style="margin-top:8px;">Email này được gửi tự động từ %s. Vui lòng không trả lời trực tiếp email này.</div>
-                            </td>
-                          </tr>
-                        </table>
-                      </td>
-                    </tr>
-                  </table>
-                </body>
-                </html>
-                """.formatted(
-                escapeHtml(title),
-                escapeHtml(brandName),
-                escapeHtml(title),
-                bodyHtml,
-                supportLine,
-                escapeHtml(brandName)
-        );
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("title", escapeHtml(title));
+        values.put("brandName", escapeHtml(brandName));
+        values.put("body", bodyHtml);
+        values.put("supportLine", supportLine);
+        return renderTemplate("layout.html", values);
+    }
+
+    private String renderOrderStatusEmail(String templateName, User user, CustomerOrder order) {
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("customerName", escapeHtml(resolveCustomerName(user, order)));
+        values.put("orderCode", escapeHtml(resolveOrderCode(order)));
+        values.put("receiverName", escapeHtml(safeText(order.getReceiverName())));
+        values.put("shippingAddress", escapeHtml(safeText(order.getShippingAddress())));
+        values.put("totalAmount", escapeHtml(formatVnd(order.getTotalAmount())));
+        values.put("brandName", escapeHtml(brandName));
+        return renderTemplate(templateName, values);
+    }
+
+    private String renderTemplate(String templateName, Map<String, String> values) {
+        String result = loadTemplate(templateName);
+        for (Map.Entry<String, String> entry : values.entrySet()) {
+            result = result.replace("{{" + entry.getKey() + "}}", entry.getValue() == null ? "" : entry.getValue());
+        }
+        return result;
+    }
+
+    private String loadTemplate(String templateName) {
+        return templateCache.computeIfAbsent(templateName, name -> {
+            ClassPathResource resource = new ClassPathResource(TEMPLATE_DIR + name);
+            try (InputStream inputStream = resource.getInputStream()) {
+                return new String(inputStream.readAllBytes(), StandardCharsets.UTF_8);
+            } catch (IOException ex) {
+                throw new EmailSendException("EmailTemplateLoadFailed", "Không thể đọc template email");
+            }
+        });
     }
 
     private EmailTemplateContent toVerificationContent(EmailVerificationToken token) {
@@ -386,6 +418,32 @@ public class EmailService {
                 .replace("'", "&#39;");
     }
 
+    private String formatVnd(Long amount) {
+        NumberFormat formatter = NumberFormat.getNumberInstance(Locale.US);
+        return formatter.format(amount != null ? amount : 0L) + " VND";
+    }
+
+    private String safeText(String value) {
+        return StringUtils.hasText(value) ? value.trim() : "";
+    }
+
+    private String resolveOrderCode(CustomerOrder order) {
+        if (order == null || order.getId() == null) {
+            return "";
+        }
+        return StringUtils.hasText(order.getOrderCode()) ? order.getOrderCode().trim() : "#" + order.getId();
+    }
+
+    private String resolveCustomerName(User user, CustomerOrder order) {
+        if (user != null && StringUtils.hasText(user.getFullName())) {
+            return user.getFullName().trim();
+        }
+        if (order != null && StringUtils.hasText(order.getReceiverName())) {
+            return order.getReceiverName().trim();
+        }
+        return "bạn";
+    }
+
     /**
      * Tìm token hợp lệ mà không thay đổi trạng thái
      */
@@ -419,12 +477,10 @@ public class EmailService {
      */
     public void sendResetPasswordConfirmationEmail(String email, String fullName) {
         String subject = "Mật khẩu của bạn đã được thay đổi";
-        String body = """
-                <p>Xin chào %s,</p>
-                <p>Mật khẩu của bạn đã được thay đổi thành công. Nếu bạn không thực hiện hành động này, vui lòng liên hệ với chúng tôi ngay lập tức.</p>
-                <p>Nếu bạn có bất kỳ câu hỏi nào, vui lòng liên hệ với đội hỗ trợ của chúng tôi.</p>
-                <p>Trân trọng,<br>Đội ngũ %s</p>
-                """.formatted(escapeHtml(fullName), escapeHtml(brandName));
+        Map<String, String> values = new LinkedHashMap<>();
+        values.put("fullName", escapeHtml(fullName));
+        values.put("brandName", escapeHtml(brandName));
+        String body = renderTemplate("reset-password-confirmation.html", values);
         
         sendHtml(email, subject, renderStandardEmail(subject, body));
     }

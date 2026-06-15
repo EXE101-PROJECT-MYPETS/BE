@@ -10,6 +10,19 @@ import java.util.List;
 public interface IServiceReviewRepository extends JpaRepository<ServiceReview, Long> {
 
     @Query("""
+            SELECT r
+            FROM ServiceReview r
+            LEFT JOIN FETCH r.customer
+            WHERE r.shopId = :shopId
+              AND r.serviceId = :serviceId
+            ORDER BY r.id DESC
+            """)
+    List<ServiceReview> findByShopIdAndServiceIdOrderByIdDesc(
+            @Param("shopId") Long shopId,
+            @Param("serviceId") Long serviceId
+    );
+
+    @Query("""
             SELECT r.serviceId, AVG(r.rating), COUNT(r.id)
             FROM ServiceReview r
             WHERE r.serviceId IN :serviceIds
