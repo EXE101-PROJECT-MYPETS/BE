@@ -148,7 +148,8 @@ try {
         try {
             bookingService.publishBookingStatusUpdatedNotification(savedBooking);
         } catch (Exception e) {
-            // ignore/log
+            org.slf4j.LoggerFactory.getLogger(ManualPaymentService.class)
+                    .warn("Failed to publish booking status update notification", e);
         }
 
         return new ManualPaymentConfirmResponse(
