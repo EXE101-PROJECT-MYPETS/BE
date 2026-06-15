@@ -28,6 +28,7 @@ import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.order.service.OrderService;
 import com.exe101.booking.service.BookingService;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -41,6 +42,7 @@ import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 @RequiredArgsConstructor
 public class ManualPaymentService {
 
