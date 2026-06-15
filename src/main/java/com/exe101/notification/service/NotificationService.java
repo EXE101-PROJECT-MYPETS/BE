@@ -17,6 +17,7 @@ import com.exe101.notification.repository.INotificationRepository;
 import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.repository.IShopMemberRepository;
 import com.exe101.user.repository.IUserRepository;
+import com.exe101.fcm.service.FirebaseMessagingService;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
@@ -43,6 +44,7 @@ public class NotificationService {
     private final IShopMemberRepository shopMemberRepository;
     private final IUserRepository userRepository;
     private final NotificationSocketPublisher socketPublisher;
+    private final FirebaseMessagingService firebaseMessagingService;
     private final ObjectMapper objectMapper;
 
     @Transactional
@@ -224,6 +226,17 @@ public class NotificationService {
 
         RealtimeNotificationDTO saved = toDTO(notificationRepository.save(notification));
         socketPublisher.publish(saved);
+        
+        if (recipientUserId != null) {
+            Map<String, String> fcmData = new LinkedHashMap<>();
+            fcmData.put("type", type.name());
+            fcmData.put("notificationId", saved.getId().toString());
+            if (targetId != null) {
+                fcmData.put("referenceId", targetId.toString());
+            }
+            firebaseMessagingService.sendPushNotification(recipientUserId, title, body, fcmData);
+        }
+        
         return saved;
     }
 

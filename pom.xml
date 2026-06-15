@@ -165,6 +165,13 @@
             <version>1.7.0</version>
         </dependency>
 
+        <!-- Firebase Admin SDK -->
+        <dependency>
+            <groupId>com.google.firebase</groupId>
+            <artifactId>firebase-admin</artifactId>
+            <version>9.3.0</version>
+        </dependency>
+
         <!-- gRPC (only keep if you truly need to force it; otherwise remove and let deps manage) -->
         <dependency>
             <groupId>io.grpc</groupId>

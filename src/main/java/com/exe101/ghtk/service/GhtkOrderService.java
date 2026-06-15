@@ -13,6 +13,7 @@ import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.exception.OrderNotFound;
 import com.exe101.order.repository.IOrderItemRepository;
 import com.exe101.order.repository.IOrderRepository;
+import com.exe101.order.service.OrderService;
 import com.exe101.product.entity.Product;
 import com.exe101.product.repository.IProductRepository;
 import com.exe101.shipping.entity.ShipmentStatus;
@@ -84,6 +85,7 @@ public class GhtkOrderService {
     private final IShopOrderShipmentRepository shipmentRepository;
     private final GhtkConfigCryptoService cryptoService;
     private final ObjectMapper objectMapper;
+    private final OrderService orderService;
 
     private final RestTemplate restTemplate = buildRestTemplate();
 
@@ -541,13 +543,21 @@ public class GhtkOrderService {
         return note;
     }
 
-    private void markSubmittedIfAccepted(CustomerOrder order, GhtkSubmitOrderResponse response) {
-        if (response.isSuccess()) {
-            order.setStatus(OrderStatus.WAITING_GHTK_PICKUP);
-            orderRepository.save(order);
-            upsertShipmentFromSubmitResponse(order, response);
+private void markSubmittedIfAccepted(CustomerOrder order, GhtkSubmitOrderResponse response) {
+    if (response.isSuccess()) {
+        order.setStatus(OrderStatus.WAITING_GHTK_PICKUP);
+
+        CustomerOrder saved = orderRepository.save(order);
+
+        upsertShipmentFromSubmitResponse(saved, response);
+
+        try {
+            orderService.publishOrderStatusUpdatedNotification(saved);
+        } catch (Exception e) {
+            log.error("Failed to publish order status update notification", e);
         }
     }
+}
 
     private void upsertShipmentFromSubmitResponse(CustomerOrder order, GhtkSubmitOrderResponse response) {
         JsonNode responseOrder = response.getOrder();

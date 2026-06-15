@@ -296,6 +296,7 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
     public OrderDTO update(Long id, OrderDTO dto) {
         CustomerOrder entity = orderRepository.findById(id)
                 .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        OrderStatus oldStatus = entity.getStatus();
 
         OrderStatus previousStatus = entity.getStatus();
 
@@ -324,11 +325,39 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
 
         CustomerOrder saved = orderRepository.save(entity);
-        if (previousStatus != OrderStatus.COMPLETED && saved.getStatus() == OrderStatus.COMPLETED) {
-            commissionService.createCommissionIfAbsent(saved);
-        }
-        return getById(saved.getId());
+if (oldStatus != saved.getStatus()) {
+    publishOrderStatusUpdatedNotification(saved);
+}
+
+if (oldStatus != OrderStatus.COMPLETED && saved.getStatus() == OrderStatus.COMPLETED) {
+    commissionService.createCommissionIfAbsent(saved);
+}
+
+return getById(saved.getId());
     }
+
+    public void publishOrderStatusUpdatedNotification(CustomerOrder order) {
+        if (order.getUserId() == null) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(order.getShopId(), order.getCustomerId());
+        User user = resolveNotificationUser(order.getUserId());
+        String statusLabel = toStatusLabel(order.getStatus());
+
+        notificationService.publishToUser(
+                order.getUserId(),
+                order.getShopId(),
+                NotificationType.ORDER_STATUS_UPDATED,
+                NotificationTargetType.ORDER,
+                order.getId(),
+                null,
+                "Cập nhật đơn hàng " + (order.getOrderCode() != null ? order.getOrderCode() : ""),
+                "Đơn hàng của bạn đã chuyển sang trạng thái: " + statusLabel,
+                buildOrderNotificationMetadata(order, user, customer)
+        );
+    }
+
 
     @Override
     @Transactional
