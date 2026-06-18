@@ -502,7 +502,9 @@ Applies to these route groups:
 | `product`          | `GET`    | `/api/public/products/{productId}/reviews` | Public review list by product |
 | `product`          | `GET`    | `/api/public/products/reviews?productId=1` | Public review list by query |
 | `product`          | `GET`    | `/api/public/products/{productId}/related?size=10` | Public related products in same shop |
+| `shop`             | `GET`    | `/api/public/shops/nearby?lat=10.762622&lng=106.660172&size=10` | Public nearest active shops for quick booking selection, max 10 |
 | `shop`             | `GET`    | `/api/public/shops/{shopId}` | Public shop info |
+| `shop`             | `GET`    | `/api/public/shops/{shopId}/services?size=20` | Public active services of one shop for quick booking; response includes `service.serviceType` |
 | `shop`             | `GET`    | `/api/public/shop/{shopId}` | Public shop info alias |
 | `resource`         | `GET`    | `/api/resources?shopId=1`                            | List shop resources for one shop                     |
 | `package`          | `GET`    | `/api/packages?shopId=1`                             | List service packages for one shop                   |

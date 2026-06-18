@@ -89,6 +89,31 @@ public class ServicePublicService {
         );
     }
 
+    public ScrollResponse<ServicePublicDTO> getAllByShopForQuickBooking(
+            Long shopId,
+            Boolean active,
+            Long cursor,
+            int size
+    ) {
+        if (shopId == null || shopId <= 0) {
+            throw new IllegalArgumentException("shopId la bat buoc");
+        }
+        return getAllForScrollByServiceType(
+                null,
+                shopId,
+                null,
+                null,
+                active,
+                null,
+                null,
+                null,
+                null,
+                MAX_PER_SHOP_LIMIT,
+                cursor,
+                size
+        );
+    }
+
     public ScrollResponse<ServicePublicDTO> getRelatedServices(
             Long serviceId,
             Long cursor,

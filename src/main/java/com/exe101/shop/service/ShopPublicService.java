@@ -4,6 +4,7 @@ import com.exe101.product.repository.IProductRepository;
 import com.exe101.review.repository.IReviewRepository;
 import com.exe101.serviceReview.repository.IServiceReviewRepository;
 import com.exe101.shop.dto.ShopMarkerDTO;
+import com.exe101.shop.dto.ShopNearbyDTO;
 import com.exe101.shop.dto.ShopPublicContactDTO;
 import com.exe101.shop.dto.ShopPublicDTO;
 import com.exe101.shop.entity.Shop;
@@ -24,6 +25,8 @@ import java.util.Map;
 @Service
 @RequiredArgsConstructor
 public class ShopPublicService {
+
+    private static final int MAX_NEARBY_SHOP_SIZE = 10;
 
     private final IShopRepository shopRepository;
     private final IProductRepository productRepository;
@@ -75,6 +78,15 @@ public class ShopPublicService {
                 .toList();
     }
 
+    public List<ShopNearbyDTO> getNearbyShops(Double lat, Double lng, Double radiusKm, int size) {
+        validateNearbyParams(lat, lng, radiusKm, size);
+        int limit = Math.min(Math.max(size, 1), MAX_NEARBY_SHOP_SIZE);
+
+        return shopRepository.findNearbyShopRows(lat, lng, radiusKm, limit).stream()
+                .map(this::mapNearbyShop)
+                .toList();
+    }
+
     public ShopPublicDTO getById(Long shopId) {
         Shop shop = shopRepository.findByIdAndStatus(shopId, ShopStatus.ACTIVE)
                 .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
@@ -117,6 +129,56 @@ public class ShopPublicService {
 
     private double calculateCombinedRating(double productAvgRating, double serviceAvgRating) {
         return (productAvgRating + serviceAvgRating) / 2D;
+    }
+
+    private void validateNearbyParams(Double lat, Double lng, Double radiusKm, int size) {
+        if (lat == null || lng == null) {
+            throw new IllegalArgumentException("lat va lng la bat buoc");
+        }
+        if (lat < -90D || lat > 90D) {
+            throw new IllegalArgumentException("lat phai trong khoang [-90, 90]");
+        }
+        if (lng < -180D || lng > 180D) {
+            throw new IllegalArgumentException("lng phai trong khoang [-180, 180]");
+        }
+        if (radiusKm != null && radiusKm <= 0D) {
+            throw new IllegalArgumentException("radiusKm phai lon hon 0");
+        }
+        if (size <= 0) {
+            throw new IllegalArgumentException("size phai lon hon 0");
+        }
+    }
+
+    private ShopNearbyDTO mapNearbyShop(Object[] row) {
+        return new ShopNearbyDTO(
+                toLong(row[0]),
+                (String) row[1],
+                (String) row[2],
+                (String) row[3],
+                toDouble(row[4]),
+                toLong(row[5]),
+                toLong(row[6]),
+                (String) row[7],
+                toDouble(row[8]),
+                toDouble(row[9]),
+                toDouble(row[10]),
+                (String) row[11],
+                (String) row[12]
+        );
+    }
+
+    private Long toLong(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return ((Number) value).longValue();
+    }
+
+    private Double toDouble(Object value) {
+        if (value == null) {
+            return null;
+        }
+        return ((Number) value).doubleValue();
     }
 
 }
