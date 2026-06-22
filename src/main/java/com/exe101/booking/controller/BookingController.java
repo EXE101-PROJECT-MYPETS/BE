@@ -6,10 +6,12 @@ import com.exe101.booking.entity.BookingStatus;
 import com.exe101.booking.service.BookingService;
 import com.exe101.common.ScrollResponse;
 import com.exe101.invoice.dto.InvoiceDTO;
+import com.exe101.auth.model.UserPrincipal;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -48,6 +50,30 @@ public class BookingController {
                 source,
                 createDate,
                 appointmentDate,
+                cursor,
+                size
+        ));
+    }
+
+    @GetMapping("/customer")
+    public ResponseEntity<ScrollResponse<BookingListItemDTO>> getCustomerBookings(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @RequestParam(required = false) BookingStatus status,
+            @RequestParam(required = false) Long cursor,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        if (principal == null || principal.getUser() == null || principal.getUser().getId() == null) {
+            throw new IllegalStateException("Cần đăng nhập để thực hiện chức năng này");
+        }
+        return ResponseEntity.ok(bookingService.getAllForScroll(
+                null,
+                principal.getUser().getId(),
+                null,
+                null,
+                status,
+                null,
+                null,
+                null,
                 cursor,
                 size
         ));

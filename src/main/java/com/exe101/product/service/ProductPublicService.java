@@ -28,6 +28,15 @@ public class ProductPublicService {
     private final IReviewRepository reviewRepository;
     private final IOrderItemRepository orderItemRepository;
     private final ShopPublicService shopPublicService;
+    private final com.exe101.review.repository.IReviewReactionRepository reviewReactionRepository;
+
+    private Long getCurrentUserId() {
+        org.springframework.security.core.Authentication auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof com.exe101.auth.model.UserPrincipal userPrincipal) {
+            return userPrincipal.getUser().getId();
+        }
+        return null;
+    }
 
     public ScrollResponse<ProductDTO> getAllForMobile(
             String keyword,
@@ -111,20 +120,37 @@ public class ProductPublicService {
         Product product = productRepository.findById(productId)
                 .orElseThrow(() -> new ProductNotFound("ProductNotFound", "Không tìm thấy sản phẩm"));
         int normalizedSize = Math.min(Math.max(size, 1), MAX_REVIEW_SIZE);
+        Long currentUserId = getCurrentUserId();
+        
         return reviewRepository.findByShopIdAndProductIdOrderByIdDesc(product.getShopId(), productId).stream()
                 .limit(normalizedSize)
-                .map(review -> new ProductPublicReviewDTO(
-                        review.getId(),
-                        review.getRating(),
-                        review.getComment(),
-                        List.of(),
-                        new ProductPublicReviewUserDTO(
-                                review.getCustomerId(),
-                                review.getCustomer() != null ? review.getCustomer().getFullName() : null
-                        ),
-                        review.getCreatedAt(),
-                        0L
-                ))
+                .map(review -> {
+                    long likes = reviewReactionRepository.countByReviewIdAndIsLike(review.getId(), true);
+                    long dislikes = reviewReactionRepository.countByReviewIdAndIsLike(review.getId(), false);
+                    String userReaction = null;
+                    if (currentUserId != null) {
+                        userReaction = reviewReactionRepository.findByReviewIdAndUserId(review.getId(), currentUserId)
+                                .map(react -> react.getIsLike() ? "LIKE" : "DISLIKE")
+                                .orElse(null);
+                    }
+                    
+                    ProductPublicReviewDTO reviewDto = new ProductPublicReviewDTO();
+                    reviewDto.setId(review.getId());
+                    reviewDto.setStar(review.getRating());
+                    reviewDto.setContent(review.getComment());
+                    reviewDto.setImageUrls(List.of());
+                    reviewDto.setUser(new ProductPublicReviewUserDTO(
+                            review.getCustomerId(),
+                            review.getCustomer() != null ? review.getCustomer().getFullName() : null
+                    ));
+                    reviewDto.setDate(review.getCreatedAt());
+                    reviewDto.setUsefulCount(likes);
+                    reviewDto.setReply(review.getReply());
+                    reviewDto.setLikeCount(likes);
+                    reviewDto.setDislikeCount(dislikes);
+                    reviewDto.setUserReaction(userReaction);
+                    return reviewDto;
+                })
                 .toList();
     }
 }

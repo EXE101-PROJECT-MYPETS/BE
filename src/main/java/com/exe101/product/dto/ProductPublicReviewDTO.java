@@ -20,4 +20,8 @@ public class ProductPublicReviewDTO {
     private ProductPublicReviewUserDTO user;
     private OffsetDateTime date;
     private Long usefulCount;
+    private String reply;
+    private Long likeCount;
+    private Long dislikeCount;
+    private String userReaction;
 }

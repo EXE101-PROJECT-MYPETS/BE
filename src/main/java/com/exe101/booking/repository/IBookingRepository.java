@@ -119,4 +119,21 @@ public interface IBookingRepository extends JpaRepository<Booking, Long> {
             @Param("appointmentFrom") OffsetDateTime appointmentFrom,
             @Param("appointmentTo") OffsetDateTime appointmentTo
     );
+
+    @Query("""
+            SELECT b
+            FROM Booking b
+            JOIN BookingItem i ON i.bookingId = b.id
+            WHERE b.userId = :userId
+              AND i.itemType = :itemType
+              AND i.refId = :serviceId
+              AND b.status = :status
+            ORDER BY b.id DESC
+            """)
+    List<Booking> findCompletedBookingsByUserAndService(
+            @Param("userId") Long userId,
+            @Param("serviceId") Long serviceId,
+            @Param("itemType") com.exe101.booking.entity.BookingItemType itemType,
+            @Param("status") BookingStatus status
+    );
 }

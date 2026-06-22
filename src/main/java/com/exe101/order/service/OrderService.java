@@ -205,6 +205,28 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         );
     }
 
+    @Transactional
+    public OrderDetailDTO completeCustomerOrder(Long userId, Long id) {
+        CustomerOrder order = orderRepository.findByIdForUpdate(id)
+                .orElseThrow(() -> new OrderNotFound("OrderNotFound", "Không tìm thấy đơn hàng"));
+        assertCustomerOwnsOrder(order, userId);
+        
+        if (order.getStatus() != OrderStatus.SHIPPING && order.getStatus() != OrderStatus.GHTK_PICKED_UP) {
+            throw new OrderValidationException(
+                    "OrderCannotComplete",
+                    "Chỉ có thể xác nhận đã nhận hàng khi đơn hàng đang trong trạng thái giao hàng"
+            );
+        }
+        
+        order.setStatus(OrderStatus.COMPLETED);
+        CustomerOrder saved = orderRepository.save(order);
+        commissionService.createCommissionIfAbsent(saved);
+        publishOrderStatusUpdatedNotification(saved);
+        publishReviewInvitationNotification(saved);
+        
+        return toDetailDTO(saved);
+    }
+
     @Transactional(readOnly = true)
     public List<OrderCancelRequestDTO> getCancelRequests(
             Long shopId,
@@ -325,15 +347,18 @@ public class OrderService implements IService<CustomerOrder, OrderDTO, Long> {
         }
 
         CustomerOrder saved = orderRepository.save(entity);
-if (oldStatus != saved.getStatus()) {
-    publishOrderStatusUpdatedNotification(saved);
-}
+        if (oldStatus != saved.getStatus()) {
+            publishOrderStatusUpdatedNotification(saved);
+            if (saved.getStatus() == OrderStatus.COMPLETED) {
+                publishReviewInvitationNotification(saved);
+            }
+        }
 
-if (oldStatus != OrderStatus.COMPLETED && saved.getStatus() == OrderStatus.COMPLETED) {
-    commissionService.createCommissionIfAbsent(saved);
-}
+        if (oldStatus != OrderStatus.COMPLETED && saved.getStatus() == OrderStatus.COMPLETED) {
+            commissionService.createCommissionIfAbsent(saved);
+        }
 
-return getById(saved.getId());
+        return getById(saved.getId());
     }
 
     public void publishOrderStatusUpdatedNotification(CustomerOrder order) {
@@ -354,6 +379,27 @@ return getById(saved.getId());
                 null,
                 "Cập nhật đơn hàng " + (order.getOrderCode() != null ? order.getOrderCode() : ""),
                 "Đơn hàng của bạn đã chuyển sang trạng thái: " + statusLabel,
+                buildOrderNotificationMetadata(order, user, customer)
+        );
+    }
+
+    public void publishReviewInvitationNotification(CustomerOrder order) {
+        if (order.getUserId() == null) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(order.getShopId(), order.getCustomerId());
+        User user = resolveNotificationUser(order.getUserId());
+
+        notificationService.publishToUser(
+                order.getUserId(),
+                order.getShopId(),
+                NotificationType.REVIEW_INVITATION,
+                NotificationTargetType.ORDER,
+                order.getId(),
+                null,
+                "Đánh giá đơn hàng",
+                "Đơn hàng " + (order.getOrderCode() != null ? order.getOrderCode() : "") + " đã hoàn thành. Hãy để lại đánh giá của bạn nhé!",
                 buildOrderNotificationMetadata(order, user, customer)
         );
     }
