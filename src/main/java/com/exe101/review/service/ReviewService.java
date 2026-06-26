@@ -1,17 +1,21 @@
 package com.exe101.review.service;
 
 import com.exe101.common.IService;
+import com.exe101.order.entity.CustomerOrder;
 import com.exe101.order.entity.OrderStatus;
 import com.exe101.order.repository.IOrderItemRepository;
+import com.exe101.order.repository.IOrderRepository;
 import com.exe101.review.dto.ReviewDTO;
 import com.exe101.review.entity.Review;
 import com.exe101.review.exception.ReviewDuplicate;
 import com.exe101.review.exception.ReviewNotFound;
 import com.exe101.review.exception.ReviewValidationException;
 import com.exe101.review.mapper.ReviewMapper;
+import com.exe101.review.repository.IReviewReactionRepository;
 import com.exe101.review.repository.IReviewRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 
@@ -21,6 +25,74 @@ public class ReviewService implements IService<Review, ReviewDTO, Long> {
 
     private final IReviewRepository reviewRepository;
     private final IOrderItemRepository orderItemRepository;
+    private final IReviewReactionRepository reviewReactionRepository;
+    private final IOrderRepository orderRepository;
+
+    @Transactional
+    public ReviewDTO createCustomerReview(Long userId, ReviewDTO dto) {
+        List<CustomerOrder> completedOrders = orderRepository.findCompletedOrdersByUserAndProduct(
+                userId,
+                dto.getProductId(),
+                OrderStatus.COMPLETED
+        );
+
+        if (completedOrders.isEmpty()) {
+            throw new ReviewValidationException(
+                    "ProductReviewRequiresCompletedOrder",
+                    "Chỉ có thể đánh giá sản phẩm sau khi đơn hàng đã hoàn thành"
+            );
+        }
+
+        CustomerOrder order = completedOrders.get(0);
+        dto.setShopId(order.getShopId());
+        dto.setCustomerId(order.getCustomerId());
+
+        assertUniqueReview(dto.getShopId(), dto.getProductId(), dto.getCustomerId(), null);
+
+        Review entity = ReviewMapper.toEntity(dto);
+        return ReviewMapper.toDTO(reviewRepository.save(entity));
+    }
+
+    @Transactional
+    public void toggleReaction(Long reviewId, Long userId, Boolean isLike) {
+        if (!reviewRepository.existsById(reviewId)) {
+            throw new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá");
+        }
+
+        java.util.Optional<com.exe101.review.entity.ReviewReaction> reactionOpt = reviewReactionRepository
+                .findByReviewIdAndUserId(reviewId, userId);
+
+        if (reactionOpt.isPresent()) {
+            com.exe101.review.entity.ReviewReaction reaction = reactionOpt.get();
+            if (reaction.getIsLike().equals(isLike)) {
+                reviewReactionRepository.delete(reaction);
+            } else {
+                reaction.setIsLike(isLike);
+                reviewReactionRepository.save(reaction);
+            }
+        } else {
+            com.exe101.review.entity.ReviewReaction reaction = new com.exe101.review.entity.ReviewReaction();
+            reaction.setReviewId(reviewId);
+            reaction.setUserId(userId);
+            reaction.setIsLike(isLike);
+            reviewReactionRepository.save(reaction);
+        }
+    }
+
+    @Transactional
+    public ReviewDTO replyToReview(Long id, Long shopId, String replyText) {
+        Review entity = reviewRepository.findById(id)
+                .orElseThrow(() -> new ReviewNotFound("ReviewNotFound", "Không tìm thấy đánh giá"));
+
+        if (!entity.getShopId().equals(shopId)) {
+            throw new ReviewValidationException("ReviewAccessDenied", "Bạn không có quyền phản hồi đánh giá này");
+        }
+
+        entity.setReply(replyText);
+        entity.setReplyAt(replyText != null && !replyText.isBlank() ? java.time.OffsetDateTime.now() : null);
+
+        return ReviewMapper.toDTO(reviewRepository.save(entity));
+    }
 
     @Override
     public List<ReviewDTO> getAll() {

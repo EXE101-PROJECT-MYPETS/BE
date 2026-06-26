@@ -1158,6 +1158,7 @@ public class BookingService {
             Booking saved = bookingRepository.save(booking);
             if (status == BookingStatus.COMPLETED) {
                 commissionService.createCommissionIfAbsent(saved);
+                publishReviewInvitationNotification(saved);
             }
             createStatusEvent(saved.getShopId(), saved.getId(), previousStatus, status);
             publishBookingStatusUpdatedNotification(saved);
@@ -1185,6 +1186,27 @@ public class BookingService {
                 null,
                 "Cập nhật lịch hẹn " + (formatBookingCode(booking.getId()) != null ? formatBookingCode(booking.getId()) : ""),
                 "Lịch hẹn của bạn đã chuyển sang trạng thái: " + statusLabel,
+                buildBookingNotificationMetadata(booking, user, customer)
+        );
+    }
+
+    public void publishReviewInvitationNotification(Booking booking) {
+        if (booking.getUserId() == null) {
+            return;
+        }
+
+        Customer customer = resolveNotificationCustomer(booking.getShopId(), booking.getCustomerId());
+        User user = resolveNotificationUser(booking.getUserId());
+
+        notificationService.publishToUser(
+                booking.getUserId(),
+                booking.getShopId(),
+                NotificationType.REVIEW_INVITATION,
+                NotificationTargetType.BOOKING,
+                booking.getId(),
+                null,
+                "Đánh giá dịch vụ đặt lịch",
+                "Lịch hẹn " + (formatBookingCode(booking.getId()) != null ? formatBookingCode(booking.getId()) : "") + " đã hoàn thành. Hãy để lại đánh giá dịch vụ nhé!",
                 buildBookingNotificationMetadata(booking, user, customer)
         );
     }

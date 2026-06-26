@@ -119,4 +119,19 @@ public interface IOrderRepository extends JpaRepository<CustomerOrder, Long> {
             @Param("cancelledStatus") OrderStatus cancelledStatus,
             Pageable pageable
     );
+
+    @Query("""
+            SELECT o
+            FROM CustomerOrder o
+            JOIN OrderItem i ON i.orderId = o.id
+            WHERE o.userId = :userId
+              AND i.productId = :productId
+              AND o.status = :status
+            ORDER BY o.id DESC
+            """)
+    List<CustomerOrder> findCompletedOrdersByUserAndProduct(
+            @Param("userId") Long userId,
+            @Param("productId") Long productId,
+            @Param("status") OrderStatus status
+    );
 }

@@ -1,4 +1,4 @@
-package com.exe101.review.dto;
+package com.exe101.serviceReview.dto;
 
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
@@ -15,12 +15,11 @@ import java.time.OffsetDateTime;
 @Setter
 @NoArgsConstructor
 @AllArgsConstructor
-public class ReviewDTO {
+public class ServiceReviewDTO {
     private Long id;
     private Long shopId;
-    @NotNull(message = "Sản phẩm không được để trống")
-    private Long productId;
-    @NotNull(message = "Khách hàng không được để trống")
+    @NotNull(message = "Dịch vụ không được để trống")
+    private Long serviceId;
     private Long customerId;
     private String customerName;
 
@@ -34,7 +33,6 @@ public class ReviewDTO {
 
     private String reply;
     private OffsetDateTime replyAt;
-
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

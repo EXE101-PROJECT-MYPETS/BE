@@ -166,6 +166,24 @@ public class GhtkWebhookService {
         CustomerOrder savedOrder = orderRepository.save(order);
         if (nextStatus == OrderStatus.COMPLETED) {
             commissionService.createCommissionIfAbsent(savedOrder);
+            if (savedOrder.getUserId() != null) {
+                Map<String, Object> reviewMetadata = new java.util.LinkedHashMap<>();
+                reviewMetadata.put("orderId", savedOrder.getId());
+                reviewMetadata.put("orderCode", savedOrder.getOrderCode());
+                reviewMetadata.put("totalAmount", savedOrder.getTotalAmount());
+                reviewMetadata.put("senderUserId", savedOrder.getUserId());
+                notificationService.publishToUser(
+                        savedOrder.getUserId(),
+                        savedOrder.getShopId(),
+                        NotificationType.REVIEW_INVITATION,
+                        NotificationTargetType.ORDER,
+                        savedOrder.getId(),
+                        null,
+                        "Đánh giá đơn hàng",
+                        "Đơn hàng " + (savedOrder.getOrderCode() != null ? savedOrder.getOrderCode() : "") + " đã hoàn thành. Hãy để lại đánh giá của bạn nhé!",
+                        reviewMetadata
+                );
+            }
         }
         publishOrderStatusNotification(savedOrder, previousStatus, nextStatus);
         sendOrderStatusEmail(savedOrder, nextStatus);

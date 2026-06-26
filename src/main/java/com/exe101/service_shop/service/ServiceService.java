@@ -5,6 +5,7 @@ import com.exe101.common.ScrollResponse;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.serviceReview.entity.ServiceReview;
 import com.exe101.serviceReview.repository.IServiceReviewRepository;
+import com.exe101.serviceReview.repository.IServiceReviewReactionRepository;
 import com.exe101.service_shop.dto.ServiceCreateRequest;
 import com.exe101.service_shop.dto.ServiceDetailDTO;
 import com.exe101.service_shop.dto.ServiceDetailReviewDTO;
@@ -45,6 +46,7 @@ public class ServiceService {
     private final FileUploadUtil fileUploadUtil;
     private final IVaccineRepository vaccineRepository;
     private final IServiceReviewRepository serviceReviewRepository;
+    private final IServiceReviewReactionRepository serviceReviewReactionRepository;
 
     public List<ServiceDetailDTO> getAll() {
         return serviceRepository.findAll().stream().map(this::toDetailDTO).toList();
@@ -304,8 +306,9 @@ public class ServiceService {
                 service.getShopId(),
                 service.getId()
         );
+        Long currentUserId = getCurrentUserIdOrNull();
         dto.setReviews(reviews.stream()
-                .map(this::toDetailReviewDTO)
+                .map(r -> toDetailReviewDTO(r, currentUserId))
                 .toList());
         dto.setRating(reviews.stream()
                 .mapToInt(ServiceReview::getRating)
@@ -315,7 +318,16 @@ public class ServiceService {
         return dto;
     }
 
-    private ServiceDetailReviewDTO toDetailReviewDTO(ServiceReview review) {
+    private ServiceDetailReviewDTO toDetailReviewDTO(ServiceReview review, Long currentUserId) {
+        long likes = serviceReviewReactionRepository.countByServiceReviewIdAndIsLike(review.getId(), true);
+        long dislikes = serviceReviewReactionRepository.countByServiceReviewIdAndIsLike(review.getId(), false);
+        String userReaction = null;
+        if (currentUserId != null) {
+            userReaction = serviceReviewReactionRepository.findByServiceReviewIdAndUserId(review.getId(), currentUserId)
+                    .map(react -> react.getIsLike() ? "LIKE" : "DISLIKE")
+                    .orElse(null);
+        }
+
         return new ServiceDetailReviewDTO(
                 review.getId(),
                 review.getRating(),
@@ -324,8 +336,20 @@ public class ServiceService {
                         review.getCustomerId(),
                         review.getCustomer() != null ? review.getCustomer().getFullName() : null
                 ),
-                review.getCreatedAt()
+                review.getCreatedAt(),
+                review.getReply(),
+                likes,
+                dislikes,
+                userReaction
         );
+    }
+
+    private Long getCurrentUserIdOrNull() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !(authentication.getPrincipal() instanceof UserPrincipal userPrincipal)) {
+            return null;
+        }
+        return userPrincipal.getUser().getId();
     }
 
     public void delete(Long id) {

@@ -86,6 +86,14 @@ public class OrderController {
         return ResponseEntity.ok(orderService.cancelCustomerOrder(getCurrentUserId(principal), id, request));
     }
 
+    @PostMapping("/customer/{id}/complete")
+    public ResponseEntity<OrderDetailDTO> completeCustomerOrder(
+            @AuthenticationPrincipal UserPrincipal principal,
+            @PathVariable Long id
+    ) {
+        return ResponseEntity.ok(orderService.completeCustomerOrder(getCurrentUserId(principal), id));
+    }
+
     @GetMapping("/cancel-requests")
     public ResponseEntity<List<OrderCancelRequestDTO>> getCancelRequests(
             @RequestHeader("X-Shop-Id") Long shopId,

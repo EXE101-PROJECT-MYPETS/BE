@@ -17,4 +17,8 @@ public class ServiceDetailReviewDTO {
     private String content;
     private ServiceDetailReviewUserDTO user;
     private OffsetDateTime date;
+    private String reply;
+    private Long likeCount;
+    private Long dislikeCount;
+    private String userReaction;
 }

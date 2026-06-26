@@ -50,6 +50,12 @@ public class Review {
     @Column(name = "updated_at", nullable = false, insertable = false, updatable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "reply", columnDefinition = "text")
+    private String reply;
+
+    @Column(name = "reply_at")
+    private OffsetDateTime replyAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "shop_id", insertable = false, updatable = false)
     @JsonIgnore

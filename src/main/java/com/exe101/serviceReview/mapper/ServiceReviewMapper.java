@@ -1,23 +1,23 @@
-package com.exe101.review.mapper;
+package com.exe101.serviceReview.mapper;
 
-import com.exe101.review.dto.ReviewDTO;
-import com.exe101.review.entity.Review;
+import com.exe101.serviceReview.dto.ServiceReviewDTO;
+import com.exe101.serviceReview.entity.ServiceReview;
 import org.springframework.stereotype.Component;
 
 @Component
-public class ReviewMapper {
+public class ServiceReviewMapper {
 
-    public static ReviewDTO toDTO(Review entity) {
+    public static ServiceReviewDTO toDTO(ServiceReview entity) {
         if (entity == null) return null;
 
         String customerName = entity.getCustomer() != null
                 ? entity.getCustomer().getFullName()
                 : null;
 
-        ReviewDTO dto = new ReviewDTO();
+        ServiceReviewDTO dto = new ServiceReviewDTO();
         dto.setId(entity.getId());
         dto.setShopId(entity.getShopId());
-        dto.setProductId(entity.getProductId());
+        dto.setServiceId(entity.getServiceId());
         dto.setCustomerId(entity.getCustomerId());
         dto.setCustomerName(customerName);
         dto.setRating(entity.getRating());
@@ -29,16 +29,16 @@ public class ReviewMapper {
         return dto;
     }
 
-    public static Review toEntity(ReviewDTO dto) {
+    public static ServiceReview toEntity(ServiceReviewDTO dto) {
         if (dto == null) return null;
-        Review entity = new Review();
+        ServiceReview entity = new ServiceReview();
         updateEntity(entity, dto);
         return entity;
     }
 
-    public static void updateEntity(Review entity, ReviewDTO dto) {
+    public static void updateEntity(ServiceReview entity, ServiceReviewDTO dto) {
         entity.setShopId(dto.getShopId());
-        entity.setProductId(dto.getProductId());
+        entity.setServiceId(dto.getServiceId());
         entity.setCustomerId(dto.getCustomerId());
         entity.setRating(dto.getRating());
         entity.setComment(dto.getComment());
