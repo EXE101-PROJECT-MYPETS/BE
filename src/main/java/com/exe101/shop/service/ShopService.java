@@ -1,23 +1,17 @@
 package com.exe101.shop.service;
 
 import com.exe101.common.IService;
-import com.exe101.email.exception.EmailValidationException;
-import com.exe101.email.service.EmailService;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.shop.dto.ShopDTO;
 import com.exe101.shop.dto.ShopProfileUpdateRequest;
-import com.exe101.shop.dto.ShopRegistrationEmailRequest;
-import com.exe101.shop.dto.ShopRegistrationEmailResponse;
 import com.exe101.shop.entity.Shop;
 import com.exe101.shop.entity.ShopRole;
 import com.exe101.shop.entity.ShopStatus;
 import com.exe101.shop.exception.ShopNotFound;
 import com.exe101.shop.mapper.ShopMapper;
 import com.exe101.shop.repository.IShopRepository;
-import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.entity.ShopMember;
 import com.exe101.shopMember.repository.IShopMemberRepository;
-import com.exe101.subscription.service.SubscriptionService;
 import com.exe101.user.dto.UserDTO;
 import com.exe101.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
@@ -39,8 +33,6 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
     private final IShopMemberRepository shopMemberRepository;
     private final FileUploadUtil fileUploadUtil;
     private final UserMapper userMapper;
-    private final EmailService emailService;
-    private final SubscriptionService subscriptionService;
 
     @Override
     @Transactional(readOnly = true)
@@ -75,33 +67,6 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
                 .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
         UserDTO owner = resolveOwnerByShopId(id);
         return toDTOWithOwner(shop, owner);
-    }
-
-    @Transactional(readOnly = true)
-    public ShopRegistrationEmailResponse sendRegistrationEmail(
-            Long shopId,
-            ShopRegistrationEmailRequest request
-    ) {
-        Shop shop = shopRepository.findById(shopId)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
-        validatePendingApprovalShop(shop);
-        UserDTO owner = resolveRequiredOwner(shopId);
-        String ownerEmail = resolveRequiredOwnerEmail(owner);
-
-        emailService.sendShopRegistrationMessage(
-                ownerEmail,
-                request.getTitle(),
-                owner.getFullName(),
-                shop.getName(),
-                request.getContent()
-        );
-
-        return new ShopRegistrationEmailResponse(
-                true,
-                shopId,
-                ownerEmail,
-                "Đã gửi email tới shop đăng ký"
-        );
     }
 
     @Override
@@ -142,61 +107,6 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
             throw new ShopNotFound("ShopNotFound", "Không tìm thấy shop");
         }
         shopRepository.deleteById(id);
-    }
-
-    @Transactional
-    public ShopDTO approve(Long id) {
-        Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
-        UserDTO owner = resolveRequiredOwner(id);
-
-        shop.setStatus(ShopStatus.ACTIVE);
-        activateOwnerMemberships(id);
-
-        Shop savedShop = shopRepository.save(shop);
-        subscriptionService.createTrialIfAbsent(savedShop.getId());
-        emailService.sendShopRegistrationApproved(
-                resolveRequiredOwnerEmail(owner),
-                owner.getFullName(),
-                savedShop.getName()
-        );
-
-        return toDTOWithOwner(savedShop, owner);
-    }
-
-    @Transactional
-    public ShopDTO reject(Long id) {
-        Shop shop = shopRepository.findById(id)
-                .orElseThrow(() -> new ShopNotFound("ShopNotFound", "Không tìm thấy shop"));
-        UserDTO owner = resolveRequiredOwner(id);
-
-        shop.setStatus(ShopStatus.REJECTED);
-        deactivateShopMemberships(id);
-
-        Shop savedShop = shopRepository.save(shop);
-        emailService.sendShopRegistrationRejected(
-                resolveRequiredOwnerEmail(owner),
-                owner.getFullName(),
-                savedShop.getName()
-        );
-
-        return toDTOWithOwner(savedShop, owner);
-    }
-
-    private void activateOwnerMemberships(Long shopId) {
-        List<ShopMember> owners = shopMemberRepository.findByShopIdAndRole(shopId, ShopRole.OWNER);
-        for (ShopMember owner : owners) {
-            owner.setStatus(MemberStatus.ACTIVE);
-        }
-        shopMemberRepository.saveAll(owners);
-    }
-
-    private void deactivateShopMemberships(Long shopId) {
-        List<ShopMember> members = shopMemberRepository.findByShopId(shopId);
-        for (ShopMember member : members) {
-            member.setStatus(MemberStatus.INACTIVE);
-        }
-        shopMemberRepository.saveAll(members);
     }
 
     private void applyWriteData(Shop shop, ShopProfileUpdateRequest request) {
@@ -277,33 +187,4 @@ public class ShopService implements IService<Shop, ShopDTO, Long> {
                 .orElse(null);
     }
 
-    private UserDTO resolveRequiredOwner(Long shopId) {
-        UserDTO owner = resolveOwnerByShopId(shopId);
-        if (owner == null) {
-            throw new EmailValidationException(
-                    "ShopOwnerEmailRecipientNotFound",
-                    "Không tìm thấy chủ shop để gửi email"
-            );
-        }
-        return owner;
-    }
-
-    private String resolveRequiredOwnerEmail(UserDTO owner) {
-        if (owner == null || !StringUtils.hasText(owner.getEmail())) {
-            throw new EmailValidationException(
-                    "ShopOwnerEmailRequired",
-                    "Chủ shop chưa có email để nhận thông báo"
-            );
-        }
-        return owner.getEmail().trim();
-    }
-
-    private void validatePendingApprovalShop(Shop shop) {
-        if (shop.getStatus() != ShopStatus.PENDING_APPROVAL) {
-            throw new EmailValidationException(
-                    "ShopRegistrationEmailStatusInvalid",
-                    "Chỉ có thể gửi email cho shop đang chờ duyệt"
-            );
-        }
-    }
 }

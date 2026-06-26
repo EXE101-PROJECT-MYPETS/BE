@@ -234,7 +234,7 @@ public class AuthenticationService {
         validateActiveUser(user);
 
         if (requireActiveShopMembership) {
-            validateActiveApprovedShopMembership(user);
+            validateActiveShopMembership(user);
         }
     }
 
@@ -247,7 +247,7 @@ public class AuthenticationService {
         }
     }
 
-    private void validateActiveApprovedShopMembership(User user) {
+    private void validateActiveShopMembership(User user) {
         if (shopMemberRepository.existsByUserIdAndMemberStatusAndShopStatus(
                 user.getId(),
                 MemberStatus.ACTIVE,
@@ -255,27 +255,6 @@ public class AuthenticationService {
         )) {
             return;
         }
-
-        if (shopMemberRepository.existsByUserIdAndShopStatus(
-                user.getId(),
-                ShopStatus.PENDING_APPROVAL
-        )) {
-            throw new AuthAccessDeniedException(
-                    "ShopPendingApproval",
-                    "Shop của bạn đang chờ admin duyệt"
-            );
-        }
-
-        if (shopMemberRepository.existsByUserIdAndShopStatus(
-                user.getId(),
-                ShopStatus.REJECTED
-        )) {
-            throw new AuthAccessDeniedException(
-                    "ShopRegistrationRejected",
-                    "Đăng ký shop của bạn đã bị từ chối"
-            );
-        }
-
         throw new AuthAccessDeniedException(
                 "ShopMembershipInactive",
                 "Tài khoản shop này chưa có liên kết shop đang hoạt động"
@@ -300,7 +279,7 @@ public class AuthenticationService {
 
         if (user.getRole() == UserRole.SHOP) {
             try {
-                validateActiveApprovedShopMembership(user);
+                validateActiveShopMembership(user);
             } catch (AuthAccessDeniedException ex) {
                 refreshTokenService.revokeByToken(rotated.getToken());
                 throw ex;

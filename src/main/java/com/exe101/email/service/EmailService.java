@@ -76,34 +76,6 @@ public class EmailService {
         sendMime(to, subject, htmlBody, true);
     }
 
-    public void sendShopRegistrationMessage(
-            String to,
-            String title,
-            String ownerName,
-            String shopName,
-            String content
-    ) {
-        String subject = title.trim();
-        sendHtml(to, subject, renderShopRegistrationEmail(
-                subject,
-                ownerName,
-                shopName,
-                renderPlainTextContent(content)
-        ));
-    }
-
-    public void sendShopRegistrationApproved(String to, String ownerName, String shopName) {
-        String subject = "Đăng ký shop đã được chấp nhận";
-        String content = renderTemplate("shop-registration-approved-content.html", Map.of());
-        sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
-    }
-
-    public void sendShopRegistrationRejected(String to, String ownerName, String shopName) {
-        String subject = "Đăng ký shop chưa được chấp nhận";
-        String content = renderTemplate("shop-registration-rejected-content.html", Map.of());
-        sendHtml(to, subject, renderShopRegistrationEmail(subject, ownerName, shopName, content));
-    }
-
     public void sendPlatformCommissionInvoiceCreated(
             String to,
             String ownerName,
@@ -281,28 +253,6 @@ public class EmailService {
         values.put("expirationMinutes", String.valueOf(verificationCodeExpMinutes));
         String body = renderTemplate("verification-code.html", values);
         return renderStandardEmail(content.title(), body);
-    }
-
-    private String renderShopRegistrationEmail(
-            String title,
-            String ownerName,
-            String shopName,
-            String contentHtml
-    ) {
-        String greetingName = StringUtils.hasText(ownerName) ? ownerName.trim() : "chu shop";
-        String displayShopName = StringUtils.hasText(shopName) ? shopName.trim() : "shop cua ban";
-        Map<String, String> values = new LinkedHashMap<>();
-        values.put("ownerName", escapeHtml(greetingName));
-        values.put("shopName", escapeHtml(displayShopName));
-        values.put("contentHtml", contentHtml);
-        values.put("brandName", escapeHtml(brandName));
-        String body = renderTemplate("shop-registration.html", values);
-        return renderStandardEmail(title, body);
-    }
-
-    private String renderPlainTextContent(String content) {
-        String escaped = escapeHtml(content == null ? "" : content.trim());
-        return "<p>" + escaped.replace("\r\n", "\n").replace("\r", "\n").replace("\n", "<br>") + "</p>";
     }
 
     private String renderStandardEmail(String title, String bodyHtml) {

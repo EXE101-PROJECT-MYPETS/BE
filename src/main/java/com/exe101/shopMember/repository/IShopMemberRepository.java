@@ -30,18 +30,6 @@ public interface IShopMemberRepository extends JpaRepository<ShopMember, ShopMem
             @Param("shopStatus") ShopStatus shopStatus
     );
 
-    @Query("""
-            SELECT COUNT(member) > 0
-            FROM ShopMember member
-            JOIN member.shop shop
-            WHERE member.userId = :userId
-              AND shop.status = :shopStatus
-            """)
-    boolean existsByUserIdAndShopStatus(
-            @Param("userId") Long userId,
-            @Param("shopStatus") ShopStatus shopStatus
-    );
-
     boolean existsByShopIdAndStatus(Long shopId, MemberStatus status);
 
     boolean existsByShopIdAndUserId(Long shopId, Long userId);
