@@ -2,6 +2,8 @@ package com.exe101.auth.service;
 
 import com.exe101.auth.dto.ShopOwnerRegisterRequest;
 import com.exe101.auth.dto.ShopOwnerRegistrationResponse;
+import com.exe101.auth.model.RefreshToken;
+import com.exe101.auth.model.UserPrincipal;
 import com.exe101.file.FileUploadUtil;
 import com.exe101.shop.dto.ShopDTO;
 import com.exe101.shop.entity.LocationSource;
@@ -14,6 +16,7 @@ import com.exe101.shopMember.entity.MemberStatus;
 import com.exe101.shopMember.entity.ShopMember;
 import com.exe101.shopMember.entity.ShopMemberId;
 import com.exe101.shopMember.repository.IShopMemberRepository;
+import com.exe101.subscription.service.SubscriptionService;
 import com.exe101.user.entity.User;
 import com.exe101.user.entity.UserRole;
 import com.exe101.user.entity.UserStatus;
@@ -43,6 +46,9 @@ public class ShopOwnerRegistrationService {
     private final PasswordEncoder passwordEncoder;
     private final UserMapper userMapper;
     private final FileUploadUtil fileUploadUtil;
+    private final JwtService jwtService;
+    private final RefreshTokenService refreshTokenService;
+    private final SubscriptionService subscriptionService;
 
     @Transactional
     public ShopOwnerRegistrationResponse register(ShopOwnerRegisterRequest request) {
@@ -51,20 +57,26 @@ public class ShopOwnerRegistrationService {
         User user = createShopUser(request);
         user = uploadAvatarIfPresent(user, request.getAvatarUrlPreview());
 
-        createCredential(user, request.getPassword());
+        UserCredential credential = createCredential(user, request.getPassword());
         Shop shop = createShop(request);
         createOwnerMembership(shop.getId(), user.getId());
+        subscriptionService.createTrialIfAbsent(shop.getId());
+
+        UserPrincipal principal = new UserPrincipal(user, credential);
+        String accessToken = jwtService.generateToken(principal);
+        RefreshToken refreshToken = refreshTokenService.create(user.getId());
 
         ShopDTO shopDto = ShopMapper.toDTO(shop);
 
-        return new ShopOwnerRegistrationResponse(
-                null,
+        ShopOwnerRegistrationResponse response = new ShopOwnerRegistrationResponse(
+                accessToken,
                 user.getRole(),
-                null,
+                refreshToken.getToken(),
                 userMapper.toDTO(user),
                 shopDto,
-                "Đăng ký shop thành công, vui lòng chờ admin duyệt"
+                "Đăng ký shop thành công"
         );
+        return response;
     }
 
     private void validateUniqueUser(String email, String phone) {
@@ -132,7 +144,7 @@ public class ShopOwnerRegistrationService {
         );
         shop.setLocationAccuracyM(request.getLocationAccuracyM());
         shop.setLocationUpdatedAt(now);
-        shop.setStatus(ShopStatus.PENDING_APPROVAL);
+        shop.setStatus(ShopStatus.ACTIVE);
 
         return shopRepository.save(shop);
     }
@@ -142,7 +154,7 @@ public class ShopOwnerRegistrationService {
 
         member.setId(new ShopMemberId(shopId, userId));
         member.setRole(ShopRole.OWNER);
-        member.setStatus(MemberStatus.INACTIVE);
+        member.setStatus(MemberStatus.ACTIVE);
 
         shopMemberRepository.save(member);
     }
