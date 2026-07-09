@@ -1134,12 +1134,14 @@ public class BookingService {
     @Transactional
     public BookingListItemDTO update(Long id, BookingDTO dto) {
         Booking entity = findBookingById(id);
+        BookingStatus previousStatus = entity.getStatus();
         BookingMapper.updateEntity(entity, dto);
         if (dto.getUserId() != null || dto.getCustomerId() != null || dto.getPetId() != null) {
             normalizePet(entity);
             normalizeUserAndCustomer(entity);
         }
         Booking savedBooking = bookingRepository.save(entity);
+        handleCompletedTransition(savedBooking, previousStatus, savedBooking.getStatus());
         return getById(savedBooking.getId());
     }
 
@@ -1156,16 +1158,21 @@ public class BookingService {
         if (!Objects.equals(previousStatus, status)) {
             booking.setStatus(status);
             Booking saved = bookingRepository.save(booking);
-            if (status == BookingStatus.COMPLETED) {
-                commissionService.createCommissionIfAbsent(saved);
-                publishReviewInvitationNotification(saved);
-            }
+            handleCompletedTransition(saved, previousStatus, status);
             createStatusEvent(saved.getShopId(), saved.getId(), previousStatus, status);
             publishBookingStatusUpdatedNotification(saved);
             return getById(saved.getId());
         }
 
         return getById(booking.getId());
+    }
+
+    private void handleCompletedTransition(Booking booking, BookingStatus previousStatus, BookingStatus currentStatus) {
+        if (previousStatus == BookingStatus.COMPLETED || currentStatus != BookingStatus.COMPLETED) {
+            return;
+        }
+        commissionService.createCommissionIfAbsent(booking);
+        publishReviewInvitationNotification(booking);
     }
 
     public void publishBookingStatusUpdatedNotification(Booking booking) {
