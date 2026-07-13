@@ -4,6 +4,9 @@ import com.exe101.commission.dto.CommissionDTO;
 import com.exe101.commission.dto.CommissionInvoiceDTO;
 import com.exe101.commission.dto.CommissionInvoiceGenerateRequest;
 import com.exe101.commission.dto.CommissionInvoiceGenerateResponse;
+import com.exe101.commission.dto.AdminCommissionCollectionStatus;
+import com.exe101.commission.dto.AdminCommissionMonthlyReportDTO;
+import com.exe101.commission.dto.AdminShopMonthlyCommissionDetailDTO;
 import com.exe101.commission.service.CommissionInvoiceService;
 import com.exe101.common.PageResponse;
 import jakarta.validation.Valid;
@@ -34,6 +37,31 @@ public class AdminCommissionController {
             @RequestParam(defaultValue = "20") int size
     ) {
         return ResponseEntity.ok(commissionInvoiceService.getAdminInvoices(page, size));
+    }
+
+    @GetMapping("/commission-reports/monthly")
+    public ResponseEntity<AdminCommissionMonthlyReportDTO> getMonthlyReport(
+            @RequestParam(required = false) String month,
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) AdminCommissionCollectionStatus status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size
+    ) {
+        return ResponseEntity.ok(commissionInvoiceService.getAdminMonthlyReport(
+                month,
+                keyword,
+                status,
+                page,
+                size
+        ));
+    }
+
+    @GetMapping("/commission-reports/monthly/{shopId}")
+    public ResponseEntity<AdminShopMonthlyCommissionDetailDTO> getMonthlyShopDetail(
+            @PathVariable Long shopId,
+            @RequestParam(required = false) String month
+    ) {
+        return ResponseEntity.ok(commissionInvoiceService.getAdminShopMonthlyDetail(shopId, month));
     }
 
     @PostMapping("/commission-invoices/generate")

@@ -5,6 +5,7 @@ import com.exe101.commission.entity.*;
 import com.exe101.commission.repository.IPlatformCommissionInvoiceItemRepository;
 import com.exe101.commission.repository.IPlatformCommissionInvoiceRepository;
 import com.exe101.commission.repository.IPlatformCommissionRepository;
+import com.exe101.commission.repository.AdminShopMonthlyCommissionProjection;
 import com.exe101.common.PageResponse;
 import com.exe101.email.service.EmailService;
 import com.exe101.notification.dto.NotificationTargetType;
@@ -37,12 +38,16 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.YearMonth;
 import java.time.ZoneId;
 import java.time.temporal.TemporalAdjusters;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -205,6 +210,122 @@ public class CommissionInvoiceService {
                 .findAllByOrderByCreatedAtDescIdDesc(PageRequest.of(page, size))
                 .map(invoice -> toInvoiceDTO(invoice, false));
         return PageResponse.from(invoices);
+    }
+
+    @Transactional(readOnly = true)
+    public AdminCommissionMonthlyReportDTO getAdminMonthlyReport(
+            String month,
+            String keyword,
+            AdminCommissionCollectionStatus status,
+            int page,
+            int size
+    ) {
+        YearMonth reportMonth = resolveReportMonth(month);
+        int normalizedPage = Math.max(page, 0);
+        int normalizedSize = Math.min(Math.max(size, 1), 100);
+        MonthlyPeriod period = toMonthlyPeriod(reportMonth);
+
+        List<AdminShopMonthlyCommissionDTO> allRows = commissionRepository
+                .findAdminMonthlyCommissionRows(
+                        period.fromDateTime(),
+                        period.toExclusiveDateTime(),
+                        CommissionStatus.PENDING,
+                        CommissionStatus.INVOICED,
+                        CommissionStatus.COLLECTED,
+                        CommissionInvoiceStatus.OVERDUE,
+                        excludedAdminReportStatuses()
+                )
+                .stream()
+                .map(this::toAdminMonthlyShopDTO)
+                .toList();
+
+        AdminCommissionMonthlySummaryDTO summary = toAdminMonthlySummary(allRows);
+        String normalizedKeyword = normalizeKeyword(keyword);
+        List<AdminShopMonthlyCommissionDTO> filteredRows = allRows.stream()
+                .filter(row -> matchesAdminReportKeyword(row, normalizedKeyword))
+                .filter(row -> matchesAdminReportStatus(row, status))
+                .toList();
+
+        PageResponse<AdminShopMonthlyCommissionDTO> shops = toPageResponse(
+                filteredRows,
+                normalizedPage,
+                normalizedSize
+        );
+        return new AdminCommissionMonthlyReportDTO(
+                period.from(),
+                period.to(),
+                summary,
+                shops
+        );
+    }
+
+    @Transactional(readOnly = true)
+    public AdminShopMonthlyCommissionDetailDTO getAdminShopMonthlyDetail(Long shopId, String month) {
+        YearMonth reportMonth = resolveReportMonth(month);
+        MonthlyPeriod period = toMonthlyPeriod(reportMonth);
+        Shop shop = shopRepository.findById(shopId)
+                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy shop"));
+        List<CommissionStatus> excludedStatuses = excludedAdminReportStatuses();
+        List<PlatformCommission> commissions = commissionRepository.findAdminShopMonthlyCommissions(
+                shopId,
+                period.fromDateTime(),
+                period.toExclusiveDateTime(),
+                excludedStatuses
+        );
+        List<PlatformCommissionInvoice> invoices = invoiceRepository.findAdminShopMonthlyInvoices(
+                shopId,
+                period.fromDateTime(),
+                period.toExclusiveDateTime(),
+                excludedStatuses
+        );
+
+        List<Long> commissionIds = commissions.stream().map(PlatformCommission::getId).toList();
+        List<PlatformCommissionInvoiceItem> invoiceItems = commissionIds.isEmpty()
+                ? List.of()
+                : invoiceItemRepository.findByCommissionIdIn(commissionIds);
+        Map<Long, PlatformCommissionInvoice> invoicesById = invoices.stream()
+                .collect(Collectors.toMap(PlatformCommissionInvoice::getId, Function.identity()));
+        Map<Long, InvoiceRef> invoiceRefsByCommissionId = invoiceItems.stream()
+                .filter(item -> invoicesById.containsKey(item.getInvoiceId()))
+                .collect(Collectors.toMap(
+                        PlatformCommissionInvoiceItem::getCommissionId,
+                        item -> {
+                            PlatformCommissionInvoice invoice = invoicesById.get(item.getInvoiceId());
+                            return new InvoiceRef(invoice.getId(), invoice.getInvoiceCode());
+                        },
+                        (first, ignored) -> first
+                ));
+        Set<Long> overdueCommissionIds = invoiceItems.stream()
+                .filter(item -> {
+                    PlatformCommissionInvoice invoice = invoicesById.get(item.getInvoiceId());
+                    return invoice != null && invoice.getStatus() == CommissionInvoiceStatus.OVERDUE;
+                })
+                .map(PlatformCommissionInvoiceItem::getCommissionId)
+                .collect(Collectors.toCollection(HashSet::new));
+
+        AdminShopMonthlyCommissionDTO shopSummary = toAdminMonthlyShopDTO(
+                shop,
+                commissions,
+                invoices.size(),
+                overdueCommissionIds
+        );
+        List<CommissionDTO> commissionDTOs = commissions.stream()
+                .map(commission -> toCommissionDTO(
+                        commission,
+                        invoiceRefsByCommissionId.getOrDefault(commission.getId(), new InvoiceRef(null, null))
+                ))
+                .toList();
+        List<CommissionInvoiceDTO> invoiceDTOs = invoices.stream()
+                .map(invoice -> toInvoiceDTO(invoice, false))
+                .toList();
+
+        return new AdminShopMonthlyCommissionDetailDTO(
+                period.from(),
+                period.to(),
+                shopSummary,
+                commissionDTOs,
+                invoiceDTOs
+        );
     }
 
     @Transactional
@@ -498,7 +619,10 @@ public class CommissionInvoiceService {
     }
 
     private CommissionDTO toCommissionDTO(PlatformCommission commission) {
-        InvoiceRef invoiceRef = resolveInvoiceRef(commission.getId());
+        return toCommissionDTO(commission, resolveInvoiceRef(commission.getId()));
+    }
+
+    private CommissionDTO toCommissionDTO(PlatformCommission commission, InvoiceRef invoiceRef) {
         return new CommissionDTO(
                 commission.getId(),
                 commission.getShopId(),
@@ -520,6 +644,185 @@ public class CommissionInvoiceService {
                 commission.getCollectedAt(),
                 commission.getRefundedAt()
         );
+    }
+
+    private AdminShopMonthlyCommissionDTO toAdminMonthlyShopDTO(AdminShopMonthlyCommissionProjection row) {
+        long pendingAmount = valueOrZero(row.getPendingAmount());
+        long invoicedAmount = valueOrZero(row.getInvoicedAmount());
+        long collectedAmount = valueOrZero(row.getCollectedAmount());
+        long outstandingAmount = pendingAmount + invoicedAmount;
+        long overdueAmount = valueOrZero(row.getOverdueAmount());
+        return new AdminShopMonthlyCommissionDTO(
+                row.getShopId(),
+                row.getShopName(),
+                row.getShopImageUrl(),
+                valueOrZero(row.getTransactionCount()),
+                valueOrZero(row.getInvoiceCount()),
+                valueOrZero(row.getGrossAmount()),
+                valueOrZero(row.getCommissionBase()),
+                valueOrZero(row.getCommissionAmount()),
+                pendingAmount,
+                invoicedAmount,
+                collectedAmount,
+                outstandingAmount,
+                overdueAmount,
+                resolveAdminCollectionStatus(outstandingAmount, overdueAmount, collectedAmount)
+        );
+    }
+
+    private AdminShopMonthlyCommissionDTO toAdminMonthlyShopDTO(
+            Shop shop,
+            List<PlatformCommission> commissions,
+            int invoiceCount,
+            Set<Long> overdueCommissionIds
+    ) {
+        long grossAmount = commissions.stream().mapToLong(c -> valueOrZero(c.getGrossAmount())).sum();
+        long commissionBase = commissions.stream().mapToLong(c -> valueOrZero(c.getCommissionBase())).sum();
+        long commissionAmount = commissions.stream().mapToLong(c -> valueOrZero(c.getCommissionAmount())).sum();
+        long pendingAmount = commissions.stream()
+                .filter(c -> c.getStatus() == CommissionStatus.PENDING)
+                .mapToLong(c -> valueOrZero(c.getCommissionAmount()))
+                .sum();
+        long invoicedAmount = commissions.stream()
+                .filter(c -> c.getStatus() == CommissionStatus.INVOICED)
+                .mapToLong(c -> valueOrZero(c.getCommissionAmount()))
+                .sum();
+        long collectedAmount = commissions.stream()
+                .filter(c -> c.getStatus() == CommissionStatus.COLLECTED)
+                .mapToLong(c -> valueOrZero(c.getCommissionAmount()))
+                .sum();
+        long overdueAmount = commissions.stream()
+                .filter(c -> c.getStatus() == CommissionStatus.INVOICED)
+                .filter(c -> overdueCommissionIds.contains(c.getId()))
+                .mapToLong(c -> valueOrZero(c.getCommissionAmount()))
+                .sum();
+        long outstandingAmount = pendingAmount + invoicedAmount;
+
+        return new AdminShopMonthlyCommissionDTO(
+                shop.getId(),
+                shop.getName(),
+                shop.getImageUrl(),
+                (long) commissions.size(),
+                (long) invoiceCount,
+                grossAmount,
+                commissionBase,
+                commissionAmount,
+                pendingAmount,
+                invoicedAmount,
+                collectedAmount,
+                outstandingAmount,
+                overdueAmount,
+                resolveAdminCollectionStatus(outstandingAmount, overdueAmount, collectedAmount)
+        );
+    }
+
+    private AdminCommissionMonthlySummaryDTO toAdminMonthlySummary(List<AdminShopMonthlyCommissionDTO> rows) {
+        return new AdminCommissionMonthlySummaryDTO(
+                (long) rows.size(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getTransactionCount())).sum(),
+                rows.stream().filter(row -> valueOrZero(row.getOutstandingAmount()) > 0).count(),
+                rows.stream().filter(row -> valueOrZero(row.getOverdueAmount()) > 0).count(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getGrossAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getCommissionBase())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getCommissionAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getPendingAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getInvoicedAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getCollectedAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getOutstandingAmount())).sum(),
+                rows.stream().mapToLong(row -> valueOrZero(row.getOverdueAmount())).sum()
+        );
+    }
+
+    private AdminCommissionCollectionStatus resolveAdminCollectionStatus(
+            long outstandingAmount,
+            long overdueAmount,
+            long collectedAmount
+    ) {
+        if (overdueAmount > 0) {
+            return AdminCommissionCollectionStatus.OVERDUE;
+        }
+        if (outstandingAmount > 0 || collectedAmount == 0) {
+            return AdminCommissionCollectionStatus.OUTSTANDING;
+        }
+        return AdminCommissionCollectionStatus.PAID;
+    }
+
+    private boolean matchesAdminReportKeyword(AdminShopMonthlyCommissionDTO row, String keyword) {
+        if (!StringUtils.hasText(keyword)) {
+            return true;
+        }
+        String shopName = row.getShopName() != null ? row.getShopName().toLowerCase(Locale.ROOT) : "";
+        return shopName.contains(keyword) || String.valueOf(row.getShopId()).contains(keyword);
+    }
+
+    private boolean matchesAdminReportStatus(
+            AdminShopMonthlyCommissionDTO row,
+            AdminCommissionCollectionStatus status
+    ) {
+        if (status == null) {
+            return true;
+        }
+        if (status == AdminCommissionCollectionStatus.OUTSTANDING) {
+            return valueOrZero(row.getOutstandingAmount()) > 0;
+        }
+        if (status == AdminCommissionCollectionStatus.OVERDUE) {
+            return valueOrZero(row.getOverdueAmount()) > 0;
+        }
+        return valueOrZero(row.getOutstandingAmount()) == 0
+                && valueOrZero(row.getCollectedAmount()) > 0;
+    }
+
+    private <T> PageResponse<T> toPageResponse(List<T> rows, int page, int size) {
+        long totalElements = rows.size();
+        int totalPages = totalElements == 0 ? 0 : (int) Math.ceil(totalElements / (double) size);
+        long startLong = (long) page * size;
+        List<T> content;
+        if (startLong >= totalElements) {
+            content = List.of();
+        } else {
+            int start = (int) startLong;
+            int end = (int) Math.min(startLong + size, totalElements);
+            content = rows.subList(start, end);
+        }
+        return new PageResponse<>(
+                content,
+                page,
+                size,
+                totalElements,
+                totalPages,
+                page + 1 < totalPages,
+                page > 0
+        );
+    }
+
+    private YearMonth resolveReportMonth(String month) {
+        if (!StringUtils.hasText(month)) {
+            return YearMonth.now(BUSINESS_ZONE);
+        }
+        try {
+            return YearMonth.parse(month.trim());
+        } catch (RuntimeException exception) {
+            throw new IllegalArgumentException("Tháng báo cáo không hợp lệ, định dạng đúng là yyyy-MM");
+        }
+    }
+
+    private MonthlyPeriod toMonthlyPeriod(YearMonth month) {
+        LocalDate from = month.atDay(1);
+        LocalDate to = month.atEndOfMonth();
+        return new MonthlyPeriod(
+                from,
+                to,
+                from.atStartOfDay(BUSINESS_ZONE).toOffsetDateTime(),
+                to.plusDays(1).atStartOfDay(BUSINESS_ZONE).toOffsetDateTime()
+        );
+    }
+
+    private String normalizeKeyword(String keyword) {
+        return StringUtils.hasText(keyword) ? keyword.trim().toLowerCase(Locale.ROOT) : null;
+    }
+
+    private List<CommissionStatus> excludedAdminReportStatuses() {
+        return List.of(CommissionStatus.CANCELED, CommissionStatus.REFUNDED);
     }
 
     public CommissionInvoiceDTO toInvoiceDTO(PlatformCommissionInvoice invoice, boolean includeItems) {
@@ -618,6 +921,14 @@ public class CommissionInvoiceService {
     }
 
     private record InvoiceRef(Long invoiceId, String invoiceCode) {
+    }
+
+    private record MonthlyPeriod(
+            LocalDate from,
+            LocalDate to,
+            OffsetDateTime fromDateTime,
+            OffsetDateTime toExclusiveDateTime
+    ) {
     }
 
     private OffsetDateTime resolveDueAt(LocalDate periodTo) {
