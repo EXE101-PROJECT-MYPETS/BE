@@ -25,6 +25,58 @@ public interface IPlatformCommissionRepository extends JpaRepository<PlatformCom
     Page<PlatformCommission> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
 
     @Query("""
+            SELECT c.shop.id AS shopId,
+                   c.shop.name AS shopName,
+                   c.shop.imageUrl AS shopImageUrl,
+                   COUNT(c.id) AS transactionCount,
+                   COUNT(DISTINCT invoice.id) AS invoiceCount,
+                   COALESCE(SUM(c.grossAmount), 0) AS grossAmount,
+                   COALESCE(SUM(c.commissionBase), 0) AS commissionBase,
+                   COALESCE(SUM(c.commissionAmount), 0) AS commissionAmount,
+                   COALESCE(SUM(CASE WHEN c.status = :pendingStatus THEN c.commissionAmount ELSE 0 END), 0) AS pendingAmount,
+                   COALESCE(SUM(CASE WHEN c.status = :invoicedStatus THEN c.commissionAmount ELSE 0 END), 0) AS invoicedAmount,
+                   COALESCE(SUM(CASE WHEN c.status = :collectedStatus THEN c.commissionAmount ELSE 0 END), 0) AS collectedAmount,
+                   COALESCE(SUM(CASE
+                       WHEN c.status = :invoicedStatus AND invoice.status = :overdueInvoiceStatus
+                       THEN c.commissionAmount
+                       ELSE 0
+                   END), 0) AS overdueAmount
+            FROM PlatformCommission c
+            LEFT JOIN PlatformCommissionInvoiceItem item ON item.commissionId = c.id
+            LEFT JOIN PlatformCommissionInvoice invoice ON invoice.id = item.invoiceId
+            WHERE c.createdAt >= :from
+              AND c.createdAt < :toExclusive
+              AND c.status NOT IN :excludedStatuses
+            GROUP BY c.shop.id, c.shop.name, c.shop.imageUrl
+            ORDER BY COALESCE(SUM(c.commissionAmount), 0) DESC, c.shop.name ASC, c.shop.id ASC
+            """)
+    List<AdminShopMonthlyCommissionProjection> findAdminMonthlyCommissionRows(
+            @Param("from") OffsetDateTime from,
+            @Param("toExclusive") OffsetDateTime toExclusive,
+            @Param("pendingStatus") CommissionStatus pendingStatus,
+            @Param("invoicedStatus") CommissionStatus invoicedStatus,
+            @Param("collectedStatus") CommissionStatus collectedStatus,
+            @Param("overdueInvoiceStatus") com.exe101.commission.entity.CommissionInvoiceStatus overdueInvoiceStatus,
+            @Param("excludedStatuses") List<CommissionStatus> excludedStatuses
+    );
+
+    @Query("""
+            SELECT c
+            FROM PlatformCommission c
+            WHERE c.shopId = :shopId
+              AND c.createdAt >= :from
+              AND c.createdAt < :toExclusive
+              AND c.status NOT IN :excludedStatuses
+            ORDER BY c.createdAt DESC, c.id DESC
+            """)
+    List<PlatformCommission> findAdminShopMonthlyCommissions(
+            @Param("shopId") Long shopId,
+            @Param("from") OffsetDateTime from,
+            @Param("toExclusive") OffsetDateTime toExclusive,
+            @Param("excludedStatuses") List<CommissionStatus> excludedStatuses
+    );
+
+    @Query("""
             SELECT c
             FROM PlatformCommission c
             WHERE c.shopId = :shopId

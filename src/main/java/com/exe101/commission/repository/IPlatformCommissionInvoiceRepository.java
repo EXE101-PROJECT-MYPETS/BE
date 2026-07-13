@@ -30,6 +30,23 @@ public interface IPlatformCommissionInvoiceRepository extends JpaRepository<Plat
 
     Page<PlatformCommissionInvoice> findAllByOrderByCreatedAtDescIdDesc(Pageable pageable);
 
+    @Query("""
+            SELECT DISTINCT item.invoice
+            FROM PlatformCommissionInvoiceItem item
+            JOIN item.commission commission
+            WHERE commission.shopId = :shopId
+              AND commission.createdAt >= :from
+              AND commission.createdAt < :toExclusive
+              AND commission.status NOT IN :excludedStatuses
+            ORDER BY item.invoice.createdAt DESC, item.invoice.id DESC
+            """)
+    List<PlatformCommissionInvoice> findAdminShopMonthlyInvoices(
+            @Param("shopId") Long shopId,
+            @Param("from") OffsetDateTime from,
+            @Param("toExclusive") OffsetDateTime toExclusive,
+            @Param("excludedStatuses") List<com.exe101.commission.entity.CommissionStatus> excludedStatuses
+    );
+
     @Lock(LockModeType.PESSIMISTIC_WRITE)
     @Query("""
             SELECT i

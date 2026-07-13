@@ -108,6 +108,7 @@ public class SecurityConfig {
                                 "/uploads/**"
                         )
                         .permitAll()
+                        .requestMatchers("/api/notifications/**").authenticated()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/**").access(new WebExpressionAuthorizationManager("!hasRole('ADMIN')"))
                         .anyRequest().authenticated()
